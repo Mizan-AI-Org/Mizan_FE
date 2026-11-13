@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Layers, ListChecks } from "lucide-react";
+import { Layers, ListChecks, Repeat } from "lucide-react";
+import RecurringTasks from "@/components/admin/RecurringTasks";
 import TaskManagementBoard from "./TaskManagementBoard";
 import TaskTemplates from "./TaskTemplates";
 import { useLanguage } from "@/hooks/use-language";
@@ -14,10 +15,12 @@ import { cn } from "@/lib/utils";
 /** Portal target for New / Import / Pre-Built actions on the All My Processes tab. */
 export const PROCESSES_TASKS_HEADER_ACTIONS_ID = "processes-tasks-header-actions";
 
-type ProcessesTab = "board" | "templates";
+type ProcessesTab = "board" | "templates" | "recurring";
 
 function tabFromParam(value: string | null): ProcessesTab {
-  return value === "templates" ? "templates" : "board";
+  if (value === "templates") return "templates";
+  if (value === "recurring") return "recurring";
+  return "board";
 }
 
 export default function ProcessesTasksApp() {
@@ -44,7 +47,7 @@ export default function ProcessesTasksApp() {
     const next = tabFromParam(value);
     setActiveTab(next);
     const params = new URLSearchParams(searchParams);
-    if (next === "templates") params.set("tab", "templates");
+    if (next !== "board") params.set("tab", next);
     else params.delete("tab");
     setSearchParams(params, { replace: true });
   };
@@ -52,7 +55,7 @@ export default function ProcessesTasksApp() {
   return (
     <MizanPageShell title={t("processes_tasks.title")} showHeader={false}>
       <Tabs value={activeTab} onValueChange={selectTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
           <TabsTrigger
             value="board"
             className={cn(HUB_TABS_TRIGGER, "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]")}
@@ -66,6 +69,13 @@ export default function ProcessesTasksApp() {
           >
             <Layers className="h-4 w-4 shrink-0" />
             {t("processes_tasks.tabs.templates")}
+          </TabsTrigger>
+          <TabsTrigger
+            value="recurring"
+            className={cn(HUB_TABS_TRIGGER, "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]")}
+          >
+            <Repeat className="h-4 w-4 shrink-0" />
+            {t("processes_tasks.tabs.recurring")}
           </TabsTrigger>
         </TabsList>
 
@@ -83,6 +93,10 @@ export default function ProcessesTasksApp() {
             className="flex flex-wrap items-center justify-start gap-2 sm:justify-end"
           />
           <TaskTemplates />
+        </TabsContent>
+
+        <TabsContent value="recurring" className="mt-6 focus-visible:outline-none">
+          <RecurringTasks />
         </TabsContent>
       </Tabs>
     </MizanPageShell>

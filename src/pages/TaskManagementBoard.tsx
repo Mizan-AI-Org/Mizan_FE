@@ -20,8 +20,10 @@ import {
   Camera,
   Layers,
   CalendarDays,
+  Plus,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import NewTaskDialog from "@/components/admin/NewTaskDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   loadAssignedChecklists,
@@ -147,6 +149,7 @@ export default function TaskManagementBoard({
   const [assignedChecklists, setAssignedChecklists] = useState<AssignedChecklist[]>([]);
   const [taskTotal, setTaskTotal] = useState(0);
   const [tasksLoading, setTasksLoading] = useState(true);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [scope, setScope] = useState<TaskScopeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("open");
 
@@ -400,6 +403,13 @@ export default function TaskManagementBoard({
 
   return (
     <div className="h-full flex flex-col space-y-5 w-full">
+      <div className="flex justify-end">
+        <Button type="button" onClick={() => setNewTaskOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t("new_task.button")}
+        </Button>
+      </div>
+      <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
       {/* Staff Live Progress - deep-linked from dashboard Staff progress widget */}
       <Card
         id="staff-live-progress"

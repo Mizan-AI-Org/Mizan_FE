@@ -42,7 +42,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_BASE, api } from "@/lib/api";
+import { API_BASE, api, type AudienceSpec } from "@/lib/api";
+import { AudiencePicker, normalizeAudience, audienceIsEmpty } from "@/components/admin/AudiencePicker";
 import { loadStaffPickerOptions, type StaffPickerOption } from "@/lib/staffPicker";
 import {
   BranchAlertAssigneeSelect,
@@ -145,6 +146,11 @@ interface TaskTemplate {
   schedule_days?: number[];
   /** Local time (HH:mm) when the process block starts on the calendar */
   schedule_time?: string | null;
+  /** Groups (roles / titles / departments / everyone / on shift) - named people stay in standing_assignees */
+  audience?: Partial<AudienceSpec> | null;
+  audience_label?: string;
+  /** 1-31, or -1 = last day (MONTHLY / QUARTERLY / ANNUALLY) */
+  schedule_month_day?: number | null;
 }
 
 interface TaskTemplateFormProps {
@@ -262,7 +268,9 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       ? template!.schedule_days!.map((d) => Number(d)).filter((d) => d >= 0 && d <= 6)
       : [],
     schedule_time: template?.schedule_time ?? '09:00',
+    schedule_month_day: template?.schedule_month_day ?? null,
   });
+  const [groupAudience, setGroupAudience] = useState<AudienceSpec>(() => normalizeAudience(template?.audience));
 
   // New hierarchical state: processes (stations) containing tasks
   const [processes, setProcesses] = useState<ProcessGroup[]>(() => {
@@ -533,6 +541,8 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       standing_assignees: formData.standing_assignees || [],
       schedule_days: formData.schedule_days ?? [],
       schedule_time: formData.schedule_time?.slice(0, 5) || null,
+      audience: audienceIsEmpty(groupAudience) ? null : { ...groupAudience, people: [] },
+      schedule_month_day: showMonthDay ? (formData.schedule_month_day ?? 1) : null,
     });
   };
 
@@ -739,6 +749,11 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     formData.frequency === 'DAILY' ||
     formData.frequency === 'WEEKLY' ||
     formData.frequency === 'CUSTOM';
+
+  const showMonthDay =
+    formData.frequency === 'MONTHLY' ||
+    formData.frequency === 'QUARTERLY' ||
+    formData.frequency === 'ANNUALLY';
 
   const toggleScheduleDay = (day: number) => {
     setFormData((prev) => {
@@ -1021,7 +1036,26 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
               </div>
             )}
 
-            {!showScheduleDays && (
+            {showMonthDay && (
+              <div className="space-y-1">
+                <Label htmlFor="schedule_month_day">{t('process.schedule.month_day')}</Label>
+                <select
+                  id="schedule_month_day"
+                  className="mt-1 flex h-10 w-full max-w-[10rem] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={String(formData.schedule_month_day ?? 1)}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, schedule_month_day: Number(e.target.value) }))
+                  }
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                  <option value={-1}>{t('task_sched.last_day')}</option>
+                </select>
+                <p className="text-xs text-muted-foreground">{t('process.schedule.month_day_help')}</p>
+              </div>
+            )}
+            {!showScheduleDays && !showMonthDay && (
               <p className="text-xs text-muted-foreground">{t('process.schedule.monthly_hint')}</p>
             )}
           </div>
@@ -1048,6 +1082,11 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             onChange={(ids) => setFormData((prev) => ({ ...prev, standing_assignees: ids }))}
             popoverHint={t("process.form.assignee_hint")}
           />
+          <div className="mt-4 space-y-2 border-t border-border/60 pt-4">
+            <p className="text-sm font-medium">{t('process.audience.groups_title')}</p>
+            <p className="text-xs text-muted-foreground">{t('process.audience.groups_help')}</p>
+            <AudiencePicker hidePeople value={groupAudience} onChange={setGroupAudience} />
+          </div>
         </CardContent>
       </Card>
 

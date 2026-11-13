@@ -432,6 +432,80 @@ async function assertReservationOk(response: Response, fallback: string): Promis
  */
 export type UpdateMyLanguageInput = { language: "en" | "fr" | "ar"; business?: boolean; businessOnly?: boolean };
 
+// ── Audience (who a task / process reaches) ──────────────────────────────────
+export type AudienceMode = "first" | "all" | "each";
+export interface AudienceSpec {
+  people: string[];
+  roles: string[];
+  titles: string[];
+  departments: string[];
+  everyone: boolean;
+  on_shift: boolean;
+  branch_id?: string | null;
+  mode: AudienceMode;
+}
+export interface AudiencePerson {
+  id: string;
+  name: string;
+  role?: string;
+  title?: string;
+  department?: string;
+}
+export interface AudienceOptions {
+  people: AudiencePerson[];
+  roles: { value: string; label: string; count: number }[];
+  titles: { value: string; count: number }[];
+  departments: { value: string; count: number }[];
+  branches: { id: string; name: string }[];
+  modes: AudienceMode[];
+}
+export interface AudiencePreview {
+  audience: AudienceSpec;
+  label: string;
+  count: number;
+  people: AudiencePerson[];
+}
+export interface TaskScheduleRow {
+  id: string;
+  title: string;
+  notes?: string;
+  audience: Partial<AudienceSpec>;
+  mode?: AudienceMode;
+  onShiftOnly?: boolean;
+  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUALLY";
+  interval: number;
+  weekdays: number[];
+  monthDay?: number | null;
+  releaseTime?: string;
+  dueTime?: string | null;
+  dueInDays?: number | null;
+  priority: "normal" | "medium" | "urgent";
+  requirePhotoProof?: boolean;
+  requiresValidation?: boolean;
+  startsOn?: string | null;
+  endsOn?: string | null;
+  isActive: boolean;
+  branch?: string | null;
+  audienceLabel?: string;
+  rule?: string;
+  nextDates?: string[];
+  lastRunOn?: string | null;
+  branchName?: string | null;
+  recentRuns?: { date: string; taskIds: string[]; people: number; note?: string }[];
+}
+export type TaskSchedulePayload = Partial<Omit<TaskScheduleRow, "id" | "audienceLabel" | "rule" | "nextDates" | "lastRunOn" | "branchName" | "recentRuns">>;
+export interface CreateTaskPayload {
+  title: string;
+  description?: string;
+  priority?: string;
+  due_date?: string | null;
+  due_time?: string | null;
+  assigned_to?: string | null;
+  audience?: AudienceSpec;
+  require_photo_proof?: boolean;
+  requires_validation?: boolean;
+}
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -1777,6 +1851,46 @@ export class BackendService {
 
   async managerClockOut(staffId: string): Promise<Record<string, unknown>> {
     return this.fetchWithError(`/timeclock/staff/${staffId}/manager-clock-out/`, { method: "POST" });
+  }
+
+  // ── Audience + recurring tasks ─────────────────────────────────────────────
+  async getAudienceOptions(): Promise<AudienceOptions> {
+    return this.fetchWithError("/operations/audience/options/");
+  }
+
+  /** Read-only: who would this audience reach (POST only to carry the body). */
+  async previewAudience(audience: AudienceSpec, date?: string): Promise<AudiencePreview> {
+    return this.fetchWithError("/operations/audience/preview/", {
+      method: "POST",
+      body: JSON.stringify({ audience, ...(date ? { date } : {}) }),
+    });
+  }
+
+  /** One-off task; with `audience` the backend may fan out (createdCount / taskIds). */
+  async createDashboardTask(
+    payload: CreateTaskPayload,
+  ): Promise<{ id?: string; createdCount?: number; taskIds?: string[] } & Record<string, unknown>> {
+    return this.fetchWithError("/dashboard/tasks/", { method: "POST", body: JSON.stringify(payload) });
+  }
+
+  async listTaskSchedules(q?: string): Promise<{ count: number; results: TaskScheduleRow[] }> {
+    return this.fetchWithError(`/operations/task-schedules/${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+  }
+
+  async getTaskSchedule(id: string): Promise<TaskScheduleRow> {
+    return this.fetchWithError(`/operations/task-schedules/${id}/`);
+  }
+
+  async createTaskSchedule(payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
+    return this.fetchWithError("/operations/task-schedules/", { method: "POST", body: JSON.stringify(payload) });
+  }
+
+  async updateTaskSchedule(id: string, payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
+    return this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+
+  async archiveTaskSchedule(id: string): Promise<void> {
+    await this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "DELETE" });
   }
 
   async getTasks(accessToken: string): Promise<Task[]> {
