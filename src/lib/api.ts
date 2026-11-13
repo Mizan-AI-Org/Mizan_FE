@@ -2363,11 +2363,51 @@ export class BackendService {
   }
 
   /** "We paid this by bank transfer": Mizan confirms it against the bank, then marks it paid. */
-  async reportBillingPayment(id: string, reference: string, note = ""): Promise<BillingInvoiceRow> {
-    return this.peopleRequest(localStorage.getItem("access_token") || "", `/billing/invoices/${id}/report-payment/`, {
+  async reportBillingPayment(id: string, reference = "", note = "", receipt?: File | null): Promise<BillingInvoiceRow> {
+    const token = localStorage.getItem("access_token") || "";
+    if (receipt) {
+      const form = new FormData();
+      form.append("reference", reference);
+      form.append("note", note);
+      form.append("receipt", receipt);
+      return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, { method: "POST", body: form });
+    }
+    return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, {
       method: "POST",
       body: JSON.stringify({ reference, note }),
     });
+  }
+
+  async previewPlanChange(modules: string[]): Promise<import("./types").PlanChangePreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules, preview: true }),
+    });
+  }
+
+  async changePlan(modules: string[]): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules }),
+    });
+  }
+
+  async previewCancelSubscription(): Promise<import("./types").CancelPreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "POST",
+      body: JSON.stringify({ preview: true }),
+    });
+  }
+
+  async cancelSubscription(reason = ""): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async resumeSubscription(): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/resume/", { method: "POST" });
   }
 
   async listApprovals(scope: "mine" | "pending" | "requested" | "decided" | "all" = "mine"): Promise<ApprovalsListResponse> {
