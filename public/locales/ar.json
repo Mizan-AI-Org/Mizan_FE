@@ -6646,5 +6646,18 @@
   "reservations.form.save_failed": "تعذّر حفظ الحجز.",
   "reservations.form.err_name": "أدخل اسم الضيف.",
   "reservations.form.err_time": "اختر التاريخ والوقت.",
-  "reservations.form.err_party": "يجب ألا يقل عدد الأشخاص عن 1."
+  "reservations.form.err_party": "يجب ألا يقل عدد الأشخاص عن 1.",
+  "settings.general.timezone": "المنطقة الزمنية",
+  "settings.general.currency": "العملة",
+  "settings.general.business_whatsapp": "رقم واتساب النشاط",
+  "settings.general.business_whatsapp_hint": "الرقم الذي يتواصل معك عليه فريقك وزبناؤك.",
+  "help.title": "المساعدة",
+  "help.subtitle": "اسأل ميا، أو تواصل مع فريق ميزان.",
+  "help.ask_miya": "اسأل ميا",
+  "help.ask_miya_desc": "تجيب ميا عن أسئلتك ويمكنها تنفيذ المهمة نيابة عنك.",
+  "help.ask_miya_prompt": "أحتاج مساعدة في ميزان: ",
+  "help.whatsapp": "تحدث إلينا عبر واتساب",
+  "help.whatsapp_desc": "يجيبك شخص من فريق ميزان.",
+  "help.docs": "الأدلة والإجابات",
+  "help.docs_desc": "مقالات مساعدة خطوة بخطوة."
 }

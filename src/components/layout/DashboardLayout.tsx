@@ -13,6 +13,7 @@ import { LiveDateTime } from "@/components/LiveDateTime";
 import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
 import { closeDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 import { IntentRail, MobileIntentDock } from "@/components/layout/IntentRail";
+import HelpPanel from "@/components/layout/HelpPanel";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import { CommandSearchBar } from "@/components/command/CommandSearchBar";
 import { AgentPanelProvider } from "@/context/AgentPanelContext";
@@ -87,6 +88,7 @@ const DashboardLayoutInner: React.FC = () => {
             <div className="hidden sm:block">
               <LiveDateTime showTime={false} />
             </div>
+            <HelpPanel />
             <ThemeToggle />
 
             <div className="relative">

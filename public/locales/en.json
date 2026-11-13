@@ -6646,5 +6646,18 @@
   "reservations.form.save_failed": "Could not save the reservation.",
   "reservations.form.err_name": "Enter the guest name.",
   "reservations.form.err_time": "Pick a date and time.",
-  "reservations.form.err_party": "Party size must be at least 1."
+  "reservations.form.err_party": "Party size must be at least 1.",
+  "settings.general.timezone": "Time zone",
+  "settings.general.currency": "Currency",
+  "settings.general.business_whatsapp": "Business WhatsApp number",
+  "settings.general.business_whatsapp_hint": "The number your team and customers reach you on.",
+  "help.title": "Help",
+  "help.subtitle": "Ask Miya, or reach the Mizan team.",
+  "help.ask_miya": "Ask Miya",
+  "help.ask_miya_desc": "Miya answers how-to questions and can do the task for you.",
+  "help.ask_miya_prompt": "I need help with Mizan: ",
+  "help.whatsapp": "Talk to us on WhatsApp",
+  "help.whatsapp_desc": "A person from the Mizan team answers.",
+  "help.docs": "Guides and answers",
+  "help.docs_desc": "Step-by-step help articles."
 }

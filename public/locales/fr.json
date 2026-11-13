@@ -6646,5 +6646,18 @@
   "reservations.form.save_failed": "Impossible d'enregistrer la réservation.",
   "reservations.form.err_name": "Saisissez le nom du client.",
   "reservations.form.err_time": "Choisissez une date et une heure.",
-  "reservations.form.err_party": "Le nombre de couverts doit être d'au moins 1."
+  "reservations.form.err_party": "Le nombre de couverts doit être d'au moins 1.",
+  "settings.general.timezone": "Fuseau horaire",
+  "settings.general.currency": "Devise",
+  "settings.general.business_whatsapp": "Numéro WhatsApp de l'entreprise",
+  "settings.general.business_whatsapp_hint": "Le numéro sur lequel votre équipe et vos clients vous joignent.",
+  "help.title": "Aide",
+  "help.subtitle": "Demandez à Miya, ou contactez l'équipe Mizan.",
+  "help.ask_miya": "Demander à Miya",
+  "help.ask_miya_desc": "Miya répond à vos questions et peut faire la tâche à votre place.",
+  "help.ask_miya_prompt": "J'ai besoin d'aide avec Mizan : ",
+  "help.whatsapp": "Parlez-nous sur WhatsApp",
+  "help.whatsapp_desc": "Une personne de l'équipe Mizan vous répond.",
+  "help.docs": "Guides et réponses",
+  "help.docs_desc": "Articles d'aide pas à pas."
 }
