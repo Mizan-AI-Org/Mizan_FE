@@ -5,7 +5,7 @@
  * manager wrote ("Serveuse", "Chef de rang", "Plongeur", "طباخ") is sent as `title` so the backend resolves it
  * (apps/accounts/job_titles.py) and keeps it as the person's label. The name never swallows the title. */
 
-export const ROLE_CODES = ["STAFF", "CHEF", "WAITER", "BARTENDER", "SUPERVISOR", "MANAGER", "ADMIN"];
+export const ROLE_CODES = ["STAFF", "CHEF", "WAITER", "BARTENDER", "DISHWASHER", "CASHIER", "SUPERVISOR", "MANAGER", "ADMIN"];
 
 export type PastedRow = {
   first_name: string;

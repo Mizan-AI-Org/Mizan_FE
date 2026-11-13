@@ -181,7 +181,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
       if (!byRole[role]) byRole[role] = [];
       byRole[role].push(s);
     });
-    const order = ["MANAGER", "CHEF", "BARTENDER", "SERVER", "WAITER", "HOST", "CASHIER", "CLEANER"];
+    const order = ["MANAGER", "CHEF", "BARTENDER", "SERVER", "WAITER", "HOST", "CASHIER", "DISHWASHER", "CLEANER"];
     const ordered: { role: string; staff: StaffMember[] }[] = [];
     const seen = new Set<string>();
     order.forEach((r) => {
