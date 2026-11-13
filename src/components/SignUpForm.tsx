@@ -44,13 +44,13 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
       setError(t("auth.signup.errors.whatsapp_invalid"));
       return;
     }
-    const nameParts = fullName.split(" ");
+    const nameParts = fullName.trim().split(/\s+/);
     const signupData: SignupData = {
       user: {
         email,
         password,
         first_name: nameParts[0],
-        last_name: nameParts.slice(1).join(" ") || "User",
+        last_name: nameParts.slice(1).join(" "),
         whatsapp_phone: whatsappPhone,
         phone: whatsappPhone,
       },

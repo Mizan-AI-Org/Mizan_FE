@@ -3759,6 +3759,7 @@ export class BackendService {
       phone?: string;
       email?: string;
       notes?: string;
+      table?: string;
     }>;
     count?: number;
     error?: string;
@@ -3794,6 +3795,47 @@ export class BackendService {
       reservations: data.reservations || [],
       count: data.count ?? (data.reservations || []).length,
     };
+  }
+
+  /** Manual reservations (create / edit / status), Mizan_BE apps/operations/reservation_views.py. */
+  async saveReservation(
+    accessToken: string,
+    input: {
+      id?: string;
+      name: string;
+      phone?: string;
+      party_size: number;
+      starts_at: string;
+      table?: string;
+      notes?: string;
+    }
+  ): Promise<void> {
+    const { id, ...body } = input;
+    const response = await fetch(`${API_BASE}/reservations/${id ? `${id}/` : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+      throw new Error(data?.error || data?.detail || "Could not save the reservation");
+    }
+  }
+
+  async setReservationStatus(
+    accessToken: string,
+    id: string,
+    status: "booked" | "seated" | "completed" | "cancelled" | "no_show"
+  ): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/status/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+      throw new Error(data?.error || data?.detail || "Could not update the reservation");
+    }
   }
 
   async postEatNowDiscover(
