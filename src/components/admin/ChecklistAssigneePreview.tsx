@@ -12,6 +12,8 @@ import type { ChecklistAssignee } from "@/lib/assignedChecklists";
 const VISIBLE = 4;
 
 type Props = {
+  /** A group the process is for ("the waiters", "the Cuisine team"), resolved each day it runs. */
+  groupLabel?: string;
   assignees: ChecklistAssignee[];
   openLabel: string;
   sectionLabel: string;
@@ -25,6 +27,7 @@ export function ChecklistAssigneePreview({
   sectionLabel,
   moreLabel,
   className,
+  groupLabel,
 }: Props) {
   const visible = assignees.slice(0, VISIBLE);
   const hidden = assignees.slice(VISIBLE);
@@ -35,8 +38,9 @@ export function ChecklistAssigneePreview({
         <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span>{sectionLabel}</span>
       </div>
+      {groupLabel ? <p className="mb-1.5 text-sm font-medium leading-snug">{groupLabel}</p> : null}
       {assignees.length === 0 ? (
-        <p className="text-sm text-muted-foreground leading-snug">{openLabel}</p>
+        groupLabel ? null : <p className="text-sm text-muted-foreground leading-snug">{openLabel}</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {visible.map((person) => (
