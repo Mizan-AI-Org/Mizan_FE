@@ -410,6 +410,21 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   return response;
 }
 
+export type ReservationInput = {
+  name: string;
+  phone?: string;
+  party_size: number;
+  starts_at: string;
+  table?: string;
+  notes?: string;
+};
+
+async function assertReservationOk(response: Response, fallback: string): Promise<void> {
+  if (response.ok) return;
+  const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+  throw new Error(data?.error || data?.detail || fallback);
+}
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -3798,34 +3813,22 @@ export class BackendService {
   }
 
   /** Manual reservations (create / edit / status), Mizan_BE apps/operations/reservation_views.py. */
-  async saveReservation(
-    accessToken: string,
-    input: {
-      id?: string;
-      name: string;
-      phone?: string;
-      party_size: number;
-      starts_at: string;
-      table?: string;
-      notes?: string;
-    }
-  ): Promise<void> {
-    const { id, ...body } = input;
-    const response = id
-      ? await fetch(`${API_BASE}/reservations/${id}/`, {
-          method: "PATCH",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(body),
-        })
-      : await fetch(`${API_BASE}/reservations/`, {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(body),
-        });
-    if (!response.ok) {
-      const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
-      throw new Error(data?.error || data?.detail || "Could not save the reservation");
-    }
+  async createReservation(accessToken: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
+  }
+
+  async updateReservation(accessToken: string, id: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/`, {
+      method: "PATCH",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
   }
 
   async setReservationStatus(

@@ -63,15 +63,16 @@ export default function ReservationDialog({ open, accessToken, reservation, onCl
     if (!Number.isInteger(size) || size < 1) return toast.error(t("reservations.form.err_party"));
     setSaving(true);
     try {
-      await api.saveReservation(accessToken, {
-        id: reservation?.id,
+      const input = {
         name: name.trim(),
         phone: phone.trim(),
         party_size: size,
         starts_at: new Date(startsAt).toISOString(),
         table: table.trim(),
         notes: notes.trim(),
-      });
+      };
+      if (reservation?.id) await api.updateReservation(accessToken, reservation.id, input);
+      else await api.createReservation(accessToken, input);
       toast.success(t("reservations.form.saved"));
       onSaved();
       onClose();

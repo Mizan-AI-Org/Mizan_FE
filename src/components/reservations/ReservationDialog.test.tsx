@@ -3,10 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LanguageContext } from "@/contexts/LanguageContext";
 
-const saveReservation = vi.fn();
+const createReservation = vi.fn();
+const updateReservation = vi.fn();
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
-  return { ...actual, api: { ...actual.api, saveReservation: (...a: unknown[]) => saveReservation(...a) } };
+  return { ...actual, api: {
+      ...actual.api,
+      createReservation: (...a: unknown[]) => createReservation(...a),
+      updateReservation: (...a: unknown[]) => updateReservation(...a),
+    } };
 });
 const toastError = vi.fn();
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: (m: string) => toastError(m) } }));
@@ -23,7 +28,8 @@ const wrap = (props: Partial<React.ComponentProps<typeof ReservationDialog>> = {
 
 describe("ReservationDialog", () => {
   beforeEach(() => {
-    saveReservation.mockReset();
+    createReservation.mockReset();
+    updateReservation.mockReset();
     toastError.mockReset();
   });
 
@@ -31,11 +37,11 @@ describe("ReservationDialog", () => {
     wrap();
     fireEvent.click(screen.getByText("reservations.form.save"));
     expect(toastError).toHaveBeenCalledWith("reservations.form.err_name");
-    expect(saveReservation).not.toHaveBeenCalled();
+    expect(createReservation).not.toHaveBeenCalled();
   });
 
   it("creates a reservation with party size, table, phone and notes", async () => {
-    saveReservation.mockResolvedValue(undefined);
+    createReservation.mockResolvedValue(undefined);
     const onSaved = vi.fn();
     wrap({ onSaved });
     fireEvent.change(screen.getByLabelText("reservations.form.guest"), { target: { value: "Benali" } });
@@ -43,18 +49,18 @@ describe("ReservationDialog", () => {
     fireEvent.change(screen.getByLabelText("reservations.form.party_size"), { target: { value: "6" } });
     fireEvent.change(screen.getByLabelText("reservations.form.table"), { target: { value: "T4" } });
     fireEvent.click(screen.getByText("reservations.form.save"));
-    await waitFor(() => expect(saveReservation).toHaveBeenCalled());
-    const [, body] = saveReservation.mock.calls[0];
+    await waitFor(() => expect(createReservation).toHaveBeenCalled());
+    const [, body] = createReservation.mock.calls[0];
     expect(body).toMatchObject({ name: "Benali", phone: "+212600112233", party_size: 6, table: "T4" });
-    expect(body.id).toBeUndefined();
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
   it("edits an existing reservation by id", async () => {
-    saveReservation.mockResolvedValue(undefined);
+    updateReservation.mockResolvedValue(undefined);
     wrap({ reservation: { id: "r1", guest_name: "Alaoui", covers: 3, start_time: "2026-11-20T19:00:00Z" } });
     fireEvent.click(screen.getByText("reservations.form.save"));
-    await waitFor(() => expect(saveReservation).toHaveBeenCalled());
-    expect(saveReservation.mock.calls[0][1]).toMatchObject({ id: "r1", name: "Alaoui", party_size: 3 });
+    await waitFor(() => expect(updateReservation).toHaveBeenCalled());
+    expect(updateReservation.mock.calls[0][1]).toBe("r1");
+    expect(updateReservation.mock.calls[0][2]).toMatchObject({ name: "Alaoui", party_size: 3 });
   });
 });
