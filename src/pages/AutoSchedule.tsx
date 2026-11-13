@@ -56,6 +56,7 @@ interface AutoScheduleResult {
 }
 
 export const AutoSchedule: React.FC = () => {
+  useLanguage(); // re-render on language change (module-level t reads the live i18n instance)
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
@@ -77,7 +78,7 @@ export const AutoSchedule: React.FC = () => {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
-      if (!response.ok) throw new Error("Failed to load templates");
+      if (!response.ok) throw new Error(t("auto_schedule.templates_failed"));
       return response.json();
     },
   });
@@ -96,7 +97,7 @@ export const AutoSchedule: React.FC = () => {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || "Failed to auto-schedule");
+        throw new Error(error.detail || t("auto_schedule.failed"));
       }
 
       return response.json();
@@ -108,7 +109,7 @@ export const AutoSchedule: React.FC = () => {
       toast.success(t("generic.toast.schedule_created_successfully"));
     },
     onError: (err: any) => {
-      toast.error(`Error: ${err.message}`);
+      toast.error(t("auto_schedule.error_prefix", { message: err.message }));
       setScheduleResults({ success: false, message: err.message });
       setShowResults(true);
     },
@@ -134,24 +135,23 @@ export const AutoSchedule: React.FC = () => {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-normal">Auto-Schedule</h1>
+          <h1 className="text-2xl font-normal">{t("auto_schedule.title")}</h1>
           <p className="text-gray-600 mt-2">
-            Automatically generate staff schedules based on templates and demand
-            forecasts
+            {t("auto_schedule.subtitle")}
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="scheduler" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="scheduler">Auto Scheduler</TabsTrigger>
-          <TabsTrigger value="help">How It Works</TabsTrigger>
+          <TabsTrigger value="scheduler">{t("auto_schedule.tab_scheduler")}</TabsTrigger>
+          <TabsTrigger value="help">{t("auto_schedule.tab_help")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="scheduler">
           <Card>
             <CardHeader>
-              <CardTitle>Generate Schedule</CardTitle>
+              <CardTitle>{t("auto_schedule.generate")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {showResults && scheduleResults && (
@@ -170,13 +170,12 @@ export const AutoSchedule: React.FC = () => {
                       </h3>
                       {scheduleResults.shifts_created && (
                         <p className="text-sm mt-1">
-                          {scheduleResults.shifts_created} shifts created
+                          {t("auto_schedule.shifts_created", { count: scheduleResults.shifts_created })}
                         </p>
                       )}
                       {scheduleResults.conflicts_detected && (
                         <p className="text-sm mt-1">
-                          {scheduleResults.conflicts_detected} conflicts
-                          detected
+                          {t("auto_schedule.conflicts_detected", { count: scheduleResults.conflicts_detected })}
                         </p>
                       )}
                     </div>
@@ -186,18 +185,18 @@ export const AutoSchedule: React.FC = () => {
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="template">Schedule Template</Label>
+                  <Label htmlFor="template">{t("auto_schedule.template_label")}</Label>
                   <Select
                     value={selectedTemplate}
                     onValueChange={setSelectedTemplate}
                   >
                     <SelectTrigger id="template" className="mt-1">
-                      <SelectValue placeholder="Select a template..." />
+                      <SelectValue placeholder={t("auto_schedule.template_placeholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {templatesLoading ? (
                         <SelectItem value="__loading_templates__" disabled>
-                          Loading...
+                          {t("common.loading")}
                         </SelectItem>
                       ) : templates && templates.length > 0 ? (
                         templates.map((template) => (
@@ -207,19 +206,18 @@ export const AutoSchedule: React.FC = () => {
                         ))
                       ) : (
                         <SelectItem value="__no_templates__" disabled>
-                          No templates available
+                          {t("auto_schedule.no_templates")}
                         </SelectItem>
                       )}
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-gray-600 mt-1">
-                    Choose a schedule template to use as the basis for
-                    auto-scheduling
+                    {t("auto_schedule.template_help")}
                   </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="week-start">Week Start Date</Label>
+                  <Label htmlFor="week-start">{t("auto_schedule.week_start")}</Label>
                   <Input
                     id="week-start"
                     type="date"
@@ -228,42 +226,41 @@ export const AutoSchedule: React.FC = () => {
                     className="mt-1"
                   />
                   <p className="text-sm text-gray-600 mt-1">
-                    Select the Monday of the week you want to schedule
+                    {t("auto_schedule.week_start_help")}
                   </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="demand-level">Expected Demand Level</Label>
+                  <Label htmlFor="demand-level">{t("auto_schedule.demand_label")}</Label>
                   <Select value={demandLevel} onValueChange={setDemandLevel}>
                     <SelectTrigger id="demand-level" className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="LOW">Low (30% staffing)</SelectItem>
+                      <SelectItem value="LOW">{t("auto_schedule.demand_low")}</SelectItem>
                       <SelectItem value="MEDIUM">
-                        Medium (60% staffing)
+                        {t("auto_schedule.demand_medium")}
                       </SelectItem>
-                      <SelectItem value="HIGH">High (100% staffing)</SelectItem>
+                      <SelectItem value="HIGH">{t("auto_schedule.demand_high")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-gray-600 mt-1">
-                    Adjust staffing levels based on expected customer demand
+                    {t("auto_schedule.demand_help")}
                   </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="labor-budget">Labor Budget (Optional)</Label>
+                  <Label htmlFor="labor-budget">{t("auto_schedule.budget_label")}</Label>
                   <Input
                     id="labor-budget"
                     type="number"
-                    placeholder="Enter maximum labor cost"
+                    placeholder={t("auto_schedule.budget_placeholder")}
                     value={laborBudget}
                     onChange={(e) => setLaborBudget(e.target.value)}
                     className="mt-1"
                   />
                   <p className="text-sm text-gray-600 mt-1">
-                    Set a maximum budget for labor costs (AI will optimize
-                    within this limit)
+                    {t("auto_schedule.budget_help")}
                   </p>
                 </div>
               </div>
@@ -277,10 +274,10 @@ export const AutoSchedule: React.FC = () => {
                 {autoScheduleMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating Schedule...
+                    {t("auto_schedule.generating")}
                   </>
                 ) : (
-                  "Generate Schedule"
+                  t("auto_schedule.generate")
                 )}
               </Button>
             </CardContent>
@@ -289,7 +286,7 @@ export const AutoSchedule: React.FC = () => {
           <Card className="mt-6">
             <CardHeader>
               <CardTitle className="text-lg">
-                How Auto-Scheduling Works
+                {t("auto_schedule.how_title")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -298,9 +295,9 @@ export const AutoSchedule: React.FC = () => {
                   1
                 </div>
                 <div>
-                  <p className="font-semibold">Select Template</p>
+                  <p className="font-semibold">{t("auto_schedule.step1_title")}</p>
                   <p className="text-sm text-gray-600">
-                    Choose a template that defines typical shift patterns
+                    {t("auto_schedule.step1_desc")}
                   </p>
                 </div>
               </div>
@@ -309,9 +306,9 @@ export const AutoSchedule: React.FC = () => {
                   2
                 </div>
                 <div>
-                  <p className="font-semibold">Set Parameters</p>
+                  <p className="font-semibold">{t("auto_schedule.step2_title")}</p>
                   <p className="text-sm text-gray-600">
-                    Configure demand levels and optional budget constraints
+                    {t("auto_schedule.step2_desc")}
                   </p>
                 </div>
               </div>
@@ -320,10 +317,9 @@ export const AutoSchedule: React.FC = () => {
                   3
                 </div>
                 <div>
-                  <p className="font-semibold">AI Generates Schedule</p>
+                  <p className="font-semibold">{t("auto_schedule.step3_title")}</p>
                   <p className="text-sm text-gray-600">
-                    System creates optimal schedule considering staff
-                    availability and constraints
+                    {t("auto_schedule.step3_desc")}
                   </p>
                 </div>
               </div>
@@ -332,9 +328,9 @@ export const AutoSchedule: React.FC = () => {
                   4
                 </div>
                 <div>
-                  <p className="font-semibold">Review & Publish</p>
+                  <p className="font-semibold">{t("auto_schedule.step4_title")}</p>
                   <p className="text-sm text-gray-600">
-                    Review the generated schedule and publish to notify staff
+                    {t("auto_schedule.step4_desc")}
                   </p>
                 </div>
               </div>
@@ -345,41 +341,36 @@ export const AutoSchedule: React.FC = () => {
         <TabsContent value="help">
           <Card>
             <CardHeader>
-              <CardTitle>Auto-Scheduling Guide</CardTitle>
+              <CardTitle>{t("auto_schedule.guide_title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="font-semibold mb-2">What is Auto-Scheduling?</h3>
+                <h3 className="font-semibold mb-2">{t("auto_schedule.guide_what_title")}</h3>
                 <p className="text-sm text-gray-700">
-                  Auto-scheduling uses AI algorithms to automatically assign
-                  shifts to staff members based on templates, availability,
-                  demand forecasts, and labor budget constraints. This saves
-                  time and ensures optimal coverage of required positions.
+                  {t("auto_schedule.guide_what_body")}
                 </p>
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">Key Features</h3>
+                <h3 className="font-semibold mb-2">{t("auto_schedule.features_title")}</h3>
                 <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>Automatic shift assignment based on templates</li>
-                  <li>Conflict detection and prevention</li>
-                  <li>Budget-aware scheduling</li>
-                  <li>Demand-level optimization</li>
-                  <li>Staff preference consideration</li>
-                  <li>Fair distribution of shifts</li>
+                  <li>{t("auto_schedule.feature1")}</li>
+                  <li>{t("auto_schedule.feature2")}</li>
+                  <li>{t("auto_schedule.feature3")}</li>
+                  <li>{t("auto_schedule.feature4")}</li>
+                  <li>{t("auto_schedule.feature5")}</li>
+                  <li>{t("auto_schedule.feature6")}</li>
                 </ul>
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">Best Practices</h3>
+                <h3 className="font-semibold mb-2">{t("auto_schedule.practices_title")}</h3>
                 <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>
-                    Create comprehensive templates with all required roles
-                  </li>
-                  <li>Update staff availability regularly</li>
-                  <li>Set realistic budget constraints</li>
-                  <li>Review schedules before publishing</li>
-                  <li>Gather feedback to improve templates</li>
+<li>{t("auto_schedule.practice1")}</li>
+                  <li>{t("auto_schedule.practice2")}</li>
+                  <li>{t("auto_schedule.practice3")}</li>
+                  <li>{t("auto_schedule.practice4")}</li>
+                  <li>{t("auto_schedule.practice5")}</li>
                 </ul>
               </div>
             </CardContent>

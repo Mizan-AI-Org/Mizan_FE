@@ -14,6 +14,7 @@ import { SettingsSection } from "@/components/settings/SettingsSection";
 import { api, API_BASE } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import {
   AlertTriangle,
   Calendar,
@@ -110,7 +111,7 @@ async function postFormData(path: string, formData: FormData): Promise<unknown> 
     body: formData,
   });
   if (!response.ok) {
-    let message = "Upload failed";
+    let message = i18n.t("settings.compliance.upload_failed");
     try {
       const err = await response.json();
       message = err?.error || err?.message || err?.detail || message;
@@ -263,7 +264,7 @@ export default function ComplianceDocumentsSettings() {
       toast.success(t("generic.toast.document_attached"));
       await load();
     } catch (err) {
-      toast.error(saveErrorMessage(err, "Failed to attach file."));
+      toast.error(saveErrorMessage(err, t("settings.compliance.attach_failed")));
     } finally {
       setSaving(false);
       setAttachingId(null);
@@ -276,7 +277,7 @@ export default function ComplianceDocumentsSettings() {
       toast.success(t("generic.toast.attachment_removed"));
       await load();
     } catch (err) {
-      toast.error(saveErrorMessage(err, "Failed to remove file."));
+      toast.error(saveErrorMessage(err, t("settings.compliance.remove_failed")));
     }
   };
 
@@ -347,11 +348,11 @@ export default function ComplianceDocumentsSettings() {
                   {(types.length
                     ? types
                     : [
-                        { id: "INSURANCE", label: "Insurance" },
-                        { id: "HYGIENE", label: "Hygiene" },
-                        { id: "FIRE_EXTINGUISHER", label: "Fire extinguisher" },
-                        { id: "BUSINESS_REGISTRATION", label: "Business registration" },
-                        { id: "OTHER", label: "Other" },
+                        { id: "INSURANCE", label: t("settings.compliance.type_insurance") },
+                        { id: "HYGIENE", label: t("settings.compliance.type_hygiene") },
+                        { id: "FIRE_EXTINGUISHER", label: t("settings.compliance.type_fire_extinguisher") },
+                        { id: "BUSINESS_REGISTRATION", label: t("settings.compliance.type_business_registration") },
+                        { id: "OTHER", label: t("settings.compliance.type_other") },
                       ]
                   ).map((opt) => (
                     <SelectItem key={opt.id} value={opt.id}>
@@ -374,7 +375,7 @@ export default function ComplianceDocumentsSettings() {
 
           {/* File upload */}
           <div className="space-y-1.5">
-            <Label>Document</Label>
+            <Label>{t("settings.compliance.document")}</Label>
             <div className="flex items-center gap-3">
               <Button
                 type="button"
@@ -384,7 +385,7 @@ export default function ComplianceDocumentsSettings() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="h-4 w-4" />
-                Choose file
+                {t("settings.compliance.choose_file")}
               </Button>
               <input
                 ref={fileInputRef}
@@ -412,7 +413,7 @@ export default function ComplianceDocumentsSettings() {
                   </button>
                 </div>
               ) : (
-                <span className="text-xs text-slate-400">PDF, JPG, PNG, WEBP (max 25 MB)</span>
+                <span className="text-xs text-slate-400">{t("settings.compliance.file_hint")}</span>
               )}
             </div>
           </div>
@@ -510,7 +511,7 @@ export default function ComplianceDocumentsSettings() {
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                     <Paperclip className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span className="truncate max-w-[250px] font-medium">
-                      {doc.attachment.filename || "Attached document"}
+                      {doc.attachment.filename || t("settings.compliance.attached_document")}
                     </span>
                     {doc.attachment.size ? (
                       <span className="text-slate-400">{formatFileSize(doc.attachment.size)}</span>
@@ -555,7 +556,7 @@ export default function ComplianceDocumentsSettings() {
                 ) : (
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Paperclip className="h-3.5 w-3.5 shrink-0" />
-                    <span>No document attached</span>
+                    <span>{t("settings.compliance.no_document")}</span>
                     <Button
                       type="button"
                       variant="outline"
@@ -565,7 +566,7 @@ export default function ComplianceDocumentsSettings() {
                       disabled={saving}
                     >
                       <Upload className="h-3.5 w-3.5" />
-                      Attach document
+                      {t("settings.compliance.attach_document")}
                     </Button>
                   </div>
                 )}
@@ -584,21 +585,21 @@ export default function ComplianceDocumentsSettings() {
           {viewerDoc?.attachment ? (
             <div className="flex-1 min-h-0 overflow-auto space-y-4">
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                <div className="text-slate-500">Document type</div>
+                <div className="text-slate-500">{t("settings.compliance.document_type")}</div>
                 <div>{types.find((x) => x.id === viewerDoc.document_type)?.label || viewerDoc.document_type}</div>
-                <div className="text-slate-500">Expiry date</div>
-                <div>{viewerDoc.expires_at || "Not set"}</div>
+                <div className="text-slate-500">{t("common.expiry_date")}</div>
+                <div>{viewerDoc.expires_at || t("settings.compliance.not_set")}</div>
                 {viewerDoc.attachment.uploaded_at ? (
                   <>
-                    <div className="text-slate-500">Uploaded</div>
+                    <div className="text-slate-500">{t("settings.compliance.uploaded")}</div>
                     <div>{new Date(viewerDoc.attachment.uploaded_at).toLocaleDateString()}</div>
                   </>
                 ) : null}
-                <div className="text-slate-500">Filename</div>
+                <div className="text-slate-500">{t("settings.compliance.filename")}</div>
                 <div className="truncate">{viewerDoc.attachment.filename}</div>
                 {viewerDoc.attachment.size ? (
                   <>
-                    <div className="text-slate-500">Size</div>
+                    <div className="text-slate-500">{t("settings.compliance.size")}</div>
                     <div>{formatFileSize(viewerDoc.attachment.size)}</div>
                   </>
                 ) : null}
@@ -621,7 +622,7 @@ export default function ComplianceDocumentsSettings() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 gap-3 text-sm text-slate-500">
                       <Paperclip className="h-8 w-8 text-slate-300" />
-                      <p>Preview not available for this file type.</p>
+                      <p>{t("attachment.preview_not_supported")}</p>
                       <a
                         href={viewerDoc.attachment.resolved_url}
                         target="_blank"
@@ -629,7 +630,7 @@ export default function ComplianceDocumentsSettings() {
                       >
                         <Button variant="outline" size="sm" className="gap-1.5">
                           <Download className="h-4 w-4" />
-                          Download file
+                          {t("settings.compliance.download_file")}
                         </Button>
                       </a>
                     </div>
@@ -654,7 +655,7 @@ export default function ComplianceDocumentsSettings() {
               ) : null}
             </div>
           ) : (
-            <p className="text-sm text-slate-500 py-8 text-center">No attachment available.</p>
+            <p className="text-sm text-slate-500 py-8 text-center">{t("settings.compliance.no_attachment")}</p>
           )}
         </DialogContent>
       </Dialog>

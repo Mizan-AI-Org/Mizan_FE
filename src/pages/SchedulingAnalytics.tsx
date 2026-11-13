@@ -11,6 +11,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
 import { unwrapEnvelope } from "@/lib/envelope";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { DEFAULT_CURRENCY } from "@/lib/regional";
 import {
   BarChart,
   Bar,
@@ -254,7 +255,7 @@ const SchedulingAnalytics: React.FC = () => {
   const laborChartData = laborCostsData?.chart_data ?? [];
   const laborTotalCost = laborCostsData?.total_cost ?? 0;
   const laborTotalHours = laborCostsData?.total_hours ?? 0;
-  const laborCurrency = laborCostsData?.currency ?? "USD";
+  const laborCurrency = laborCostsData?.currency ?? DEFAULT_CURRENCY;
   const laborBudget = laborCostsData?.budget;
   const costPerHour = laborTotalHours > 0 ? laborTotalCost / laborTotalHours : 0;
   const topRoleCost = laborChartData.length

@@ -374,7 +374,7 @@ const ManagerReviewDashboard: React.FC = () => {
       toast.success(variables.decision === 'APPROVED' ? t("toasts.submission_approved") : t("toasts.submission_rejected"));
       try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: variables.decision }); } catch { /* ignore */ }
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Review failed"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : t("manager_review.review_failed")),
   });
   const approveMutation = { mutate: (v: { id: string; reason?: string; source_type?: string }) => managerReviewMutation.mutate({ ...v, decision: 'APPROVED' }), isPending: managerReviewMutation.isPending };
   const rejectMutation = { mutate: (v: { id: string; reason?: string; source_type?: string }) => managerReviewMutation.mutate({ ...v, decision: 'REJECTED' }), isPending: managerReviewMutation.isPending };
@@ -388,7 +388,7 @@ const ManagerReviewDashboard: React.FC = () => {
         const res = await authFetch(`${API_BASE}/checklists/shift-progress/${id}/`, {
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to load shift checklist detail");
+        if (!res.ok) throw new Error(t("manager_review.error_load_detail"));
         return unwrapApiPayload(await res.json());
       }
       return api.getChecklistExecution(id);
@@ -644,7 +644,7 @@ const ManagerReviewDashboard: React.FC = () => {
         page_size: "500",
       });
       const res = await authFetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch incidents');
+      if (!res.ok) throw new Error(t("manager_review.error_load_incidents"));
       return unwrapDrfListResponse(await res.json());
     },
     refetchInterval: 15_000,
@@ -656,7 +656,7 @@ const ManagerReviewDashboard: React.FC = () => {
     enabled: !!selectedIncident,
     queryFn: async () => {
       const res = await authFetch(`${API_BASE}/staff/safety-concerns/${selectedIncident}/`);
-      if (!res.ok) throw new Error('Failed to fetch incident details');
+      if (!res.ok) throw new Error(t("manager_review.error_load_incident"));
       return unwrapApiPayload<IncidentDetail>(await res.json());
     },
   });
@@ -731,21 +731,21 @@ const ManagerReviewDashboard: React.FC = () => {
       detail.photo_url?.trim() ||
       resolveMediaUrl(detail.photo) ||
       "";
-    if (photoUrl) pushUrl(photoUrl, "Photo evidence", "image/jpeg");
+    if (photoUrl) pushUrl(photoUrl, t("manager_review.photo_evidence"), "image/jpeg");
 
     const evidenceUrl = (detail as { evidence_url?: string; evidenceUrl?: string }).evidence_url
       || (detail as { evidenceUrl?: string }).evidenceUrl
       || "";
-    if (evidenceUrl) pushUrl(evidenceUrl, "Photo evidence", "image/jpeg");
+    if (evidenceUrl) pushUrl(evidenceUrl, t("manager_review.photo_evidence"), "image/jpeg");
 
     const fileUrl = detail.attachment_url?.trim() || "";
     if (fileUrl) {
-      pushUrl(fileUrl, detail.attachment_filename?.trim() || "Attachment", detail.attachment_content_type || undefined);
+      pushUrl(fileUrl, detail.attachment_filename?.trim() || t("manager_review.attachment"), detail.attachment_content_type || undefined);
     }
     for (const [idx, raw] of (detail.audio_evidence || []).entries()) {
       const url = resolveMediaUrl(raw) || raw;
       if (url && !/^whatsapp:/i.test(url)) {
-        items.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
+        items.push({ url, name: t("manager_review.audio_n", { n: idx + 1 }), content_type: "audio/mpeg" });
       }
     }
 
@@ -765,7 +765,7 @@ const ManagerReviewDashboard: React.FC = () => {
       ).trim();
       pushUrl(
         raw,
-        String(entry.filename || `Photo ${idx + 1}`),
+        String(entry.filename || t("manager_review.photo_n", { n: idx + 1 })),
         String(entry.mime_type || "image/jpeg"),
       );
     }
@@ -906,7 +906,7 @@ const ManagerReviewDashboard: React.FC = () => {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
-        throw new Error(body.error || body.detail || `Failed to update status (${res.status})`);
+        throw new Error(body.error || body.detail || t("manager_review.error_update_status", { status: res.status }));
       }
       return res.json();
     },
@@ -917,9 +917,9 @@ const ManagerReviewDashboard: React.FC = () => {
       setUpdateStatus('');
       setResolutionNotes('');
       setAssignTo('');
-      toast.success('Incident status updated');
+      toast.success(t("manager_review.incident_status_updated"));
     },
-    onError: (err: Error) => toast.error(err.message || 'Failed to update incident status'),
+    onError: (err: Error) => toast.error(err.message || t("manager_review.error_update_incident_status")),
   });
 
   const { data: staffList } = useQuery({
@@ -948,7 +948,7 @@ const ManagerReviewDashboard: React.FC = () => {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
-        throw new Error(body.error || body.detail || `Failed to update priority (${res.status})`);
+        throw new Error(body.error || body.detail || t("manager_review.error_update_priority", { status: res.status }));
       }
       return res.json();
     },
@@ -971,16 +971,16 @@ const ManagerReviewDashboard: React.FC = () => {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
-        throw new Error(body.error || body.detail || `Failed to assign (${res.status})`);
+        throw new Error(body.error || body.detail || t("manager_review.error_assign", { status: res.status }));
       }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['safety-incidents'] });
       queryClient.invalidateQueries({ queryKey: ['safety-incident-detail'] });
-      toast.success('Incident assigned successfully');
+      toast.success(t("manager_review.incident_assigned"));
     },
-    onError: (err: Error) => toast.error(err.message || 'Failed to assign incident'),
+    onError: (err: Error) => toast.error(err.message || t("manager_review.error_assign_incident")),
   });
 
   // Live checklist progress (WhatsApp step-by-step) for managers
@@ -1034,7 +1034,13 @@ const ManagerReviewDashboard: React.FC = () => {
   const paginatedChecklists = sortedTable.slice(checklistStartIndex, checklistEndIndex);
 
   const exportCsv = () => {
-    const headers = ['Staff', 'Submitted At', 'Checklist', 'Status', 'Notes'];
+    const headers = [
+      t("manager_review.csv.staff"),
+      t("manager_review.csv.submitted_at"),
+      t("manager_review.csv.checklist"),
+      t("common.status"),
+      t("generic.notes"),
+    ];
     const rows = sortedTable.map(s => [
       String(s.submitted_by?.name || ''),
       s.submitted_at ? new Date(s.submitted_at).toISOString() : '',
@@ -1804,7 +1810,7 @@ const ManagerReviewDashboard: React.FC = () => {
 
               {topStaff.length > 0 ? (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3">
-                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Top submitters</div>
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">{t("common.top_submitters")}</div>
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={topStaff} layout="vertical" margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
@@ -2167,7 +2173,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 <DialogTitle className="flex items-center gap-2 pr-6">
                   <ShieldAlert className="h-5 w-5 text-emerald-600 shrink-0" />
                   <span className="truncate">
-                    {incidentDetail?.title || "Incident details"}
+                    {incidentDetail?.title || t("manager_review.incident_details")}
                   </span>
                 </DialogTitle>
               </DialogHeader>
@@ -2202,23 +2208,23 @@ const ManagerReviewDashboard: React.FC = () => {
                         </Badge>
                       </div>
                       <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
-                        <dt className="text-muted-foreground">Location</dt>
-                        <dd className="font-medium">{incidentDetail.location || "Not specified"}</dd>
-                        <dt className="text-muted-foreground">Reporter</dt>
+                        <dt className="text-muted-foreground">{t("manager_review.incident.location")}</dt>
+                        <dd className="font-medium">{incidentDetail.location || t("manager_review.incident.not_specified")}</dd>
+                        <dt className="text-muted-foreground">{t("manager_review.incident.reporter")}</dt>
                         <dd className="font-medium">
                           {incidentDetail.is_anonymous
-                            ? "Anonymous"
+                            ? t("manager_review.incident.anonymous")
                             : incidentDetail.reporter_details
                               ? `${incidentDetail.reporter_details.first_name} ${incidentDetail.reporter_details.last_name}`
                               : "-"}
                         </dd>
-                        <dt className="text-muted-foreground">Reported</dt>
+                        <dt className="text-muted-foreground">{t("manager_review.incident.reported")}</dt>
                         <dd className="font-medium">
                           {incidentDetail.created_at
                             ? new Date(incidentDetail.created_at).toLocaleString()
                             : "-"}
                         </dd>
-                        <dt className="text-muted-foreground">Occurred</dt>
+                        <dt className="text-muted-foreground">{t("manager_review.incident.occurred")}</dt>
                         <dd className="font-medium">
                           {incidentDetail.occurred_at
                             ? new Date(incidentDetail.occurred_at).toLocaleString()
@@ -2226,14 +2232,14 @@ const ManagerReviewDashboard: React.FC = () => {
                         </dd>
                       </dl>
                       <p className="line-clamp-6 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
-                        {incidentDetail.description || "No description provided."}
+                        {incidentDetail.description || t("manager_review.incident.no_description")}
                       </p>
                       <IncidentAgencyStatus incidentId={String(incidentDetail.id || selectedIncident || "")} />
                     </div>
                   </div>
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-                    <div className="text-sm font-semibold">Assign owner</div>
+                    <div className="text-sm font-semibold">{t("manager_review.incident.assign_owner")}</div>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <select
                         value={assignTo}
@@ -2262,13 +2268,14 @@ const ManagerReviewDashboard: React.FC = () => {
                           });
                         }}
                       >
-                        {assignMutation.isPending ? "Assigning…" : "Assign"}
+                        {assignMutation.isPending ? t("manager_review.incident.assigning") : t("generic.assign")}
                       </Button>
                     </div>
                     {incidentDetail.assigned_to_details ? (
                       <div className="text-xs text-muted-foreground">
-                        Currently: {incidentDetail.assigned_to_details.first_name}{" "}
-                        {incidentDetail.assigned_to_details.last_name}
+                        {t("manager_review.incident.currently", {
+                          name: `${incidentDetail.assigned_to_details.first_name || ""} ${incidentDetail.assigned_to_details.last_name || ""}`.trim(),
+                        })}
                       </div>
                     ) : null}
                   </div>
@@ -2276,7 +2283,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   {incidentDetail.resolution_notes ? (
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                        Existing resolution notes
+                        {t("manager_review.incident.existing_notes")}
                       </div>
                       <div className="rounded-lg border p-3 text-sm whitespace-pre-wrap bg-muted/30">
                         {incidentDetail.resolution_notes}
@@ -2287,14 +2294,14 @@ const ManagerReviewDashboard: React.FC = () => {
                   {incidentDetail.resolved_by_details ? (
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <div className="text-xs text-muted-foreground">Resolved by</div>
+                        <div className="text-xs text-muted-foreground">{t("manager_review.incident.resolved_by")}</div>
                         <div className="font-medium">
                           {incidentDetail.resolved_by_details.first_name}{" "}
                           {incidentDetail.resolved_by_details.last_name}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">Resolved at</div>
+                        <div className="text-xs text-muted-foreground">{t("manager_review.incident.resolved_at")}</div>
                         <div className="font-medium">
                           {incidentDetail.resolved_at
                             ? new Date(incidentDetail.resolved_at).toLocaleString()
@@ -2305,7 +2312,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   ) : null}
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-                    <div className="text-sm font-semibold">Priority</div>
+                    <div className="text-sm font-semibold">{t("common.priority")}</div>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <select
                         value={
@@ -2335,16 +2342,16 @@ const ManagerReviewDashboard: React.FC = () => {
                           })
                         }
                       >
-                        {updatePriorityMutation.isPending ? "Saving…" : "Save priority"}
+                        {updatePriorityMutation.isPending ? t("manager_review.saving") : t("manager_review.incident.save_priority")}
                       </Button>
                     </div>
                   </div>
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-                    <div className="text-sm font-semibold">Update status</div>
+                    <div className="text-sm font-semibold">{t("manager_review.incident.update_status")}</div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">New status</label>
+                        <label className="text-xs text-muted-foreground mb-1 block">{t("manager_review.incident.new_status")}</label>
                         <select
                           value={updateStatus || incidentDetail.status}
                           onChange={(e) => setUpdateStatus(e.target.value)}
@@ -2357,11 +2364,11 @@ const ManagerReviewDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Resolution notes</label>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t("manager_review.incident.resolution_notes")}</label>
                       <Textarea
                         value={resolutionNotes || incidentDetail.resolution_notes || ""}
                         onChange={(e) => setResolutionNotes(e.target.value)}
-                        placeholder="What happened and how it was handled…"
+                        placeholder={t("manager_review.incident.resolution_placeholder")}
                         rows={3}
                       />
                     </div>
@@ -2375,7 +2382,7 @@ const ManagerReviewDashboard: React.FC = () => {
                           setAssignTo("");
                         }}
                       >
-                        Close
+                        {t("common.close")}
                       </Button>
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -2389,14 +2396,14 @@ const ManagerReviewDashboard: React.FC = () => {
                         }
                         disabled={updateStatusMutation.isPending}
                       >
-                        {updateStatusMutation.isPending ? "Saving…" : "Save status"}
+                        {updateStatusMutation.isPending ? t("manager_review.saving") : t("manager_review.incident.save_status")}
                       </Button>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground py-6 text-center">
-                  Couldn&apos;t load this incident.
+                  {t("manager_review.error_load_incident")}
                 </div>
               )}
             </DialogContent>
@@ -2410,18 +2417,18 @@ const ManagerReviewDashboard: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-emerald-600" />
-              Submission review
+              {t("manager_review.submission.title")}
             </DialogTitle>
           </DialogHeader>
           {(() => {
             const summary = sortedTable.find(x => x.id === detailId) || filtered.find(x => x.id === detailId);
             const exec = (detailQuery.data as unknown as ChecklistExecutionDetail | null) || null;
-            if (!summary) return (<div className="text-sm text-muted-foreground">No data</div>);
+            if (!summary) return (<div className="text-sm text-muted-foreground">{t("manager_review.no_data")}</div>);
             return (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-lg font-semibold">{summary.template?.name || "Checklist"}</div>
+                    <div className="text-lg font-semibold">{summary.template?.name || t("manager_review.csv.checklist")}</div>
                     <div className="text-sm text-muted-foreground mt-0.5">
                       {summary.submitted_by?.name || "-"}
                       {summary.submitted_at
@@ -2437,7 +2444,7 @@ const ManagerReviewDashboard: React.FC = () => {
 
                 {summary.notes ? (
                   <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 text-sm">
-                    <div className="text-xs text-muted-foreground mb-1">Notes</div>
+                    <div className="text-xs text-muted-foreground mb-1">{t("generic.notes")}</div>
                     {summary.notes}
                   </div>
                 ) : null}
@@ -2445,18 +2452,18 @@ const ManagerReviewDashboard: React.FC = () => {
                 {summary.compiled_summary ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                     <div className="border rounded-md p-3">
-                      <div className="text-muted-foreground">Completion</div>
+                      <div className="text-muted-foreground">{t("generic.completion")}</div>
                       <div className="font-semibold">
                         {summary.compiled_summary.completed_steps ?? 0}/{summary.compiled_summary.total_steps ?? 0} ({summary.compiled_summary.completion_rate ?? 0}%)
                       </div>
                     </div>
                     <div className="border rounded-md p-3">
-                      <div className="text-muted-foreground">Duration</div>
-                      <div className="font-semibold">{typeof summary.compiled_summary.duration_minutes === 'number' ? `${summary.compiled_summary.duration_minutes} min` : '-'}</div>
+                      <div className="text-muted-foreground">{t("generic.duration")}</div>
+                      <div className="font-semibold">{typeof summary.compiled_summary.duration_minutes === 'number' ? t("manager_review.submission.minutes", { count: summary.compiled_summary.duration_minutes }) : '-'}</div>
                     </div>
                     <div className="border rounded-md p-3">
-                      <div className="text-muted-foreground">Evidence</div>
-                      <div className="font-semibold">{summary.compiled_summary.evidence_items ?? 0} item(s)</div>
+                      <div className="text-muted-foreground">{t("generic.evidence")}</div>
+                      <div className="font-semibold">{t("manager_review.submission.items", { count: summary.compiled_summary.evidence_items ?? 0 })}</div>
                     </div>
                     <div className="border rounded-md p-3">
                       <div className="text-muted-foreground">{t("common.open_actions")}</div>
@@ -2469,7 +2476,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   <div className="bg-muted/30 border rounded-md p-4 space-y-3">
                     <div className="flex items-center gap-2 font-semibold text-sm">
                       <div className="w-1.5 h-4 bg-primary rounded-full" />
-                      Automated Insights
+                      {t("manager_review.submission.insights")}
                     </div>
 
                     {exec.analysis_results.summary && (
@@ -2486,13 +2493,13 @@ const ManagerReviewDashboard: React.FC = () => {
 
                     {exec.analysis_results.anomalies?.length > 0 && (
                       <div className="space-y-2 pt-1">
-                        <div className="text-xs font-semibold text-destructive uppercase tracking-wider">Detected Anomalies</div>
+                        <div className="text-xs font-semibold text-destructive uppercase tracking-wider">{t("manager_review.submission.anomalies")}</div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {exec.analysis_results.anomalies.map((a: ExecutionAnomaly, i: number) => (
                             <div key={i} className="border border-destructive/20 bg-destructive/5 rounded p-2 text-xs">
                               <div className="font-medium">{a.step_title}</div>
                               <div className="flex justify-between mt-1">
-                                <span>Value: <span className="font-semibold">{a.value}</span></span>
+                                <span>{t("manager_review.submission.value")} <span className="font-semibold">{a.value}</span></span>
                                 <span>{a.issue} (<span className="opacity-70">{a.threshold}</span>)</span>
                               </div>
                             </div>
@@ -2505,7 +2512,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 <div className="border rounded-md">
                   <ScrollArea className="h-72 p-3">
                     {detailQuery.isLoading ? (
-                      <div className="text-sm text-muted-foreground">Loading full details…</div>
+                      <div className="text-sm text-muted-foreground">{t("manager_review.submission.loading_details")}</div>
                     ) : exec ? (
                       <div className="space-y-3 text-sm">
                         <div className="space-y-1">
@@ -2515,40 +2522,40 @@ const ManagerReviewDashboard: React.FC = () => {
                               Shift: {(exec as any).shift.shift_date || '-'}{' '}
                               {(exec as any).shift.start_time ? `(${new Date((exec as any).shift.start_time).toLocaleTimeString()}` : ''}
                               {(exec as any).shift.end_time ? ` - ${new Date((exec as any).shift.end_time).toLocaleTimeString()})` : (exec as any).shift.start_time ? ')' : ''}
-                              {(exec as any).shift.role ? ` • Role: ${(exec as any).shift.role}` : ''}
-                              {(exec as any).channel ? ` • Channel: ${(exec as any).channel}` : ''}
+                              {(exec as any).shift.role ? ` • ${t("manager_review.submission.role", { value: (exec as any).shift.role })}` : ''}
+                              {(exec as any).channel ? ` • ${t("manager_review.submission.channel", { value: (exec as any).channel })}` : ''}
                             </div>
                           ) : exec.assigned_shift_info ? (
                             <div className="text-xs text-muted-foreground">
                               Shift: {exec.assigned_shift_info.shift_date || '-'}{' '}
                               {exec.assigned_shift_info.start_time ? `(${new Date(exec.assigned_shift_info.start_time).toLocaleTimeString()}` : ''}
                               {exec.assigned_shift_info.end_time ? ` - ${new Date(exec.assigned_shift_info.end_time).toLocaleTimeString()})` : exec.assigned_shift_info.start_time ? ')' : ''}
-                              {exec.assigned_shift_info.role ? ` • Role: ${exec.assigned_shift_info.role}` : ''}
-                              {exec.assigned_shift_info.department ? ` • Dept: ${exec.assigned_shift_info.department}` : ''}
+                              {exec.assigned_shift_info.role ? ` • ${t("manager_review.submission.role", { value: exec.assigned_shift_info.role })}` : ''}
+                              {exec.assigned_shift_info.department ? ` • ${t("manager_review.submission.dept", { value: exec.assigned_shift_info.department })}` : ''}
                             </div>
                           ) : null}
                           {(exec as any).manager_notes ? (
-                            <div className="text-xs mt-1 p-2 bg-muted/50 rounded">Manager notes: {(exec as any).manager_notes}</div>
+                            <div className="text-xs mt-1 p-2 bg-muted/50 rounded">{t("manager_review.submission.manager_notes", { value: (exec as any).manager_notes })}</div>
                           ) : null}
                         </div>
 
-                        <div className="font-medium">Steps</div>
+                        <div className="font-medium">{t("manager_review.submission.steps")}</div>
                         {(exec.step_responses || []).map((sr: ExecutionStepResponse & { title?: string; response?: string }, idx: number) => (
                           <div key={(sr as any).id || idx} className="border rounded-md p-3">
-                            <div className="font-medium">{(sr as any).title || sr.step?.title || `Step ${idx + 1}`}</div>
+                            <div className="font-medium">{(sr as any).title || sr.step?.title || t("manager_review.submission.step_n", { n: idx + 1 })}</div>
                             <div className="text-xs text-muted-foreground">{(sr as any).description || sr.step?.description || ''}</div>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                              <Badge variant="outline">Status: {(sr as any).status || sr.status || (sr.is_completed ? 'COMPLETED' : 'PENDING')}</Badge>
-                              {(sr as any).response ? (<Badge variant="outline">Response: {(sr as any).response}</Badge>) : null}
-                              {sr.text_response ? (<Badge variant="outline">Response: {sr.text_response}</Badge>) : null}
-                              {sr.measurement_value != null ? (<Badge variant="outline">Measure: {String(sr.measurement_value)}{sr.step?.measurement_unit ? ` ${sr.step.measurement_unit}` : ''}</Badge>) : null}
-                              {typeof sr.boolean_response === 'boolean' ? (<Badge variant="outline">Answer: {sr.boolean_response ? 'Yes' : 'No'}</Badge>) : null}
-                              {sr.signature_data ? (<Badge variant="outline">Signature</Badge>) : null}
+                              <Badge variant="outline">{t("manager_review.submission.status", { value: String((sr as any).status || sr.status || (sr.is_completed ? 'COMPLETED' : 'PENDING')) })}</Badge>
+                              {(sr as any).response ? (<Badge variant="outline">{t("manager_review.submission.response", { value: String((sr as any).response) })}</Badge>) : null}
+                              {sr.text_response ? (<Badge variant="outline">{t("manager_review.submission.response", { value: sr.text_response })}</Badge>) : null}
+                              {sr.measurement_value != null ? (<Badge variant="outline">{t("manager_review.submission.measure")} {String(sr.measurement_value)}{sr.step?.measurement_unit ? ` ${sr.step.measurement_unit}` : ''}</Badge>) : null}
+                              {typeof sr.boolean_response === 'boolean' ? (<Badge variant="outline">{t("manager_review.submission.answer", { value: sr.boolean_response ? t("common.yes") : t("common.no") })}</Badge>) : null}
+                              {sr.signature_data ? (<Badge variant="outline">{t("manager_review.submission.signature")}</Badge>) : null}
                             </div>
-                            {sr.notes ? (<div className="mt-2 text-xs">Notes: {sr.notes}</div>) : null}
+                            {sr.notes ? (<div className="mt-2 text-xs">{t("manager_review.submission.notes", { value: sr.notes })}</div>) : null}
                             {Array.isArray(sr.evidence) && sr.evidence.length > 0 ? (
                               <div className="mt-2 text-xs space-y-2">
-                                <div>Evidence ({sr.evidence.length}):</div>
+                                <div>{t("manager_review.submission.evidence_count", { count: sr.evidence.length })}</div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                   {sr.evidence.map((ev: ExecutionEvidence, eidx: number) => {
                                     const rawUrl =
@@ -2577,7 +2584,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                           <a href={safeUrl(abs)} target="_blank" rel="noreferrer">
                                             <img
                                               src={abs}
-                                              alt={ev.caption || ev.filename || `Evidence ${eidx + 1}`}
+                                              alt={ev.caption || ev.filename || t("manager_review.submission.evidence_n", { n: eidx + 1 })}
                                               className="h-28 w-full object-cover"
                                               loading="lazy"
                                             />
@@ -2608,7 +2615,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                   </div>
                                   {a.description ? <div className="mt-1 text-muted-foreground">{a.description}</div> : null}
                                   <div className="mt-2 text-muted-foreground">
-                                    Assigned to: {a.assigned_to ? `${a.assigned_to.first_name || ''} ${a.assigned_to.last_name || ''}`.trim() : '-'} • Priority: {a.priority || '-'}
+                                    {t("manager_review.submission.assigned_to", { value: a.assigned_to ? `${a.assigned_to.first_name || ''} ${a.assigned_to.last_name || ''}`.trim() : '-' })} • {t("manager_review.submission.priority", { value: a.priority || '-' })}
                                   </div>
                                 </div>
                               ))}
@@ -2617,16 +2624,16 @@ const ManagerReviewDashboard: React.FC = () => {
                         ) : null}
                       </div>
                     ) : (
-                      <div className="text-sm text-muted-foreground">No detailed data</div>
+                      <div className="text-sm text-muted-foreground">{t("manager_review.submission.no_detail")}</div>
                     )}
                   </ScrollArea>
                 </div>
                 <div className="space-y-2">
                   <Textarea value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder={t("analytics.add_review_comments")} />
                   <div className="flex items-center gap-2 justify-end">
-                    <Button variant="outline" onClick={() => setDetailId(null)}>Close</Button>
-                    <Button onClick={() => approveMutation.mutate({ id: String(summary.id), reason: reviewComment, source_type: (summary as SubmittedChecklist).source_type })} disabled={approveMutation.isPending}>Approve</Button>
-                    <Button variant="destructive" onClick={() => rejectMutation.mutate({ id: String(summary.id), reason: reviewComment, source_type: (summary as SubmittedChecklist).source_type })} disabled={rejectMutation.isPending}>Reject</Button>
+                    <Button variant="outline" onClick={() => setDetailId(null)}>{t("common.close")}</Button>
+                    <Button onClick={() => approveMutation.mutate({ id: String(summary.id), reason: reviewComment, source_type: (summary as SubmittedChecklist).source_type })} disabled={approveMutation.isPending}>{t("generic.approve")}</Button>
+                    <Button variant="destructive" onClick={() => rejectMutation.mutate({ id: String(summary.id), reason: reviewComment, source_type: (summary as SubmittedChecklist).source_type })} disabled={rejectMutation.isPending}>{t("approvals.reject")}</Button>
                   </div>
                 </div>
               </div>

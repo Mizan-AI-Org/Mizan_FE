@@ -182,6 +182,7 @@ const AdminChecklistTemplates = React.lazy(
 );
 const ManagerReviewDashboard = React.lazy(() => import("./pages/ManagerReviewDashboard"));
 const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
+const LegalPage = React.lazy(() => import("./pages/legal/LegalPage"));
 
 const DashboardAttendancePage = React.lazy(
   () => import("./pages/DashboardAttendancePage")
@@ -278,6 +279,8 @@ const App = () => {
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
               <Route path="/invite/:token" element={<AcceptInvitation />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
+              <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />
               <Route path="/verify/:ref" element={<VerifySignaturePage />} />
               <Route
                 path="/billing/invoices/:id"

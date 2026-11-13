@@ -24,6 +24,7 @@
  * (3 photos + 1 PDF) reads cleanly without bespoke layout glue at the
  * call site.
  */
+import i18n from "@/i18n";
 import { useEffect, useState } from "react";
 import {
   Download,
@@ -83,7 +84,7 @@ function resolveName(a: AttachmentLike, fallback?: string): string {
     a.original_name?.trim() ||
     a.filename?.trim() ||
     fallback ||
-    "Attachment"
+    i18n.t("attachment.default_name")
   );
 }
 
@@ -179,9 +180,9 @@ function formatSize(bytes?: number | null): string {
 }
 
 function kindLabel(kind: AttachmentKind): string {
-  if (kind === "other") return "FILE";
-  if (kind === "doc") return "DOC";
-  if (kind === "sheet") return "SHEET";
+  if (kind === "other") return i18n.t("attachment.kind_file");
+  if (kind === "doc") return i18n.t("attachment.kind_doc");
+  if (kind === "sheet") return i18n.t("attachment.kind_sheet");
   return kind.toUpperCase();
 }
 
@@ -280,7 +281,7 @@ function ImageLightbox({
           e.stopPropagation();
           onClose();
         }}
-        aria-label="Close preview"
+        aria-label={i18n.t("attachment.close_preview")}
         className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-lg hover:bg-white"
       >
         <X className="h-4 w-4" aria-hidden />
@@ -344,17 +345,17 @@ function FileCard({
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-        aria-label={`Open ${name} in a new tab`}
+        aria-label={i18n.t("attachment.open_new_tab_named", { name })}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-        Open
+        {i18n.t("attachment.open")}
       </a>
       <a
         href={safeUrl(url)}
         download={name}
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        aria-label={`Download ${name}`}
-        title={`Download ${name}`}
+        aria-label={i18n.t("attachment.download_named", { name })}
+        title={i18n.t("attachment.download_named", { name })}
       >
         <Download className="h-3.5 w-3.5" aria-hidden />
       </a>
@@ -401,7 +402,7 @@ export function AttachmentPreview({
         <button
           type="button"
           onClick={() => setLightboxOpen(true)}
-          aria-label={`Open ${name} in full size`}
+          aria-label={i18n.t("attachment.open_full_size", { name })}
           className={cn(
             "group relative block w-full overflow-hidden rounded-lg border border-border bg-muted/40 transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring",
             className,
@@ -550,7 +551,7 @@ export function AttachmentViewerModal({
 }) {
   const [imgError, setImgError] = useState(false);
   const url = attachment?.url?.trim() || "";
-  const name = attachment?.name?.trim() || "Attachment";
+  const name = attachment?.name?.trim() || i18n.t("attachment.default_name");
   const kind = attachment ? viewerKind(attachment) : "other";
 
   useEffect(() => {
@@ -571,10 +572,10 @@ export function AttachmentViewerModal({
         </DialogHeader>
         <div className="max-h-[calc(92vh-8rem)] overflow-auto bg-muted/20 px-5 py-4">
           {!url ? (
-            <p className="text-sm text-muted-foreground">No file to preview.</p>
+            <p className="text-sm text-muted-foreground">{i18n.t("attachment.no_file")}</p>
           ) : kind === "image" ? (
             imgError ? (
-              <p className="text-sm text-muted-foreground">Preview unavailable.</p>
+              <p className="text-sm text-muted-foreground">{i18n.t("attachment.preview_unavailable")}</p>
             ) : (
               <img
                 src={safeUrl(url)}
@@ -607,7 +608,7 @@ export function AttachmentViewerModal({
             <div className="flex flex-col items-center gap-4 py-8 text-center">
               <IconForKind kind={kind} className="h-12 w-12 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Preview is not available for this file type.
+                {i18n.t("attachment.preview_not_supported")}
               </p>
             </div>
           )}
@@ -617,13 +618,13 @@ export function AttachmentViewerModal({
             <Button type="button" variant="outline" size="sm" asChild>
               <a href={safeUrl(url)} download={name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                Download
+                {i18n.t("common.download")}
               </a>
             </Button>
             <Button type="button" variant="secondary" size="sm" asChild>
               <a href={safeUrl(url)} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                Open in new tab
+                {i18n.t("attachment.open_new_tab")}
               </a>
             </Button>
           </DialogFooter>
@@ -650,7 +651,7 @@ export function AttachmentList({
     if (emptyMessage === null) return null;
     return (
       <p className={cn("text-sm text-muted-foreground", className)}>
-        {emptyMessage ?? "No attachments"}
+        {emptyMessage ?? i18n.t("attachment.none")}
       </p>
     );
   }

@@ -15,6 +15,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { API_BASE } from "@/lib/api";
 import { unwrapEnvelope } from "@/lib/envelope";
+import i18n from "@/i18n";
 
 function asList(payload: unknown): any[] {
   const data = unwrapEnvelope(payload);
@@ -40,9 +41,9 @@ interface Category {
 }
 
 const categoryFormSchema = z.object({
-    name: z.string().min(1, "Category name is required"),
+    name: z.string().min(1, { error: () => i18n.t("category_management.name_required") }),
     description: z.string().optional().nullable(),
-    display_order: z.coerce.number<number>().min(0, "Display order must be non-negative").optional().default(0),
+    display_order: z.coerce.number<number>().min(0, { error: () => i18n.t("category_management.order_non_negative") }).optional().default(0),
     is_active: z.boolean().optional().default(true),
 });
 
@@ -76,7 +77,7 @@ const CategoryManagement: React.FC = () => {
                 },
             });
             if (!response.ok) {
-                throw new Error('Failed to fetch categories');
+                throw new Error(t('category_management.fetch_failed'));
             }
             return asList(await response.json());
         },
@@ -95,7 +96,7 @@ const CategoryManagement: React.FC = () => {
             });
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.name || 'Failed to create category');
+                throw new Error(errorData.name || t('category_management.create_failed'));
             }
             return asList(await response.json());
         },
@@ -106,7 +107,7 @@ const CategoryManagement: React.FC = () => {
             form.reset();
         },
         onError: (error) => {
-            toast.error(error.message || "Failed to create category.");
+            toast.error(error.message || t("category_management.create_failed"));
         },
     });
 
@@ -122,7 +123,7 @@ const CategoryManagement: React.FC = () => {
             });
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.name || 'Failed to update category');
+                throw new Error(errorData.name || t('category_management.update_failed'));
             }
             return asList(await response.json());
         },
@@ -133,7 +134,7 @@ const CategoryManagement: React.FC = () => {
             setEditingCategory(null);
         },
         onError: (error) => {
-            toast.error(error.message || "Failed to update category.");
+            toast.error(error.message || t("category_management.update_failed"));
         },
     });
 
@@ -147,7 +148,7 @@ const CategoryManagement: React.FC = () => {
             });
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to delete category');
+                throw new Error(errorData.detail || t('category_management.delete_failed'));
             }
         },
         onSuccess: () => {
@@ -155,7 +156,7 @@ const CategoryManagement: React.FC = () => {
             toast.success(t("generic.toast.category_deleted_successfully"));
         },
         onError: (error) => {
-            toast.error(error.message || "Failed to delete category.");
+            toast.error(error.message || t("category_management.delete_failed"));
         },
     });
 
@@ -184,26 +185,26 @@ const CategoryManagement: React.FC = () => {
     }
 
     if (error) {
-        return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
+        return <div className="text-center py-8 text-red-500">{t("swap_requests.error_prefix", { message: error.message })}</div>;
     }
 
     if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'ADMIN')) {
-        return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
+        return <div className="text-center py-8 text-gray-500">{t("generic.no_access_description")}</div>;
     }
 
     return (
         <div className="container mx-auto p-6">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Category Management</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">{t("category_management.title")}</h2>
 
             <div className="flex justify-end mb-4">
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <PlusCircle className="w-4 h-4 mr-2" /> Create New Category
+                    <PlusCircle className="w-4 h-4 mr-2" /> {t("category_management.create_new")}
                 </Button>
             </div>
 
             <div className="space-y-4">
                 {categories.length === 0 ? (
-                    <p className="text-center text-gray-500">No categories found.</p>
+                    <p className="text-center text-gray-500">{t("category_management.empty")}</p>
                 ) : (
                     categories.map(category => (
                         <Card key={category.id} className="shadow-sm">
@@ -224,9 +225,9 @@ const CategoryManagement: React.FC = () => {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-muted-foreground">{category.description || 'No description'}</p>
-                                <p className="text-sm text-gray-500">Order: {category.display_order}</p>
-                                <p className="text-sm text-gray-500">Status: {category.is_active ? 'Active' : 'Inactive'}</p>
+                                <p className="text-muted-foreground">{category.description || t('category_management.no_description')}</p>
+                                <p className="text-sm text-gray-500">{t("category_management.order_value", { order: category.display_order })}</p>
+                                <p className="text-sm text-gray-500">{t("category_management.status_value", { status: category.is_active ? t('common.active') : t('common.inactive') })}</p>
                             </CardContent>
                         </Card>
                     ))
@@ -237,7 +238,7 @@ const CategoryManagement: React.FC = () => {
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Create New Category</DialogTitle>
+                        <DialogTitle>{t("category_management.create_new")}</DialogTitle>
                     </DialogHeader>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleCreateSubmit)} className="space-y-4">
@@ -246,9 +247,9 @@ const CategoryManagement: React.FC = () => {
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Category Name</FormLabel>
+                                        <FormLabel>{t("category_management.name_label")}</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="e.g., Appetizers" {...field} />
+                                            <Input placeholder={t("category_management.name_placeholder")} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -259,9 +260,9 @@ const CategoryManagement: React.FC = () => {
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Description (Optional)</FormLabel>
+                                        <FormLabel>{t("category_management.description_label")}</FormLabel>
                                         <FormControl>
-                                            <Textarea placeholder="A brief description of the category" {...field} />
+                                            <Textarea placeholder={t("category_management.description_placeholder")} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -272,7 +273,7 @@ const CategoryManagement: React.FC = () => {
                                 name="display_order"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Display Order</FormLabel>
+                                        <FormLabel>{t("category_management.display_order")}</FormLabel>
                                         <FormControl>
                                             <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
                                         </FormControl>
@@ -282,10 +283,10 @@ const CategoryManagement: React.FC = () => {
                             />
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} type="button">
-                                    Cancel
+                                    {t("common.cancel")}
                                 </Button>
                                 <Button type="submit" disabled={createCategoryMutation.isPending}>
-                                    {createCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
+                                    {createCategoryMutation.isPending ? t('category_management.creating') : t('category_management.create')}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -297,7 +298,7 @@ const CategoryManagement: React.FC = () => {
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Edit Category</DialogTitle>
+                        <DialogTitle>{t("category_management.edit_title")}</DialogTitle>
                     </DialogHeader>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleEditSubmit)} className="space-y-4">
@@ -306,7 +307,7 @@ const CategoryManagement: React.FC = () => {
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Category Name</FormLabel>
+                                        <FormLabel>{t("category_management.name_label")}</FormLabel>
                                         <FormControl>
                                             <Input {...field} />
                                         </FormControl>
@@ -319,7 +320,7 @@ const CategoryManagement: React.FC = () => {
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Description (Optional)</FormLabel>
+                                        <FormLabel>{t("category_management.description_label")}</FormLabel>
                                         <FormControl>
                                             <Textarea {...field} />
                                         </FormControl>
@@ -332,7 +333,7 @@ const CategoryManagement: React.FC = () => {
                                 name="display_order"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Display Order</FormLabel>
+                                        <FormLabel>{t("category_management.display_order")}</FormLabel>
                                         <FormControl>
                                             <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
                                         </FormControl>
@@ -351,13 +352,13 @@ const CategoryManagement: React.FC = () => {
                                                 checked={field.value}
                                                 onChange={field.onChange}
                                                 className="mt-1 h-4 w-4"
-                                                aria-label="Is Active"
+                                                aria-label={t("category_management.is_active")}
                                             />
                                         </FormControl>
                                         <div className="space-y-1 leading-none">
-                                            <FormLabel>Is Active</FormLabel>
+                                            <FormLabel>{t("category_management.is_active")}</FormLabel>
                                             <p className="text-sm text-muted-foreground">
-                                                Whether this category is currently active and visible.
+                                                {t("category_management.is_active_hint")}
                                             </p>
                                         </div>
                                     </FormItem>
@@ -365,10 +366,10 @@ const CategoryManagement: React.FC = () => {
                             />
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} type="button">
-                                    Cancel
+                                    {t("common.cancel")}
                                 </Button>
                                 <Button type="submit" disabled={updateCategoryMutation.isPending}>
-                                    {updateCategoryMutation.isPending ? 'Saving...' : 'Save Changes'}
+                                    {updateCategoryMutation.isPending ? t('common.saving') : t('category_management.save_changes')}
                                 </Button>
                             </DialogFooter>
                         </form>

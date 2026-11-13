@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { SignupData } from "@/lib/types";
 
 const ownerSignup = vi.fn(async (_data: SignupData) => undefined);
@@ -16,12 +17,13 @@ vi.mock("@/lib/api", () => ({ api: { getModuleCatalog: vi.fn(() => new Promise((
 
 async function fillAndSubmit() {
   const { SignUpForm } = await import("@/components/SignUpForm");
-  const { container } = render(<SignUpForm />);
+  const { container } = render(<MemoryRouter><SignUpForm /></MemoryRouter>);
   const set = (id: string, value: string) =>
     fireEvent.change(container.querySelector(`#${id}`) as HTMLInputElement, { target: { value } });
   set("businessName", "Cafe Atlas");
   set("fullName", "Sara Bennani");
   set("signup-email", "sara@example.test");
+  set("signup-whatsapp", "612345678");  // required since signup proves the owner's WhatsApp
   set("signup-password", "S3cure-pass!");
   set("confirmPassword", "S3cure-pass!");
   fireEvent.click(container.querySelector("#terms") as HTMLInputElement);

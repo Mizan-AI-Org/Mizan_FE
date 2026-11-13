@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { API_BASE } from '@/lib/api';
 import { unwrapEnvelope } from '@/lib/envelope';
+import { useLanguage } from '@/hooks/use-language';
 
 interface Table {
     id: string;
@@ -29,6 +30,7 @@ const authHeader = () => ({
 
 const CleaningTasks: React.FC = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const queryClient = useQueryClient();
 
     const canView =
@@ -45,7 +47,7 @@ const CleaningTasks: React.FC = () => {
                 { headers: authHeader() }
             );
             if (!res.ok) {
-                throw new Error('Failed to load cleaning queue.');
+                throw new Error(t('cleaning_tasks.load_failed'));
             }
             const raw = await res.json();
             try {
@@ -76,7 +78,7 @@ const CleaningTasks: React.FC = () => {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(
                     (body as { detail?: string }).detail ||
-                        'Could not mark table clean.'
+                        t('cleaning_tasks.mark_clean_failed')
                 );
             }
             return res.json();
@@ -85,17 +87,17 @@ const CleaningTasks: React.FC = () => {
             queryClient.invalidateQueries({
                 queryKey: ['tables-needing-cleaning'],
             });
-            toast.success('Table marked clean.');
+            toast.success(t('cleaning_tasks.marked_clean'));
         },
         onError: (err: unknown) => {
-            toast.error(err instanceof Error ? err.message : 'Action failed.');
+            toast.error(err instanceof Error ? err.message : t('cleaning_tasks.action_failed'));
         },
     });
 
     if (!canView) {
         return (
             <div className="max-w-2xl mx-auto px-6 py-16 text-center text-muted-foreground">
-                You do not have permission to view the cleaning queue.
+                {t('cleaning_tasks.no_permission')}
             </div>
         );
     }
@@ -107,17 +109,16 @@ const CleaningTasks: React.FC = () => {
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                             <Sparkles className="h-6 w-6 text-emerald-600" />
-                            Cleaning queue
+                            {t('cleaning_tasks.title')}
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                            Tables flip here after a dine-in order completes.
-                            Wipe them down and tap{' '}
-                            <span className="font-medium">Mark clean</span> so
-                            guests can be seated again.
+                            {t('cleaning_tasks.subtitle_before')}{' '}
+                            <span className="font-medium">{t('cleaning_tasks.mark_clean')}</span>{' '}
+                            {t('cleaning_tasks.subtitle_after')}
                         </p>
                     </div>
                     <Badge variant="secondary" className="h-7">
-                        {tables.length} waiting
+                        {t('cleaning_tasks.waiting', { count: tables.length })}
                     </Badge>
                 </div>
 
@@ -129,17 +130,17 @@ const CleaningTasks: React.FC = () => {
                     <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 p-4 text-sm text-red-700 dark:text-red-300">
                         {error instanceof Error
                             ? error.message
-                            : 'Failed to load cleaning queue.'}
+                            : t('cleaning_tasks.load_failed')}
                     </div>
                 ) : tables.length === 0 ? (
                     <Card>
                         <CardContent className="py-12 text-center text-muted-foreground">
                             <Sparkles className="h-8 w-8 mx-auto mb-3 text-emerald-500" />
                             <p className="font-medium text-slate-800 dark:text-slate-200">
-                                No tables need cleaning right now.
+                                {t('cleaning_tasks.empty_title')}
                             </p>
                             <p className="text-sm mt-1">
-                                Good job keeping the floor ready.
+                                {t('cleaning_tasks.empty_body')}
                             </p>
                         </CardContent>
                     </Card>
@@ -152,12 +153,12 @@ const CleaningTasks: React.FC = () => {
                             >
                                 <CardHeader className="pb-3">
                                     <CardTitle className="flex items-center justify-between text-lg">
-                                        <span>Table {table.table_number}</span>
+                                        <span>{t('cleaning_tasks.table_number', { number: table.table_number })}</span>
                                         <Badge
                                             variant="outline"
                                             className="border-amber-300 text-amber-700 dark:text-amber-300"
                                         >
-                                            needs cleaning
+                                            {t('cleaning_tasks.needs_cleaning')}
                                         </Badge>
                                     </CardTitle>
                                 </CardHeader>
@@ -165,7 +166,7 @@ const CleaningTasks: React.FC = () => {
                                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                         <span className="inline-flex items-center gap-1.5">
                                             <Users className="h-4 w-4" />
-                                            {table.capacity} seats
+                                            {t('cleaning_tasks.seats', { count: table.capacity })}
                                         </span>
                                         {table.section && (
                                             <span className="truncate">
@@ -181,8 +182,8 @@ const CleaningTasks: React.FC = () => {
                                         disabled={markClean.isPending}
                                     >
                                         {markClean.isPending
-                                            ? 'Working…'
-                                            : 'Mark clean'}
+                                            ? t('cleaning_tasks.working')
+                                            : t('cleaning_tasks.mark_clean')}
                                     </Button>
                                 </CardContent>
                             </Card>

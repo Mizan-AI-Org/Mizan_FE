@@ -45,12 +45,19 @@ export interface SignupData {
         whatsapp_phone?: string;
         phone?: string;
         pin_code?: string;
+        /** UI language at signup (en | fr | ar): becomes the business's and the owner's language. */
+        language?: string;
+        /** Terms of use + privacy policy accepted (the server refuses signup without it) and the text version. */
+        accept_terms?: boolean;
+        terms_version?: string;
     };
     restaurant: {
         name: string;
         address: string;
         phone: string;
         email: string;
+        /** ISO country of the business (MA default): its dial code reads a national WhatsApp number. */
+        country?: string;
         /** Saved to general_settings.business_vertical on the backend */
         business_vertical?: string;
         /** Modules chosen at signup (general_settings.enabled_modules); core modules are always added. */
@@ -161,6 +168,8 @@ export interface BillingInvoiceRow {
     reportedAt: string | null;
     reportedReference: string;
     reportedNote: string;
+    reportedReceiptUrl?: string | null;
+    transferReference?: string;
 }
 
 export interface BillingPaymentInstructions {
@@ -194,7 +203,7 @@ export interface BillingBundleOffer {
     extraMonthly: number;
 }
 
-export type BillingState = "trial" | "trial_over" | "active" | "due" | "overdue" | "suspended" | "none";
+export type BillingState = "trial" | "trial_over" | "active" | "due" | "overdue" | "suspended" | "canceled" | "inactive" | "none";
 
 export interface BillingOverview {
     moduleBilling: boolean;
@@ -215,6 +224,57 @@ export interface BillingOverview {
     invoices: BillingInvoiceRow[];
     paymentInstructions: BillingPaymentInstructions;
     billingDetails: BillingDetails;
+    graceDays?: number;
+    trialGranted?: boolean;
+    cancelAtPeriodEnd?: boolean;
+    cancelEffectiveAt?: string | null;
+    canceledAt?: string | null;
+    pendingModules?: string[] | null;
+    pendingEffectiveAt?: string | null;
+    selectedModules?: string[];
+}
+
+export interface BillingCharge {
+    subtotal: number;
+    taxRate: number;
+    tax: number;
+    total: number;
+}
+
+export interface PlanChangePreview {
+    added: string[];
+    removed: string[];
+    addedLabels: string[];
+    removedLabels: string[];
+    modules: string[];
+    changed: boolean;
+    removedEffectiveAt: string | null;
+    chargeNow: BillingCharge | null;
+    currentBill: BillingQuote;
+    nextBill: BillingQuote;
+    inTrial: boolean;
+    interval: "month" | "year";
+}
+
+export interface CancelPreview {
+    effectiveAt: string;
+    immediate: boolean;
+    inTrial: boolean;
+    openBalance: number;
+    openInvoices: string[];
+}
+
+export interface BillingOpsAlertRow {
+    id: string;
+    kind: string;
+    title: string;
+    body: string;
+    restaurantId: string | null;
+    restaurantName: string;
+    invoiceId: string | null;
+    delivered: { whatsapp?: number; email?: number };
+    createdAt: string;
+    resolvedAt: string | null;
 }
 
 export interface BillingInvoiceDocument extends BillingInvoiceRow {

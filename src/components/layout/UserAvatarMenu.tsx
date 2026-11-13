@@ -113,7 +113,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
       <Button
         variant="ghost"
         className={cn("h-10 w-10 rounded-full p-0", className)}
-        aria-label="User profile menu"
+        aria-label={t('layout.user_profile_menu')}
       >
         <Avatar className="h-10 w-10 ring-2 ring-white/40 dark:ring-slate-800">
           <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-semibold">
@@ -128,7 +128,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           "h-auto w-full justify-start gap-3 rounded-xl p-2 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors",
           className,
         )}
-        aria-label="User profile menu"
+        aria-label={t('layout.user_profile_menu')}
       >
         <Avatar className="h-9 w-9 shrink-0 ring-2 ring-white/40 dark:ring-slate-800/60">
           <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-semibold text-[12px]">

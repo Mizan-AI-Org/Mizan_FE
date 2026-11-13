@@ -411,6 +411,21 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   return response;
 }
 
+export type ReservationInput = {
+  name: string;
+  phone?: string;
+  party_size: number;
+  starts_at: string;
+  table?: string;
+  notes?: string;
+};
+
+async function assertReservationOk(response: Response, fallback: string): Promise<void> {
+  if (response.ok) return;
+  const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+  throw new Error(data?.error || data?.detail || fallback);
+}
+
 /**
  * PATCH /auth/me/language/ body. business=true also makes it the business default (owners / settings managers);
  * businessOnly=true changes only the business default (the person's own language stays; 403 without settings rights).
@@ -689,12 +704,13 @@ export class BackendService {
     }
   }
 
-  async requestPasswordReset(email: string): Promise<{ message: string }> {
+  /** `identifier`: the account's email or WhatsApp number; the answer never says whether an account matched. */
+  async requestPasswordReset(identifier: string): Promise<{ message: string }> {
     try {
       const response = await fetch(`${API_BASE}/password-reset-request/`, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(identifier.includes("@") ? { email: identifier } : { identifier }),
       });
 
       // Read raw text first to handle non-JSON responses gracefully
@@ -743,7 +759,8 @@ export class BackendService {
       if (!response.ok) {
         const message = (parsed && (parsed.error || parsed.message || parsed.detail))
           || `Password reset failed (${response.status})`;
-        throw new Error(message);
+        const { accountErrorText } = await import("@/lib/accountErrors");
+        throw new Error(accountErrorText(parsed?.code, message));
       }
 
       if (parsed) {
@@ -2484,11 +2501,51 @@ export class BackendService {
   }
 
   /** "We paid this by bank transfer": Mizan confirms it against the bank, then marks it paid. */
-  async reportBillingPayment(id: string, reference: string, note = ""): Promise<BillingInvoiceRow> {
-    return this.peopleRequest(localStorage.getItem("access_token") || "", `/billing/invoices/${id}/report-payment/`, {
+  async reportBillingPayment(id: string, reference = "", note = "", receipt?: File | null): Promise<BillingInvoiceRow> {
+    const token = localStorage.getItem("access_token") || "";
+    if (receipt) {
+      const form = new FormData();
+      form.append("reference", reference);
+      form.append("note", note);
+      form.append("receipt", receipt);
+      return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, { method: "POST", body: form });
+    }
+    return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, {
       method: "POST",
       body: JSON.stringify({ reference, note }),
     });
+  }
+
+  async previewPlanChange(modules: string[]): Promise<import("./types").PlanChangePreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules, preview: true }),
+    });
+  }
+
+  async changePlan(modules: string[]): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules }),
+    });
+  }
+
+  async previewCancelSubscription(): Promise<import("./types").CancelPreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "POST",
+      body: JSON.stringify({ preview: true }),
+    });
+  }
+
+  async cancelSubscription(reason = ""): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async resumeSubscription(): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/resume/", { method: "POST" });
   }
 
   async listApprovals(scope: "mine" | "pending" | "requested" | "decided" | "all" = "mine"): Promise<ApprovalsListResponse> {
@@ -3880,6 +3937,7 @@ export class BackendService {
       phone?: string;
       email?: string;
       notes?: string;
+      table?: string;
     }>;
     count?: number;
     error?: string;
@@ -3915,6 +3973,41 @@ export class BackendService {
       reservations: data.reservations || [],
       count: data.count ?? (data.reservations || []).length,
     };
+  }
+
+  /** Manual reservations (create / edit / status), Mizan_BE apps/operations/reservation_views.py. */
+  async createReservation(accessToken: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
+  }
+
+  async updateReservation(accessToken: string, id: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/`, {
+      method: "PATCH",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
+  }
+
+  async setReservationStatus(
+    accessToken: string,
+    id: string,
+    status: "booked" | "seated" | "completed" | "cancelled" | "no_show"
+  ): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/status/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+      throw new Error(data?.error || data?.detail || "Could not update the reservation");
+    }
   }
 
   async postEatNowDiscover(

@@ -171,8 +171,8 @@ const StaffAnnouncements: React.FC = () => {
       .trim();
     if (!formData.title.trim() || !plainMessage) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in both title and message fields.",
+        title: t("announcements.validation_title"),
+        description: t("announcements.validation_body"),
         variant: "destructive",
       });
       return;
@@ -183,7 +183,7 @@ const StaffAnnouncements: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("access_token");
       if (!accessToken) {
-        throw new Error("No access token found");
+        throw new Error(t("announcements.no_session"));
       }
 
       const announcementData: AnnouncementFormData = {
@@ -194,7 +194,7 @@ const StaffAnnouncements: React.FC = () => {
       };
 
       if (tags.length) {
-        announcementData.tags = tags.map((t) => t.trim()).filter(Boolean);
+        announcementData.tags = tags.map((tag) => tag.trim()).filter(Boolean);
       }
 
       if (recipientMode === "STAFF") {
@@ -239,8 +239,8 @@ const StaffAnnouncements: React.FC = () => {
       );
 
       toast({
-        title: "Announcement Created",
-        description: `${result.message} (${result.notification_count} recipients)`,
+        title: t("announcements.created_title"),
+        description: t("announcements.created_body", { message: result.message, count: result.notification_count }),
       });
 
       // Reset form
@@ -261,11 +261,11 @@ const StaffAnnouncements: React.FC = () => {
       setTagInput("");
     } catch (error) {
       toast({
-        title: "Error",
+        title: t("auth.accept.toast_error"),
         description:
           error instanceof Error
             ? error.message
-            : "Failed to create announcement",
+            : t("announcements.create_failed"),
         variant: "destructive",
       });
     } finally {
@@ -290,15 +290,14 @@ const StaffAnnouncements: React.FC = () => {
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">
-          Staff Announcements
+          {t("announcements.title")}
         </h1>
         <p className="text-gray-600 mt-2">
-          Create and send announcements to all staff members in your restaurant.
+          {t("announcements.subtitle")}
         </p>
         {!canCompose && (
           <div className="mt-3 p-3 rounded-md border bg-yellow-50 text-yellow-900">
-            You do not have permission to create announcements. Please contact
-            an administrator.
+            {t("announcements.no_permission")}
           </div>
         )}
       </div>
@@ -309,7 +308,7 @@ const StaffAnnouncements: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title Field */}
             <div className="space-y-2">
-              <Label htmlFor="title">Announcement Title *</Label>
+              <Label htmlFor="title">{t("announcements.title_label")} *</Label>
               <Input
                 id="title"
                 placeholder={t("announcements.placeholder_title")}
@@ -322,7 +321,7 @@ const StaffAnnouncements: React.FC = () => {
 
             {/* Message Field - Rich Text Editor */}
             <div className="space-y-2">
-              <Label>Message *</Label>
+              <Label>{t("announcements.message_label")} *</Label>
               <div className="border rounded-md">
                 <div className="flex items-center gap-1 p-2 border-b">
                   <Button
@@ -330,7 +329,7 @@ const StaffAnnouncements: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => document.execCommand("bold")}
-                    aria-label="Bold"
+                    aria-label={t("announcements.format_bold")}
                     disabled={!canCompose}
                   >
                     <span className="font-bold">B</span>
@@ -340,7 +339,7 @@ const StaffAnnouncements: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => document.execCommand("italic")}
-                    aria-label="Italic"
+                    aria-label={t("announcements.format_italic")}
                     disabled={!canCompose}
                   >
                     <span className="italic">I</span>
@@ -350,7 +349,7 @@ const StaffAnnouncements: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => document.execCommand("underline")}
-                    aria-label="Underline"
+                    aria-label={t("announcements.format_underline")}
                     disabled={!canCompose}
                   >
                     <span className="underline">U</span>
@@ -360,33 +359,33 @@ const StaffAnnouncements: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => document.execCommand("insertUnorderedList")}
-                    aria-label="Bullet list"
+                    aria-label={t("announcements.format_bullets")}
                     disabled={!canCompose}
                   >
-                    • List
+                    • {t("announcements.format_list")}
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => document.execCommand("insertOrderedList")}
-                    aria-label="Numbered list"
+                    aria-label={t("announcements.format_numbered")}
                     disabled={!canCompose}
                   >
-                    1. List
+                    1. {t("announcements.format_list")}
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      const url = window.prompt("Enter URL");
+                      const url = window.prompt(t("announcements.enter_url"));
                       if (url) document.execCommand("createLink", false, url);
                     }}
-                    aria-label="Insert link"
+                    aria-label={t("announcements.insert_link")}
                     disabled={!canCompose}
                   >
-                    Link
+                    {t("announcements.link")}
                   </Button>
                 </div>
                 <div
@@ -405,13 +404,13 @@ const StaffAnnouncements: React.FC = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Basic formatting supported. Message is delivered as plain text.
+                {t("announcements.formatting_hint")}
               </p>
             </div>
 
             {/* Tags */}
             <div className="space-y-2">
-              <Label htmlFor="tags">Categories / Tags</Label>
+              <Label htmlFor="tags">{t("announcements.tags_label")}</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="tags"
@@ -439,22 +438,22 @@ const StaffAnnouncements: React.FC = () => {
                   }}
                   disabled={!canCompose}
                 >
-                  Add
+                  {t("common.add")}
                 </Button>
               </div>
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-2" aria-live="polite">
-                  {tags.map((t, idx) => (
+                  {tags.map((tag, idx) => (
                     <span
-                      key={`${t}-${idx}`}
+                      key={`${tag}-${idx}`}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-muted text-sm"
                     >
-                      {t}
+                      {tag}
                       <button
                         type="button"
                         className="ml-1 text-muted-foreground hover:text-foreground"
-                        aria-label={`Remove tag ${t}`}
-                        onClick={() => setTags(tags.filter((x) => x !== t))}
+                        aria-label={t("announcements.remove_tag", { tag })}
+                        onClick={() => setTags(tags.filter((x) => x !== tag))}
                         disabled={!canCompose}
                       >
                         ×
@@ -467,7 +466,7 @@ const StaffAnnouncements: React.FC = () => {
 
             {/* Attachments */}
             <div className="space-y-2">
-              <Label>Attachments</Label>
+              <Label>{t("generic.attachments")}</Label>
               <Input
                 type="file"
                 multiple
@@ -479,7 +478,7 @@ const StaffAnnouncements: React.FC = () => {
               {attachments.length > 0 && (
                 <div className="border rounded-md p-2">
                   <p className="text-xs text-muted-foreground mb-2">
-                    {attachments.length} file(s) selected
+                    {t("announcements.files_selected", { count: attachments.length })}
                   </p>
                   <ul className="space-y-1">
                     {attachments.map((file, idx) => (
@@ -504,7 +503,7 @@ const StaffAnnouncements: React.FC = () => {
                               )
                             }
                           >
-                            Remove
+                            {t("common.remove")}
                           </Button>
                         </div>
                       </li>
@@ -516,7 +515,7 @@ const StaffAnnouncements: React.FC = () => {
 
             {/* Priority Field */}
             <div className="space-y-2">
-              <Label htmlFor="priority">Priority Level</Label>
+              <Label htmlFor="priority">{t("announcements.priority_label")}</Label>
               <Select
                 value={formData.priority}
                 onValueChange={(value) =>
@@ -530,7 +529,7 @@ const StaffAnnouncements: React.FC = () => {
                   <SelectValue>
                     <div className="flex items-center gap-2">
                       {getPriorityIcon(formData.priority)}
-                      {formData.priority}
+                      {t(`announcements.priority.${formData.priority.toLowerCase()}`)}
                     </div>
                   </SelectValue>
                 </SelectTrigger>
@@ -538,25 +537,25 @@ const StaffAnnouncements: React.FC = () => {
                   <SelectItem value="LOW">
                     <div className="flex items-center gap-2">
                       {getPriorityIcon("LOW")}
-                      Low
+                      {t("announcements.priority.low")}
                     </div>
                   </SelectItem>
                   <SelectItem value="MEDIUM">
                     <div className="flex items-center gap-2">
                       {getPriorityIcon("MEDIUM")}
-                      Medium
+                      {t("announcements.priority.medium")}
                     </div>
                   </SelectItem>
                   <SelectItem value="HIGH">
                     <div className="flex items-center gap-2">
                       {getPriorityIcon("HIGH")}
-                      High
+                      {t("announcements.priority.high")}
                     </div>
                   </SelectItem>
                   <SelectItem value="URGENT">
                     <div className="flex items-center gap-2">
                       {getPriorityIcon("URGENT")}
-                      Urgent
+                      {t("announcements.priority.urgent")}
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -565,7 +564,7 @@ const StaffAnnouncements: React.FC = () => {
 
             {/* Recipients Selection */}
             <div className="space-y-3">
-              <Label>Recipients</Label>
+              <Label>{t("announcements.recipients_label")}</Label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-2 md:col-span-1">
                   <Select
@@ -576,24 +575,19 @@ const StaffAnnouncements: React.FC = () => {
                   >
                     <SelectTrigger>
                       <SelectValue>
-                        {recipientMode === "ALL"
-                          ? "All Staff"
-                          : recipientMode === "STAFF"
-                            ? "Specific Staff"
-                            : "Departments"}
+                        {t(`announcements.recipients.${recipientMode.toLowerCase()}`)}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">All Staff</SelectItem>
-                      <SelectItem value="STAFF">Specific Staff</SelectItem>
-                      <SelectItem value="DEPARTMENT">Departments</SelectItem>
-                      <SelectItem value="ROLE">Roles / Positions</SelectItem>
-                      <SelectItem value="SHIFT">Assigned Shifts</SelectItem>
+                      <SelectItem value="ALL">{t("announcements.recipients.all")}</SelectItem>
+                      <SelectItem value="STAFF">{t("announcements.recipients.staff")}</SelectItem>
+                      <SelectItem value="DEPARTMENT">{t("announcements.recipients.department")}</SelectItem>
+                      <SelectItem value="ROLE">{t("announcements.recipients.role")}</SelectItem>
+                      <SelectItem value="SHIFT">{t("announcements.recipients.shift")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Target specific staff, departments, roles, or selected
-                    shifts. Defaults to all staff.
+                    {t("announcements.recipients_hint")}
                   </p>
                 </div>
 
@@ -604,7 +598,7 @@ const StaffAnnouncements: React.FC = () => {
                         <ListSkeleton rowCount={4} lineCount={1} showAvatar={false} className="max-h-56" />
                       ) : staffProfiles.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                          No staff profiles found.
+                          {t("announcements.no_staff")}
                         </p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto border rounded-md p-2">
@@ -641,7 +635,7 @@ const StaffAnnouncements: React.FC = () => {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Selected: {selectedStaffIds.length}
+                        {t("announcements.selected_count", { count: selectedStaffIds.length })}
                       </p>
                     </div>
                   )}
@@ -652,7 +646,7 @@ const StaffAnnouncements: React.FC = () => {
                         <ListSkeleton rowCount={3} lineCount={1} showAvatar={false} className="max-h-56" />
                       ) : uniqueDepartments.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                          No departments found.
+                          {t("announcements.no_departments")}
                         </p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto border rounded-md p-2">
@@ -679,7 +673,7 @@ const StaffAnnouncements: React.FC = () => {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Selected: {selectedDepartments.length}
+                        {t("announcements.selected_count", { count: selectedDepartments.length })}
                       </p>
                     </div>
                   )}
@@ -690,7 +684,7 @@ const StaffAnnouncements: React.FC = () => {
                         <ListSkeleton rowCount={3} lineCount={1} showAvatar={false} className="max-h-56" />
                       ) : uniqueRoles.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                          No roles found.
+                          {t("announcements.no_roles")}
                         </p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto border rounded-md p-2">
@@ -717,7 +711,7 @@ const StaffAnnouncements: React.FC = () => {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Selected: {selectedRoles.length}
+                        {t("announcements.selected_count", { count: selectedRoles.length })}
                       </p>
                     </div>
                   )}
@@ -728,7 +722,7 @@ const StaffAnnouncements: React.FC = () => {
                         <ListSkeleton rowCount={4} lineCount={2} showAvatar={false} className="max-h-56" />
                       ) : assignedShifts.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                          No upcoming shifts found.
+                          {t("announcements.no_shifts")}
                         </p>
                       ) : (
                         <div className="grid grid-cols-1 gap-2 max-h-56 overflow-auto border rounded-md p-2">
@@ -771,7 +765,7 @@ const StaffAnnouncements: React.FC = () => {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Selected: {selectedShiftIds.length}
+                        {t("announcements.selected_count", { count: selectedShiftIds.length })}
                       </p>
                     </div>
                   )}
@@ -783,7 +777,7 @@ const StaffAnnouncements: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Expiration Date */}
               <div className="space-y-2">
-                <Label>Expiration Date (Optional)</Label>
+                <Label>{t("announcements.expiration_label")}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -796,7 +790,7 @@ const StaffAnnouncements: React.FC = () => {
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {expirationDate
                         ? format(expirationDate, "PPP")
-                        : "Select expiration date"}
+                        : t("announcements.select_expiration")}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -812,7 +806,7 @@ const StaffAnnouncements: React.FC = () => {
 
               {/* Schedule Date */}
               <div className="space-y-2">
-                <Label>Schedule For Later (Optional)</Label>
+                <Label>{t("announcements.schedule_label")}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -850,7 +844,7 @@ const StaffAnnouncements: React.FC = () => {
                     size="sm"
                     onClick={() => setExpirationDate(undefined)}
                   >
-                    Clear Expiration
+                    {t("announcements.clear_expiration")}
                   </Button>
                 )}
                 {scheduleDate && (
@@ -860,7 +854,7 @@ const StaffAnnouncements: React.FC = () => {
                     size="sm"
                     onClick={() => setScheduleDate(undefined)}
                   >
-                    Clear Schedule
+                    {t("announcements.clear_schedule")}
                   </Button>
                 )}
               </div>
@@ -880,12 +874,12 @@ const StaffAnnouncements: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <Clock className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
+                    {t("announcements.sending")}
                   </>
                 ) : (
                   <>
                     <Send className="mr-2 h-4 w-4" />
-                    Send Announcement
+                    {t("announcements.send")}
                   </>
                 )}
               </Button>

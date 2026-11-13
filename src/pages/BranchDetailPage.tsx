@@ -383,23 +383,23 @@ function KpiStrip({
       />
       <Tile
         icon={<AlertTriangle className="h-4 w-4" />}
-        label="Unfilled shifts"
+        label={t("branch_detail.kpi.unfilled_shifts")}
         value={String(metrics.shift_gaps_today)}
-        subtitle="Today"
+        subtitle={t("schedule.today")}
         tone={metrics.shift_gaps_today > 0 ? "amber" : "neutral"}
       />
       <Tile
         icon={<ArrowRightLeft className="h-4 w-4" />}
-        label="Pending swaps"
+        label={t("branch_detail.kpi.pending_swaps")}
         value={String(metrics.pending_swap_requests)}
-        subtitle="Awaiting approval"
+        subtitle={t("branch_detail.kpi.awaiting_approval")}
         tone={metrics.pending_swap_requests > 0 ? "amber" : "neutral"}
       />
       <Tile
         icon={<Wallet className="h-4 w-4" />}
-        label="Cash variance"
+        label={t("branch_detail.kpi.cash_variance")}
         value={formatPortfolioMoney(metrics.cash_variance_today, language)}
-        subtitle="Today, all sessions"
+        subtitle={t("branch_detail.kpi.today_all_sessions")}
         tone={metrics.cash_variance_today !== 0 ? "red" : "neutral"}
       />
       <Tile
@@ -518,12 +518,16 @@ function StaffRosterCard({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-sm font-semibold tracking-tight">
-              Branch team
+              {t("branch_detail.staff.title")}
             </div>
             <div className="text-xs text-muted-foreground">
               {summary
-                ? `${summary.home} home · ${summary.total - summary.home} also allowed · ${summary.clocked_in_now} in now`
-                : `${staff.length} people`}
+                ? t("branch_detail.staff.summary", {
+                    home: summary.home,
+                    guests: summary.total - summary.home,
+                    in_now: summary.clocked_in_now,
+                  })
+                : t("branch_detail.staff.people_count", { count: staff.length })}
             </div>
           </div>
           {staff.length > 0 ? (
@@ -538,7 +542,7 @@ function StaffRosterCard({
                 }
               }}
             >
-              {allSelected ? "Deselect all" : "Select all"}
+              {allSelected ? t("branch_detail.staff.deselect_all") : t("branch_detail.staff.select_all")}
             </Button>
           ) : null}
         </div>
@@ -573,7 +577,7 @@ function StaffRosterCard({
                   <Checkbox
                     checked={selected}
                     onCheckedChange={() => onToggle(m)}
-                    aria-label={`Select ${m.first_name}`}
+                    aria-label={t("branch_detail.staff.select_member", { name: m.first_name })}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -582,12 +586,12 @@ function StaffRosterCard({
                       </span>
                       {m.clocked_in ? (
                         <Badge className="bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-                          In now
+                          {t("branch_detail.staff.in_now")}
                         </Badge>
                       ) : null}
                       {!m.is_home ? (
                         <Badge variant="outline" className="text-[10px]">
-                          Guest access
+                          {t("branch_detail.staff.guest_access")}
                         </Badge>
                       ) : null}
                     </div>
@@ -596,7 +600,7 @@ function StaffRosterCard({
                       {m.phone ? ` · ${m.phone}` : m.email ? ` · ${m.email}` : ""}
                       {m.hourly_rate != null ? ` · ${formatMoney(m.hourly_rate)}/h` : ""}
                       {m.last_seen
-                        ? ` · last seen ${formatDay(m.last_seen)}`
+                        ? ` · ${t("branch_detail.staff.last_seen", { when: formatDay(m.last_seen) })}`
                         : ""}
                     </div>
                   </div>
@@ -605,7 +609,7 @@ function StaffRosterCard({
                       {(m.hours_7d ?? 0) > 0 ? `${m.hours_7d}h` : "0h"}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      7d
+                      {t("branch_detail.staff.last_7d_short")}
                       {(m.labor_cost_7d ?? 0) > 0
                         ? ` · ${formatMoney(m.labor_cost_7d ?? 0)}`
                         : ""}
@@ -616,7 +620,7 @@ function StaffRosterCard({
                     size="sm"
                     className="shrink-0"
                     onClick={() => onMoveOne(m)}
-                    title="Move to another branch"
+                    title={t("branch_detail.staff.move_one")}
                   >
                     <ArrowRightLeft className="h-4 w-4" />
                   </Button>
@@ -639,7 +643,7 @@ function PerformanceSection({
 }) {
   const { t } = useLanguage();
   if (!performance) {
-    return <EmptyRow text="Performance data unavailable." />;
+    return <EmptyRow text={t("branch_detail.perf.unavailable")} />;
   }
 
   const s30 = performance.summary;
@@ -667,45 +671,46 @@ function PerformanceSection({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Tile
           icon={<ClipboardCheck className="h-4 w-4" />}
-          label="Attendance (30d)"
+          label={t("branch_detail.perf.attendance_30d")}
           value={
             s30.attendance_pct === null ? "-" : `${s30.attendance_pct}%`
           }
-          subtitle={`${s30.completed_shifts}/${s30.scheduled_shifts} shifts`}
+          subtitle={t("branch_detail.perf.shifts_ratio", { done: s30.completed_shifts, total: s30.scheduled_shifts })}
         />
         <Tile
           icon={<Clock className="h-4 w-4" />}
-          label="No-shows (30d)"
+          label={t("branch_detail.perf.no_shows_30d")}
           value={String(s30.no_shows)}
           tone={s30.no_shows > 0 ? "red" : "neutral"}
-          subtitle={`Last 7 days: ${s7.no_shows}`}
+          subtitle={t("branch_detail.perf.last_7_days", { value: s7.no_shows })}
         />
         <Tile
           icon={<DollarSign className="h-4 w-4" />}
-          label="Labor cost (30d)"
+          label={t("branch_detail.perf.labor_cost_30d")}
           value={formatMoney(s30.labor_cost)}
-          subtitle={`${s30.hours_worked}h worked`}
+          subtitle={t("branch_detail.perf.hours_worked", { hours: s30.hours_worked })}
         />
         <Tile
           icon={<MapPinOff className="h-4 w-4" />}
-          label="Mismatches (30d)"
+          label={t("branch_detail.perf.mismatches_30d")}
           value={String(s30.mismatches)}
           tone={s30.mismatches > 0 ? "red" : "neutral"}
-          subtitle={`Last 7 days: ${s7.mismatches}`}
+          subtitle={t("branch_detail.perf.last_7_days", { value: s7.mismatches })}
         />
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <Tile
           icon={<ClipboardCheck className="h-4 w-4" />}
-          label="Attendance (7d)"
+          label={t("branch_detail.perf.attendance_7d")}
           value={s7.attendance_pct === null ? "-" : `${s7.attendance_pct}%`}
           subtitle={
             attendanceDelta === null
-              ? `${s7.completed_shifts}/${s7.scheduled_shifts} shifts`
-              : `${s7.completed_shifts}/${s7.scheduled_shifts} shifts · ${
-                  attendanceDelta >= 0 ? "+" : ""
-                }${attendanceDelta}pt vs 30d`
+              ? t("branch_detail.perf.shifts_ratio", { done: s7.completed_shifts, total: s7.scheduled_shifts })
+              : `${t("branch_detail.perf.shifts_ratio", { done: s7.completed_shifts, total: s7.scheduled_shifts })} · ${t(
+                  "branch_detail.perf.delta_vs_30d",
+                  { delta: `${attendanceDelta >= 0 ? "+" : ""}${attendanceDelta}` },
+                )}`
           }
           tone={
             attendanceDelta !== null && attendanceDelta < 0 ? "amber" : "neutral"
@@ -713,13 +718,13 @@ function PerformanceSection({
         />
         <Tile
           icon={<DollarSign className="h-4 w-4" />}
-          label="Labor (7d)"
+          label={t("branch_detail.perf.labor_7d")}
           value={formatMoney(s7.labor_cost)}
           subtitle={`${s7.hours_worked}h`}
         />
         <Tile
           icon={<Users className="h-4 w-4" />}
-          label="Shifts scheduled (7d)"
+          label={t("branch_detail.perf.shifts_scheduled_7d")}
           value={String(s7.scheduled_shifts)}
         />
       </div>
@@ -727,30 +732,30 @@ function PerformanceSection({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Tile
           icon={<DollarSign className="h-4 w-4" />}
-          label="Avg labor / active day"
+          label={t("branch_detail.perf.avg_labor_day")}
           value={formatMoney(avgLabor)}
-          subtitle={`${activeDays} active days in window`}
+          subtitle={t("branch_detail.perf.active_days", { count: activeDays })}
         />
         <Tile
           icon={<Clock className="h-4 w-4" />}
-          label="Avg hours / active day"
+          label={t("branch_detail.perf.avg_hours_day")}
           value={`${Math.round(avgHours * 10) / 10}h`}
         />
         <Tile
           icon={<DollarSign className="h-4 w-4" />}
-          label="Busiest day"
+          label={t("branch_detail.perf.busiest_day")}
           value={busiest && busiest.labor_cost > 0 ? busiest.label : "-"}
           subtitle={
             busiest && busiest.labor_cost > 0
               ? `${formatMoney(busiest.labor_cost)} · ${busiest.hours_worked}h`
-              : "No labor recorded"
+              : t("branch_detail.perf.no_labor")
           }
         />
         <Tile
           icon={<ClipboardCheck className="h-4 w-4" />}
-          label="Completed shifts (30d)"
+          label={t("branch_detail.perf.completed_shifts_30d")}
           value={String(s30.completed_shifts)}
-          subtitle={`of ${s30.scheduled_shifts} scheduled`}
+          subtitle={t("branch_detail.perf.of_scheduled", { count: s30.scheduled_shifts })}
         />
       </div>
 
@@ -759,7 +764,7 @@ function PerformanceSection({
           <CardContent className="p-4">
             <SectionHeader
               title={t("generic.labor")}
-              subtitle="Last 30 days · cost and hours"
+              subtitle={t("branch_detail.perf.labor_chart_sub")}
             />
             {chartData.length === 0 ? (
               <EmptyRow text="No activity in this window." />
@@ -787,7 +792,7 @@ function PerformanceSection({
                     <Tooltip
                       formatter={(value: number, name: string) => {
                         if (name === "labor_cost") return [formatMoney(value), t("generic.labor")];
-                        if (name === "hours_worked") return [`${value}h`, "Hours"];
+                        if (name === "hours_worked") return [`${value}h`, t("generic.hours")];
                         return [value, name];
                       }}
                     />
@@ -818,7 +823,7 @@ function PerformanceSection({
           <CardContent className="p-4">
             <SectionHeader
               title={t("generic.attendance")}
-              subtitle="Last 30 days · scheduled vs completed"
+              subtitle={t("branch_detail.perf.attendance_chart_sub")}
             />
             {chartData.length === 0 ? (
               <EmptyRow text="No activity in this window." />
@@ -839,10 +844,10 @@ function PerformanceSection({
                     <YAxis tick={{ fontSize: 10 }} width={32} allowDecimals={false} />
                     <Tooltip
                       formatter={(value: number, name: string) => {
-                        if (name === "scheduled") return [value, "Scheduled"];
+                        if (name === "scheduled") return [value, t("status.SCHEDULED")];
                         if (name === "completed") return [value, t("generic.completed")];
-                        if (name === "no_shows") return [value, "No-shows"];
-                        if (name === "mismatches") return [value, "Mismatches"];
+                        if (name === "no_shows") return [value, t("locations_overview.kpi.no_shows")];
+                        if (name === "mismatches") return [value, t("locations_overview.stat.mismatches")];
                         return [value, name];
                       }}
                     />
@@ -894,33 +899,33 @@ function BranchProfileCard({
       <CardContent className="space-y-3 p-4">
         <SectionHeader title={t("generic.branch_profile")} />
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
-          <InfoRow label="Name" value={location.name} />
+          <InfoRow label={t("common.name")} value={location.name} />
           <InfoRow
-            label="Status"
-            value={location.is_active ? "Active" : "Inactive"}
+            label={t("common.status")}
+            value={location.is_active ? t("common.active") : t("common.inactive")}
           />
           <InfoRow
-            label="Address"
-            value={location.address || "Not set"}
+            label={t("generic.address")}
+            value={location.address || t("branch_detail.info.not_set")}
           />
           <InfoRow
-            label="Timezone"
-            value={location.timezone || "Workspace default"}
+            label={t("branch_detail.info.timezone")}
+            value={location.timezone || t("branch_detail.info.workspace_default")}
           />
           <InfoRow
-            label="Geofence"
+            label={t("branch_detail.info.geofence")}
             value={
               location.geofence_enabled
-                ? `On · ${location.radius_m ?? "-"}m radius`
-                : "Off"
+                ? t("branch_detail.info.geofence_on", { radius: location.radius_m ?? "-" })
+                : t("branch_detail.info.off")
             }
           />
           <InfoRow
-            label="Coordinates"
+            label={t("generic.coordinates")}
             value={
               location.latitude != null && location.longitude != null
                 ? `${location.latitude}, ${location.longitude}`
-                : "Not set"
+                : t("branch_detail.info.not_set")
             }
           />
         </dl>
@@ -932,7 +937,7 @@ function BranchProfileCard({
               rel="noreferrer"
             >
               <MapPin className="mr-1.5 h-3.5 w-3.5" />
-              Open in Maps
+              {t("branch_detail.info.open_maps")}
             </a>
           </Button>
         ) : null}
@@ -963,8 +968,8 @@ function ShiftsCard({
     <Card>
       <CardContent className="p-4">
         <SectionHeader
-          title="Today's shifts"
-          subtitle={`${shifts.length} scheduled`}
+          title={t("branch_detail.today.shifts_title")}
+          subtitle={t("branch_detail.today.scheduled_count", { count: shifts.length })}
         />
         {shifts.length === 0 ? (
           <EmptyRow
@@ -1002,6 +1007,7 @@ function ShiftsCard({
 }
 
 function ShiftStatusBadge({ status }: { status: string }) {
+  const { t } = useLanguage();
   const variant =
     status === "NO_SHOW"
       ? "destructive"
@@ -1010,7 +1016,7 @@ function ShiftStatusBadge({ status }: { status: string }) {
         : "secondary";
   return (
     <Badge variant={variant} className="shrink-0 text-[10px]">
-      {status.replace(/_/g, " ")}
+      {t(`status.${status}`, { defaultValue: status.replace(/_/g, " ") })}
     </Badge>
   );
 }
@@ -1027,11 +1033,11 @@ function ClockEventsCard({
     <Card>
       <CardContent className="p-4">
         <SectionHeader
-          title="Today's clock activity"
+          title={t("branch_detail.today.clock_title")}
           subtitle={
             mismatchCount > 0
-              ? `${events.length} events · ${mismatchCount} mismatch`
-              : `${events.length} events`
+              ? `${t("branch_detail.today.events_count", { count: events.length })} · ${t("branch_detail.today.mismatch_count", { count: mismatchCount })}`
+              : t("branch_detail.today.events_count", { count: events.length })
           }
           subtitleTone={mismatchCount > 0 ? "red" : "neutral"}
         />
@@ -1059,7 +1065,7 @@ function ClockEventsCard({
                 </div>
                 {ev.location_mismatch && (
                   <Badge variant="destructive" className="shrink-0 text-[10px]">
-                    Wrong branch
+                    {t("branch_detail.today.wrong_branch")}
                   </Badge>
                 )}
               </li>
@@ -1079,18 +1085,18 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
       <CardContent className="p-4">
         <SectionHeader
           title={t("generic.cash_sessions")}
-          subtitle={`${sessions.length} today`}
+          subtitle={t("branch_detail.today.sessions_today", { count: sessions.length })}
         />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="py-2 pr-4 font-medium">Staff</th>
-                <th className="py-2 pr-4 font-medium">Status</th>
-                <th className="py-2 pr-4 font-medium">Opening</th>
-                <th className="py-2 pr-4 font-medium">Expected</th>
-                <th className="py-2 pr-4 font-medium">Counted</th>
-                <th className="py-2 pr-4 font-medium">Variance</th>
+                <th className="py-2 pr-4 font-medium">{t("branch_detail.cash.staff")}</th>
+                <th className="py-2 pr-4 font-medium">{t("common.status")}</th>
+                <th className="py-2 pr-4 font-medium">{t("branch_detail.cash.opening")}</th>
+                <th className="py-2 pr-4 font-medium">{t("generic.expected")}</th>
+                <th className="py-2 pr-4 font-medium">{t("generic.counted")}</th>
+                <th className="py-2 pr-4 font-medium">{t("generic.variance")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1104,7 +1110,7 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
                       }
                       className="text-[10px]"
                     >
-                      {cs.status}
+                      {t(`status.${cs.status}`, { defaultValue: cs.status })}
                     </Badge>
                   </td>
                   <td className="py-2 pr-4">
@@ -1149,24 +1155,25 @@ function UpcomingCoverageCard({
   upcoming: BranchUpcoming | undefined;
   language: string;
 }) {
+  const { t } = useLanguage();
   if (!upcoming || upcoming.daily.length === 0) return null;
   const max = Math.max(1, ...upcoming.daily.map((d) => d.scheduled));
   return (
     <Card>
       <CardContent className="p-4">
         <SectionHeader
-          title={`Next ${upcoming.window_days} days`}
+          title={t("branch_detail.upcoming.title", { count: upcoming.window_days })}
           subtitle={
             upcoming.total_unassigned > 0
-              ? `${upcoming.total_scheduled} shifts scheduled · ${upcoming.total_unassigned} unassigned`
-              : `${upcoming.total_scheduled} shifts scheduled`
+              ? `${t("branch_detail.upcoming.scheduled", { count: upcoming.total_scheduled })} · ${t("branch_detail.upcoming.unassigned", { count: upcoming.total_unassigned })}`
+              : t("branch_detail.upcoming.scheduled", { count: upcoming.total_scheduled })
           }
           subtitleTone={upcoming.total_unassigned > 0 ? "red" : "neutral"}
         />
         {upcoming.total_scheduled === 0 ? (
           <EmptyRow
-            text="Nothing scheduled yet for the coming week."
-            hint="Open the schedule to plan shifts for this branch."
+            text={t("branch_detail.upcoming.empty")}
+            hint={t("branch_detail.upcoming.empty_hint")}
           />
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
@@ -1192,8 +1199,8 @@ function UpcomingCoverageCard({
                   </div>
                   <div className="text-[11px] text-muted-foreground">
                     {d.scheduled === 0
-                      ? "No shifts"
-                      : `${d.staff} staff${d.unassigned > 0 ? ` · ${d.unassigned} open` : ""}`}
+                      ? t("branch_detail.upcoming.no_shifts")
+                      : `${t("branch_detail.upcoming.staff_count", { count: d.staff })}${d.unassigned > 0 ? ` · ${t("branch_detail.upcoming.open_count", { count: d.unassigned })}` : ""}`}
                   </div>
                   <div className="mt-2 h-1 rounded-full bg-muted">
                     <div
@@ -1223,7 +1230,7 @@ function ReportLinksCard({
       <CardContent className="p-4">
         <SectionHeader
           title={t("generic.open_related_pages")}
-          subtitle="Filtered to this branch where supported"
+          subtitle={t("branch_detail.links.subtitle")}
         />
         <div className="grid gap-2 md:grid-cols-2">
           {links.map((l) => (
@@ -1283,6 +1290,7 @@ function EmptyRow({ text, hint }: { text: string; hint?: string }) {
 }
 
 function StatusDot({ status }: { status: LocationStatus }) {
+  const { t } = useLanguage();
   const color =
     status === "red"
       ? "bg-red-500"
@@ -1296,7 +1304,7 @@ function StatusDot({ status }: { status: LocationStatus }) {
         color,
         status === "red" && "animate-pulse",
       )}
-      aria-label={`status ${status}`}
+      aria-label={t("branch_detail.status_aria", { status })}
     />
   );
 }
