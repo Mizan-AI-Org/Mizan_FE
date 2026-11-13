@@ -9,15 +9,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { DIAL_COUNTRIES, LEGAL_VERSION, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
 import { useLanguage } from "@/hooks/use-language";
-import type { ModuleKey, SignupData } from "@/lib/types";
-import { api } from "@/lib/api";
+import type { SignupData } from "@/lib/types";
 import { normalizeAppLanguage } from "@/lib/userLanguage";
-import { recommendedModules } from "@/config/modules";
-import {
-  DEFAULT_BUSINESS_VERTICAL,
-  SIGNUP_SECTOR_OPTIONS,
-  type BusinessVertical,
-} from "@/config/staffInviteRolesByVertical";
 import { authFieldClass } from "./AuthAmbientBackground";
 
 interface SignUpFormProps {

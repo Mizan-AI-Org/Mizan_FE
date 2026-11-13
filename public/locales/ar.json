@@ -5959,12 +5959,6 @@
   "agency.badge.cancel": "لغي التدخل",
   "agency.badge.cancelled": "تلغى التدخل",
   "businesses.title": "المؤسسات ديالك",
-  "profile.errors.invalid_response": "Invalid response from server.",
-  "profile.errors.password_fields_required": "Please fill current, new, and confirm password.",
-  "profile.errors.password_min_length": "Password must be at least 8 characters.",
-  "profile.errors.password_mismatch": "New password and confirmation do not match.",
-  "profile.errors.unexpected": "An unexpected error occurred.",
-  "profile.errors.wrong_current": "Current password is incorrect.",
   "admin_checklist_templates.title": "قوالب قوائم المراجعة",
   "admin_checklist_templates.subtitle": "عيّن القوالب للموظفين واربطها بالمهام",
   "admin_checklist_templates.role_label": "الدور: {{role}}",
@@ -6795,5 +6789,11 @@
   "settings.language.business_hint": "تُستخدم لأعضاء الفريق الذين لم يختاروا لغتهم، وللموظفين الجدد.",
   "settings.language.business_saved": "تم حفظ اللغة الافتراضية للنشاط التجاري",
   "settings.language.save_error": "تعذّر حفظ لغتك. حاول مرة أخرى.",
-  "settings.language.following_business": "تتبع لغة النشاط التجاري. اختر لغة لتصبح لغتك الخاصة."
+  "settings.language.following_business": "تتبع لغة النشاط التجاري. اختر لغة لتصبح لغتك الخاصة.",
+  "profile.errors.invalid_response": "Invalid response from server.",
+  "profile.errors.password_fields_required": "Please fill current, new, and confirm password.",
+  "profile.errors.password_min_length": "Password must be at least 8 characters.",
+  "profile.errors.password_mismatch": "New password and confirmation do not match.",
+  "profile.errors.unexpected": "An unexpected error occurred.",
+  "profile.errors.wrong_current": "Current password is incorrect."
 }
