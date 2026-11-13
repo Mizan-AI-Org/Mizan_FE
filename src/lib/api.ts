@@ -3811,11 +3811,17 @@ export class BackendService {
     }
   ): Promise<void> {
     const { id, ...body } = input;
-    const response = await fetch(`${API_BASE}/reservations/${id ? `${id}/` : ""}`, {
-      method: id ? "PATCH" : "POST",
-      headers: this.getHeaders(accessToken),
-      body: JSON.stringify(body),
-    });
+    const response = id
+      ? await fetch(`${API_BASE}/reservations/${id}/`, {
+          method: "PATCH",
+          headers: this.getHeaders(accessToken),
+          body: JSON.stringify(body),
+        })
+      : await fetch(`${API_BASE}/reservations/`, {
+          method: "POST",
+          headers: this.getHeaders(accessToken),
+          body: JSON.stringify(body),
+        });
     if (!response.ok) {
       const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
       throw new Error(data?.error || data?.detail || "Could not save the reservation");
