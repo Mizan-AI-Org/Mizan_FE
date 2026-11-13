@@ -40,6 +40,10 @@ export interface User {
         restaurant_type?: string;
     };
     phone?: string;
+    /** The person's own language (falls back to the business's on the server). Drives the app, Miya and WhatsApp. */
+    language?: string | null;
+    /** False: the person hasn't picked a language and follows the business default. */
+    language_chosen?: boolean;
     preferred_language?: string | null;
     profile?: {
         emergency_contact_name?: string;

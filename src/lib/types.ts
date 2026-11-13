@@ -34,6 +34,8 @@ export interface LoginResponse {
 }
 
 export interface SignupData {
+    /** The language picked on the signup page: becomes the owner's and the business's language. */
+    language?: "en" | "fr" | "ar";
     user: {
         email: string;
         password: string;

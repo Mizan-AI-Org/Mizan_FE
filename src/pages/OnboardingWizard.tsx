@@ -58,6 +58,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BrandLogo from "@/components/BrandLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageQuickSwitch } from "@/components/LanguageQuickSwitch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
@@ -595,6 +596,8 @@ const OnboardingWizard: React.FC = () => {
                     <div className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">
                         {t("onboarding.progress_label", { defaultValue: "{{done}} of {{total}}", done: requiredDone, total: requiredTotal })}
                     </div>
+                    {/* The owner is setting up the business: their language becomes the business default too. */}
+                    <LanguageQuickSwitch business={canManage} />
                     <ThemeToggle />
                     <button
                         type="button"

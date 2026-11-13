@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { shrinkPhoto } from "@/lib/image";
+import type { User as AuthUser } from "@/contexts/AuthContext.types";
 import {
   User,
   AccountabilityScorecard,
@@ -424,6 +425,12 @@ async function assertReservationOk(response: Response, fallback: string): Promis
   const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
   throw new Error(data?.error || data?.detail || fallback);
 }
+
+/**
+ * PATCH /auth/me/language/ body. business=true also makes it the business default (owners / settings managers);
+ * businessOnly=true changes only the business default (the person's own language stays; 403 without settings rights).
+ */
+export type UpdateMyLanguageInput = { language: "en" | "fr" | "ar"; business?: boolean; businessOnly?: boolean };
 
 export class BackendService {
   [x: string]: any;
@@ -5741,6 +5748,21 @@ export class BackendService {
       method: "POST",
       body: JSON.stringify({ remember: true, ...body }),
     });
+  }
+
+  /**
+   * The person's own language (web app, Miya, WhatsApp): PATCH /auth/me/language/. Returns the refreshed
+   * login/me user payload (top-level `language` = theirs, `restaurant_data.language` = the business default).
+   */
+  async updateMyLanguage(body: UpdateMyLanguageInput): Promise<AuthUser | null> {
+    const data = (await this.fetchWithError("/auth/me/language/", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    })) as { data?: AuthUser; user?: AuthUser } | AuthUser | null;
+    if (!data || typeof data !== "object") return null;
+    const wrapped = data as { data?: AuthUser; user?: AuthUser };
+    const user = wrapped.user ?? wrapped.data ?? (data as AuthUser);
+    return user && typeof user === "object" && "id" in user ? user : null;
   }
 
   /** CSV staff import preview (POST /staff/import/): each row's resolved role + the titles nobody recognised. */

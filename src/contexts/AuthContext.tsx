@@ -10,6 +10,7 @@ import { accountErrorText } from "@/lib/accountErrors";
 import { clearOnboardingSkipFlags, restaurantOnboardingComplete } from "@/lib/onboarding-gate";
 import { roleAllowed } from "@/lib/operationalCommandRoles";
 import { isTenantUserSession } from "@/lib/platformApi";
+import { resolveUserLanguage } from "@/lib/userLanguage";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -31,11 +32,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const applyLanguageForUser = useCallback((u: User | null) => {
     if (!u) return;
-    // System UI language comes from business Settings → Language only.
-    // Per-user preferred_language (if any) is for backend notifications, not the dashboard.
-    const lng = (u.restaurant_data?.language || "").toString().toLowerCase();
-    const normalized = lng === "ma" ? "ar" : lng; // legacy mapping
-    if (!normalized || !["en", "fr", "ar"].includes(normalized)) return;
+    // The person's own language drives the app (then the business default); never the business over a choice.
+    const normalized = resolveUserLanguage(u, i18n.language);
+    if (!normalized) return;
     try {
       localStorage.setItem("language", normalized);
     } catch {

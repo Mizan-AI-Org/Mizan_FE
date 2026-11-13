@@ -9,7 +9,15 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { DIAL_COUNTRIES, LEGAL_VERSION, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
 import { useLanguage } from "@/hooks/use-language";
-import type { SignupData } from "@/lib/types";
+import type { ModuleKey, SignupData } from "@/lib/types";
+import { api } from "@/lib/api";
+import { normalizeAppLanguage } from "@/lib/userLanguage";
+import { recommendedModules } from "@/config/modules";
+import {
+  DEFAULT_BUSINESS_VERTICAL,
+  SIGNUP_SECTOR_OPTIONS,
+  type BusinessVertical,
+} from "@/config/staffInviteRolesByVertical";
 import { authFieldClass } from "./AuthAmbientBackground";
 
 interface SignUpFormProps {
@@ -49,6 +57,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
     }
     const nameParts = fullName.trim().split(/\s+/);
     const signupData: SignupData = {
+      // The language on the signup page is the owner's (and the business's) from the first screen on.
+      language: normalizeAppLanguage(language) ?? "en",
       user: {
         email,
         password,

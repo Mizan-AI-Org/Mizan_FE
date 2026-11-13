@@ -6787,5 +6787,13 @@
   "billing.cancel_sub.scheduled": "الاشتراك ديالك كيسالي نهار {{date}}.",
   "billing.cancel_sub.keep_sub": "خلّي الاشتراك ديالي",
   "billing.cancel_sub.restart": "رجّع الاشتراك ديالي",
-  "billing.cancel_sub.resumed": "الاشتراك ديالك مستمر."
+  "billing.cancel_sub.resumed": "الاشتراك ديالك مستمر.",
+  "language.switch.label": "اللغة",
+  "settings.language.mine": "لغتي",
+  "settings.language.mine_hint": "لغتك الخاصة للوحة التحكم وميا ورسائل واتساب. تخصك أنت فقط.",
+  "settings.language.business": "اللغة الافتراضية للنشاط التجاري",
+  "settings.language.business_hint": "تُستخدم لأعضاء الفريق الذين لم يختاروا لغتهم، وللموظفين الجدد.",
+  "settings.language.business_saved": "تم حفظ اللغة الافتراضية للنشاط التجاري",
+  "settings.language.save_error": "تعذّر حفظ لغتك. حاول مرة أخرى.",
+  "settings.language.following_business": "تتبع لغة النشاط التجاري. اختر لغة لتصبح لغتك الخاصة."
 }

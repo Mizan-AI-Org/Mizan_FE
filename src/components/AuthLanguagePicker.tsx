@@ -1,5 +1,7 @@
 import React from "react";
+import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
+import { useMyLanguage } from "@/hooks/use-my-language";
 import type { Language } from "@/contexts/LanguageContext.types";
 import { LANGUAGE_OPTIONS } from "@/config/languages";
 import { cn } from "@/lib/utils";
@@ -9,12 +11,14 @@ interface AuthLanguagePickerProps {
   className?: string;
 }
 
-/** Segmented language control for the auth page — persists via LanguageProvider. */
+/** Segmented language control for the auth page. Signed out it sets the app (and the signup) language;
+ *  signed in it is saved as the person's own language. */
 export const AuthLanguagePicker: React.FC<AuthLanguagePickerProps> = ({
   compact = false,
   className,
 }) => {
-  const { language, setLanguage, t, isChanging } = useLanguage();
+  const { t, isChanging } = useLanguage();
+  const { language, changeLanguage, saving } = useMyLanguage();
 
   return (
     <div
@@ -34,8 +38,12 @@ export const AuthLanguagePicker: React.FC<AuthLanguagePickerProps> = ({
               role="radio"
               aria-checked={active}
               aria-label={opt.native}
-              disabled={isChanging}
-              onClick={() => setLanguage(opt.id as Language)}
+              disabled={isChanging || saving}
+              onClick={() =>
+                changeLanguage(opt.id as Language).catch(() =>
+                  toast.error(t("settings.language.save_error", "Could not save your language. Try again.")),
+                )
+              }
               className={cn(
                 "flex w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-2",
                 "text-center transition-all duration-200",
