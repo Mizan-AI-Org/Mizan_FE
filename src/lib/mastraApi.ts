@@ -14,10 +14,6 @@ export type MastraRunResponse = {
   success: boolean;
   quickReplies?: MastraQuickReply[];
   text?: string;
-  /** Present when the user spoke via mic and TTS succeeded */
-  audioBase64?: string;
-  mimeType?: string;
-  replyAudioProvider?: string;
   correlationId?: string;
   finishReason?: string;
   mode?: string;
@@ -50,10 +46,8 @@ export type MastraChatMessage = {
   content: string;
   /** Epoch ms — used for timestamps and date dividers */
   createdAt?: number;
-  /** User spoke via mic — enables voice reply playback */
+  /** User spoke via mic (speech-to-text); the reply is always text */
   fromVoice?: boolean;
-  /** Session-only TTS for this assistant turn (not persisted to localStorage) */
-  replyAudio?: { base64: string; mimeType: string };
   quickReplies?: MastraQuickReply[];
 };
 
@@ -146,7 +140,7 @@ export function loadMastraMessages(userId: string): MastraChatMessage[] {
 export function saveMastraMessages(userId: string, messages: MastraChatMessage[]): void {
   try {
     if (typeof window === "undefined") return;
-    const trimmed = messages.slice(-MAX_STORED_MESSAGES).map(({ replyAudio: _drop, ...rest }) => rest);
+    const trimmed = messages.slice(-MAX_STORED_MESSAGES);
     window.localStorage.setItem(mastraMessagesStorageKey(userId), JSON.stringify(trimmed));
   } catch {
     // ignore quota / private mode
@@ -240,91 +234,11 @@ export async function transcribeAgentVoice(
   return { success: true, text: data.text };
 }
 
-export async function synthesizeAgentVoice(
-  text: string,
-): Promise<{ success: boolean; audioBase64?: string; mimeType?: string; message?: string }> {
-  const response = await fetch(`${API_BASE}/mastra/voice/synthesize/`, {
-    method: "POST",
-    headers: authHeadersJson(),
-    credentials: "include",
-    body: JSON.stringify({ text }),
-  });
-
-  const data = (await response.json().catch(() => ({}))) as {
-    success?: boolean;
-    audioBase64?: string;
-    mimeType?: string;
-    message?: string;
-  };
-
-  if (!response.ok) {
-    return { success: false, message: data.message || "Voice reply failed." };
-  }
-  return {
-    success: true,
-    audioBase64: data.audioBase64,
-    mimeType: data.mimeType || "audio/mpeg",
-  };
-}
-
-export async function playAgentVoiceReply(text: string): Promise<void> {
-  const result = await synthesizeAgentVoice(text);
-  if (!result.success || !result.audioBase64) {
-    throw new Error(result.message || "Voice reply failed.");
-  }
-  const binary = atob(result.audioBase64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  const blob = new Blob([bytes], { type: result.mimeType || "audio/mpeg" });
-  const url = URL.createObjectURL(blob);
-  try {
-    const audio = new Audio(url);
-    audio.setAttribute("playsinline", "true");
-    await audio.play();
-  } finally {
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
-}
-
-export function loadVoiceRepliesEnabled(): boolean {
-  try {
-    const raw = window.localStorage.getItem("mizan_agent_voice_replies");
-    if (raw === "0") return false;
-    if (raw === "1") return true;
-  } catch {
-    // ignore
-  }
-  return true;
-}
-
-export function saveVoiceRepliesEnabled(enabled: boolean): void {
-  try {
-    window.localStorage.setItem("mizan_agent_voice_replies", enabled ? "1" : "0");
-  } catch {
-    // ignore
-  }
-}
-
 async function safeFetch(url: string, init: RequestInit): Promise<Response | null> {
   try {
     return await fetch(url, init);
   } catch {
     return null;
-  }
-}
-
-export function playAgentReplyAudio(base64: string, mimeType: string): void {
-  if (typeof window === "undefined" || !base64) return;
-  try {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    const blob = new Blob([bytes], { type: mimeType || "audio/mpeg" });
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    void audio.play().finally(() => URL.revokeObjectURL(url));
-  } catch {
-    // ignore playback errors
   }
 }
 
