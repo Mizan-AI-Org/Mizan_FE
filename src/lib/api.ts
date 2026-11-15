@@ -5783,7 +5783,7 @@ export class BackendService {
 }
 
 /** Roles a job title can map to (apps/accounts/job_titles.py TITLE_ROLES), highest first. */
-export const JOB_TITLE_ROLES = ["ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "STAFF"] as const;
+export const JOB_TITLE_ROLES = ["ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "DISHWASHER", "CASHIER", "KITCHEN_HELP", "CLEANER", "RECEPTIONIST", "SECURITY", "STAFF"] as const;
 
 /** A job title on an import that no role matched: everyone with it was added as STAFF, title kept. */
 export type UnmatchedTitle = {

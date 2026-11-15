@@ -1229,8 +1229,10 @@ const TeamTab: React.FC = () => {
                                             <option value="CHEF">{roleOptionLabel("CHEF")}</option>
                                             <option value="WAITER">{roleOptionLabel("WAITER")}</option>
                                             <option value="KITCHEN_HELP">{roleOptionLabel("KITCHEN_HELP")}</option>
+                                            <option value="DISHWASHER">{roleOptionLabel("DISHWASHER")}</option>
                                             <option value="BARTENDER">{roleOptionLabel("BARTENDER")}</option>
                                             <option value="RECEPTIONIST">{roleOptionLabel("RECEPTIONIST")}</option>
+                                            <option value="CASHIER">{roleOptionLabel("CASHIER")}</option>
                                             <option value="CLEANER">{roleOptionLabel("CLEANER")}</option>
                                             <option value="SECURITY">{roleOptionLabel("SECURITY")}</option>
                                         </select>
@@ -1301,7 +1303,9 @@ const TeamTab: React.FC = () => {
                                                     <option value="CHEF">{roleOptionLabel("CHEF")}</option>
                                                     <option value="WAITER">{roleOptionLabel("WAITER")}</option>
                                                     <option value="KITCHEN_HELP">{roleOptionLabel("KITCHEN_HELP")}</option>
+                                                    <option value="DISHWASHER">{roleOptionLabel("DISHWASHER")}</option>
                                                     <option value="BARTENDER">{roleOptionLabel("BARTENDER")}</option>
+                                                    <option value="CASHIER">{roleOptionLabel("CASHIER")}</option>
                                                     <option value="CLEANER">{roleOptionLabel("CLEANER")}</option>
                                                 </select>
                                             </div>
@@ -2040,6 +2044,7 @@ const roleToDepartment: Record<string, string> = {
     'MANAGER': 'Management',
     'CHEF': 'Kitchen',
     'KITCHEN_HELP': 'Kitchen',
+    'DISHWASHER': 'Kitchen',
     'WAITER': 'Front of House',
     'BARTENDER': 'Front of House',
     'RECEPTIONIST': 'Front of House',
