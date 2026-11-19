@@ -1136,6 +1136,12 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/ops-search/?${params.toString()}`);
   }
 
+  /** Tenant-wide command-bar search (role- and branch-scoped server-side). */
+  async searchTenant(q: string): Promise<TenantSearchResult> {
+    const params = new URLSearchParams({ q, limit: "5" });
+    return this.fetchWithError(`/dashboard/ops-search/?${params.toString()}`);
+  }
+
   async getStaffDailyProgress(date?: string): Promise<{
     success: boolean;
     date: string;
@@ -5725,6 +5731,35 @@ export type StaffImportPreview = {
   errors: StaffImportPreviewRow[];
   validCount: number;
   unmatchedTitles: UnmatchedTitle[];
+};
+
+export type TenantSearchHit = {
+  kind: string;
+  id: string;
+  title: string;
+  subtitle?: string;
+  status?: string;
+  href?: string;
+};
+
+export const TENANT_SEARCH_GROUPS = [
+  "tasks",
+  "staff_requests",
+  "incidents",
+  "staff",
+  "invoices",
+  "inventory",
+  "checklists",
+  "meetings",
+  "shifts",
+  "reminders",
+] as const;
+
+export type TenantSearchGroup = (typeof TENANT_SEARCH_GROUPS)[number];
+
+export type TenantSearchResult = Partial<Record<TenantSearchGroup, TenantSearchHit[]>> & {
+  total?: number;
+  query?: string;
 };
 
 export const api = new BackendService();

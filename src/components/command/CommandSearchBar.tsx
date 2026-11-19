@@ -1,8 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Calendar, FileText, Plus, Search, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Calendar, FileText, Loader2, Plus, Search, Sparkles } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAgentPanel } from "@/context/AgentPanelContext";
+import { api, TENANT_SEARCH_GROUPS, type TenantSearchHit, type TenantSearchResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const SEARCH_DEBOUNCE_MS = 250;
+const SEARCH_MIN_CHARS = 2;
 
 const RECENT_KEY = "mizan.command.recent";
 const MAX_RECENT = 4;
@@ -35,8 +40,43 @@ export function CommandSearchBar({ className }: { className?: string }) {
   const { askAgent } = useAgentPanel();
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<string[]>(() => loadRecent());
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<TenantSearchResult | null>(null);
+  const [searching, setSearching] = useState(false);
+  const latestQuery = useRef("");
+
+  useEffect(() => {
+    const q = query.trim();
+    latestQuery.current = q;
+    if (q.length < SEARCH_MIN_CHARS) {
+      setResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      api
+        .searchTenant(q)
+        .then((data) => {
+          if (latestQuery.current === q) setResults(data);
+        })
+        .catch(() => {
+          if (latestQuery.current === q) setResults(null);
+        })
+        .finally(() => {
+          if (latestQuery.current === q) setSearching(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const showingResults = query.trim().length >= SEARCH_MIN_CHARS;
+  const hitGroups = TENANT_SEARCH_GROUPS.map((group) => ({ group, hits: results?.[group] ?? [] })).filter(
+    (g) => g.hits.length > 0,
+  );
 
   const suggested = [
     t("ai.suggest.attention"),
@@ -86,9 +126,21 @@ export function CommandSearchBar({ className }: { className?: string }) {
       setRecent(loadRecent());
       setOpen(false);
       if (inputRef.current) inputRef.current.value = "";
+      setQuery("");
       askAgent(q);
     },
     [askAgent],
+  );
+
+  const openHit = useCallback(
+    (hit: TenantSearchHit) => {
+      setOpen(false);
+      if (inputRef.current) inputRef.current.value = "";
+      setQuery("");
+      if (hit.href) navigate(hit.href);
+      else askAgent(hit.title);
+    },
+    [askAgent, navigate],
   );
 
   useEffect(() => {
@@ -138,6 +190,10 @@ export function CommandSearchBar({ className }: { className?: string }) {
           aria-expanded={open}
           aria-haspopup="listbox"
           onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
         />
         <kbd className="pointer-events-none absolute end-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
           ⌘ K
@@ -147,9 +203,56 @@ export function CommandSearchBar({ className }: { className?: string }) {
       {open ? (
         <div
           role="listbox"
-          className="absolute start-0 end-0 top-[calc(100%+0.5rem)] z-[3000] overflow-hidden rounded-panel border border-border/80 bg-card shadow-strong"
+          className="absolute start-0 end-0 top-[calc(100%+0.5rem)] z-[3000] max-h-[70vh] overflow-y-auto rounded-panel border border-border/80 bg-card shadow-strong"
         >
-          {recent.length > 0 ? (
+          {showingResults ? (
+            <div className="border-b border-border/60 px-3 py-2">
+              {searching && hitGroups.length === 0 ? (
+                <p className="flex items-center gap-2 px-1 py-1.5 text-sm text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  {t("command.palette.searching", { defaultValue: "Searching…" })}
+                </p>
+              ) : hitGroups.length === 0 ? (
+                <p className="px-1 py-1.5 text-sm text-muted-foreground">
+                  {t("command.palette.no_results", { defaultValue: "No match in your workspace" })}
+                </p>
+              ) : (
+                hitGroups.map(({ group, hits }) => (
+                  <div key={group} className="pb-1.5">
+                    <p className="px-1 pb-1 pt-1 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+                      {t(`command.search.group_${group}`)}
+                    </p>
+                    <ul className="space-y-0.5">
+                      {hits.map((hit) => (
+                        <li key={`${hit.kind}:${hit.id}`}>
+                          <button
+                            type="button"
+                            className="flex w-full items-baseline justify-between gap-3 rounded-control px-2 py-1.5 text-start text-sm hover:bg-muted/60"
+                            onClick={() => openHit(hit)}
+                          >
+                            <span className="min-w-0 truncate">{hit.title}</span>
+                            {hit.subtitle ? (
+                              <span className="shrink-0 truncate text-caption text-muted-foreground">{hit.subtitle}</span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              )}
+              <button
+                type="button"
+                className="mt-1 flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-start text-sm font-medium text-primary hover:bg-muted/60"
+                onClick={() => submit(query)}
+              >
+                <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                {t("command.search.ask_miya", { query: query.trim(), defaultValue: `Ask Miya: "${query.trim()}"` })}
+              </button>
+            </div>
+          ) : null}
+
+          {!showingResults && recent.length > 0 ? (
             <div className="border-b border-border/60 px-3 py-2">
               <p className="px-1 pb-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
                 {t("command.palette.recent", { defaultValue: "Recent" })}
@@ -170,43 +273,47 @@ export function CommandSearchBar({ className }: { className?: string }) {
             </div>
           ) : null}
 
-          <div className="border-b border-border/60 px-3 py-2">
-            <p className="px-1 pb-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
-              {t("command.palette.suggested", { defaultValue: "Suggested" })}
-            </p>
-            <ul className="space-y-0.5">
-              {suggested.map((q) => (
-                <li key={q}>
-                  <button
-                    type="button"
-                    className="w-full rounded-control px-2 py-1.5 text-start text-sm hover:bg-muted/60"
-                    onClick={() => submit(q)}
-                  >
-                    {q}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {showingResults ? null : (
+            <>
+              <div className="border-b border-border/60 px-3 py-2">
+                <p className="px-1 pb-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("command.palette.suggested", { defaultValue: "Suggested" })}
+                </p>
+                <ul className="space-y-0.5">
+                  {suggested.map((q) => (
+                    <li key={q}>
+                      <button
+                        type="button"
+                        className="w-full rounded-control px-2 py-1.5 text-start text-sm hover:bg-muted/60"
+                        onClick={() => submit(q)}
+                      >
+                        {q}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-          <div className="px-3 py-2.5">
-            <p className="px-1 pb-2 text-caption font-medium uppercase tracking-wide text-muted-foreground">
-              {t("command.palette.quick_actions", { defaultValue: "Quick actions" })}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {quickActions.map(({ id, label, icon: Icon, prompt }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-caption font-medium hover:bg-muted/60"
-                  onClick={() => submit(prompt)}
-                >
-                  <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+              <div className="px-3 py-2.5">
+                <p className="px-1 pb-2 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("command.palette.quick_actions", { defaultValue: "Quick actions" })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {quickActions.map(({ id, label, icon: Icon, prompt }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-caption font-medium hover:bg-muted/60"
+                      onClick={() => submit(prompt)}
+                    >
+                      <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>
