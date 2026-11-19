@@ -52,6 +52,8 @@ import { api, BACKEND_URL } from "@/lib/api";
 import type { DashboardTaskDemandItem, Invoice } from "@/lib/types";
 import { toast } from "sonner";
 import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTaskDetailContent";
+import { AssigneeTrail } from "@/components/dashboard/AssigneeTrail";
+import type { AssigneeTrailStep, TrailPerson } from "@/lib/types";
 import {
   dashboardTaskStatusBadge,
   dashboardTaskStatusLabel,
@@ -92,6 +94,8 @@ type StaffRequest = {
   comments?: StaffRequestComment[];
   assignee?: string | null;
   assignee_summary?: AssigneeSummary | null;
+  created_by?: TrailPerson | null;
+  assignee_trail?: AssigneeTrailStep[];
   assignee_details?: { id: string; first_name?: string; last_name?: string; email?: string; role?: string } | null;
   voice_audio_url?: string;
   transcription?: string;
@@ -2015,6 +2019,8 @@ const StaffRequestsPage: React.FC = () => {
                           {t("staff.requests.reassign")}
                         </Button>
                       </div>
+
+                      <AssigneeTrail createdBy={selected.created_by} trail={selected.assignee_trail} />
 
                       <div>
                         <div className="flex items-center gap-3 mb-3">
