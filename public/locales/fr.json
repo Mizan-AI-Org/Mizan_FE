@@ -2686,6 +2686,8 @@
   "staff.requests.status_rejected": "Refusées",
   "staff.requests.status_escalated": "Escaladées",
   "staff.requests.status_closed": "Clôturées",
+  "staff.requests.status_all": "Toutes",
+  "staff.requests.page_of": "Page {{page}} sur {{total}}",
   "staff.requests.search_placeholder": "Rechercher objet, staff, message…",
   "staff.requests.all_lanes": "Tous les onglets",
   "staff.requests.filter_lanes_aria": "Filtrer la boîte par onglet du centre de commande",

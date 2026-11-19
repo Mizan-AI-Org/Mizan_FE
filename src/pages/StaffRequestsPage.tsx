@@ -22,6 +22,7 @@ import {
   Plus,
   AlertCircle,
   Clock,
+  ChevronLeft,
   ChevronRight,
   Wrench,
   BookOpen,
@@ -59,7 +60,9 @@ import {
   dashboardTaskStatusLabel,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 
-type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
+type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON" | "ALL";
+
+const INBOX_PAGE_SIZE = 50;
 
 type StaffRequestComment = {
   id: string;
@@ -118,6 +121,7 @@ const STATUSES: { key: StaffRequestStatus; labelKey: string }[] = [
   { key: "REJECTED", labelKey: "staff.requests.status_rejected" },
   { key: "ESCALATED", labelKey: "staff.requests.status_escalated" },
   { key: "CLOSED", labelKey: "staff.requests.status_closed" },
+  { key: "ALL", labelKey: "staff.requests.status_all" },
 ];
 
 function getLaneIcon(lane: Pick<StaffInboxLane, "icon" | "categories">) {
@@ -174,6 +178,7 @@ function staffRequestStatusLabelKey(status?: string): string {
   if (s === "ESCALATED") return "staff.requests.status_escalated";
   if (s === "REJECTED") return "staff.requests.status_rejected";
   if (s === "CLOSED") return "staff.requests.status_closed";
+  if (s === "ALL") return "staff.requests.status_all";
   return "staff.requests.status_pending";
 }
 
@@ -826,6 +831,7 @@ const StaffRequestsPage: React.FC = () => {
   }, [params.id, searchParams, navigate]);
 
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>(initialStatusFromUrl);
+  const [inboxPage, setInboxPage] = useState(1);
   /** null = All Requests; otherwise a dashboard widget lane id (e.g. team_medical_service). */
   const [activeLaneId, setActiveLaneId] = useState<string | null>(null);
   const [detailKind, setDetailKind] = useState<DetailKind>(initialDetailKind);
@@ -845,6 +851,7 @@ const StaffRequestsPage: React.FC = () => {
   );
 
   const filterCategories = activeLane?.categories ?? [];
+  const filterCategoriesKey = filterCategories.join(",");
   const isInvoiceDetail = detailKind === "invoice";
   const isDashboardDetail = detailKind === "dashboard" || detailKind === "scheduling";
 
@@ -913,8 +920,9 @@ const StaffRequestsPage: React.FC = () => {
       activePriority,
       debouncedSearch,
       assignedToMe,
+      inboxPage,
     ],
-    queryFn: async (): Promise<StaffRequest[]> => {
+    queryFn: async (): Promise<{ rows: StaffRequest[]; totalPages: number }> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
       if (filterCategories.length > 0) {
@@ -924,20 +932,19 @@ const StaffRequestsPage: React.FC = () => {
       if (debouncedSearch) qs.set("search", debouncedSearch);
       if (assignedToMe) qs.set("assigned_to_me", "1");
       if (activeLaneId) qs.set("lane", activeLaneId);
-      // Inbox list pulls a lean payload from the backend (no comments,
-      // no nested staff profile); we can show 50 per page comfortably.
-      qs.set("page_size", "50");
+      qs.set("limit", String(INBOX_PAGE_SIZE));
+      qs.set("page", String(inboxPage));
       const data = await apiGet<unknown>(`/staff/requests/?${qs.toString()}`);
       const rows = parseStaffRequestListResponse<StaffRequest>(data);
-      // The backend doesn't currently filter by priority server-side,
-      // so we re-filter here to honour the deep-link from the dashboard
-      // Urgent widget. Cheap because the inbox page caps at 50 rows.
+      const totalPages = Math.max(1, Number((data as { total_pages?: number } | null)?.total_pages) || 1);
+      // Priority is not filtered server-side; re-filter here for the dashboard's Urgent widget deep-link.
       if (activePriority) {
-        return rows.filter(
-          (r) => String(r.priority || "").toUpperCase() === activePriority,
-        );
+        return {
+          rows: rows.filter((r) => String(r.priority || "").toUpperCase() === activePriority),
+          totalPages,
+        };
       }
-      return rows;
+      return { rows, totalPages };
     },
     // Keep the previous results visible while revalidating so switching tabs /
     // typing in search doesn't flash "Loading…".
@@ -1094,7 +1101,11 @@ const StaffRequestsPage: React.FC = () => {
     },
   });
 
-  const requests = useMemo(() => (Array.isArray(listQuery.data) ? listQuery.data : []), [listQuery.data]);
+  const requests = useMemo(() => listQuery.data?.rows ?? [], [listQuery.data]);
+  useEffect(() => {
+    setInboxPage(1);
+  }, [activeStatus, activeLaneId, filterCategoriesKey, activePriority, debouncedSearch, assignedToMe]);
+  const inboxTotalPages = listQuery.data?.totalPages ?? 1;
   const selected = selectedQuery.data || null;
 
   // Align the status tab with the open request when it loads or its status
@@ -1518,7 +1529,7 @@ const StaffRequestsPage: React.FC = () => {
     >
       <Tabs value={activeStatus} onValueChange={(v) => onStatusTabChange(v as StaffRequestStatus)}>
         <div className={MIZAN_TOOLBAR}>
-          <TabsList className={cn(HUB_TABS_LIST, "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6")}>
+          <TabsList className={cn(HUB_TABS_LIST, "grid-cols-2 sm:grid-cols-4 lg:grid-cols-7")}>
             {STATUSES.map((s) => {
               const count = countsQuery.data?.counts?.[s.key];
               return (
@@ -1818,6 +1829,27 @@ const StaffRequestsPage: React.FC = () => {
                     </div>
                   )}
                 </ScrollArea>
+                {inboxTotalPages > 1 ? (
+                  <div className="flex items-center justify-between gap-2 border-t border-border/50 px-4 py-2 text-xs text-muted-foreground">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={inboxPage <= 1}
+                      onClick={() => setInboxPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                    </Button>
+                    <span>{t("staff.requests.page_of", { page: inboxPage, total: inboxTotalPages })}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={inboxPage >= inboxTotalPages}
+                      onClick={() => setInboxPage((p) => Math.min(inboxTotalPages, p + 1))}
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                    </Button>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 

@@ -2709,6 +2709,8 @@
   "staff.requests.status_rejected": "Rejected",
   "staff.requests.status_escalated": "Escalated",
   "staff.requests.status_closed": "Closed",
+  "staff.requests.status_all": "All",
+  "staff.requests.page_of": "Page {{page}} of {{total}}",
   "staff.requests.search_placeholder": "Search subject, staff, message…",
   "staff.requests.all_lanes": "All lanes",
   "staff.requests.filter_lanes_aria": "Filter inbox by command centre lane",

@@ -2678,6 +2678,8 @@
   "staff.requests.status_rejected": "مرفوضة",
   "staff.requests.status_escalated": "مُصعَّدة",
   "staff.requests.status_closed": "مغلقة",
+  "staff.requests.status_all": "الكل",
+  "staff.requests.page_of": "الصفحة {{page}} من {{total}}",
   "staff.requests.search_placeholder": "ابحث في الموضوع أو الموظف أو الرسالة…",
   "staff.requests.all_lanes": "كل المسارات",
   "staff.requests.filter_lanes_aria": "تصفية الصندوق حسب مسار مركز القيادة",
