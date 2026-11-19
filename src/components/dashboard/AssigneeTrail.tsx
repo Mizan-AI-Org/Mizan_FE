@@ -9,6 +9,7 @@ const REASON_KEYS: Record<string, string> = {
   reassign: "dashboard.task_detail.trail_reassign",
   escalate: "dashboard.task_detail.trail_escalate",
   create: "dashboard.task_detail.trail_create",
+  categorized: "dashboard.task_detail.trail_categorized",
 };
 
 interface AssigneeTrailProps {

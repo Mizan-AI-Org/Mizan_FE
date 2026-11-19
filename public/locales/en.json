@@ -420,6 +420,7 @@
   "dashboard.task_detail.trail_reassign": "reassigned",
   "dashboard.task_detail.trail_escalate": "escalated",
   "dashboard.task_detail.trail_create": "assigned",
+  "dashboard.task_detail.trail_categorized": "category picked by the requester",
   "dashboard.task_detail.trail_current": "now",
   "dashboard.task_detail.add_assignee": "Add staff",
   "dashboard.task_detail.assignees_saved": "Assignees saved - staff notified on WhatsApp.",

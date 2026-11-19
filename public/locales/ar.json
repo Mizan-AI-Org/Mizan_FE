@@ -2972,6 +2972,7 @@
   "dashboard.task_detail.trail_reassign": "تبدلات",
   "dashboard.task_detail.trail_escalate": "طلعات",
   "dashboard.task_detail.trail_create": "تكلفات",
+  "dashboard.task_detail.trail_categorized": "الصنف ختارو صاحب الطلب",
   "dashboard.task_detail.trail_current": "دابا",
   "dashboard.task_detail.assignees_saved": "تم حفظ المكلفين - تم إشعار الموظفين عبر واتساب.",
   "locations_overview.branch.empty_clocks": "لا يوجد حضور أو انصراف في هذا الفرع اليوم.",

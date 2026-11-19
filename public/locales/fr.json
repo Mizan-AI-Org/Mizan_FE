@@ -2980,6 +2980,7 @@
   "dashboard.task_detail.trail_reassign": "réaffecté",
   "dashboard.task_detail.trail_escalate": "escaladé",
   "dashboard.task_detail.trail_create": "affecté",
+  "dashboard.task_detail.trail_categorized": "catégorie choisie par le demandeur",
   "dashboard.task_detail.trail_current": "actuel",
   "dashboard.task_detail.assignees_saved": "Assignés enregistrés - personnel notifié sur WhatsApp.",
   "locations_overview.branch.empty_clocks": "Aucun pointage à cette branche aujourd'hui.",
