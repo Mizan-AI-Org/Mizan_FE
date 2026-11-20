@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BACKEND_URL } from "@/lib/api";
 import type { DashboardTaskDemandItem } from "@/lib/types";
+import { AssigneeTrail } from "@/components/dashboard/AssigneeTrail";
 import {
   dashboardTaskPrimaryAction,
   dashboardTaskPriorityBadge,
@@ -177,7 +178,12 @@ export function DashboardTaskDetailContent({
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {[
-              task.source_label || task.source,
+              task.created_by?.name
+                ? t("dashboard.task_detail.requested_by", {
+                  name: task.created_by.name,
+                  defaultValue: "Requested by {{name}}",
+                })
+                : task.source_label || task.source,
               task.kind === "dashboard" &&
               String(task.source_label || "")
                 .toLowerCase()
@@ -249,6 +255,8 @@ export function DashboardTaskDetailContent({
             </Badge>
           )}
         </div>
+
+        <AssigneeTrail createdBy={task.created_by} trail={task.assignee_trail} />
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
