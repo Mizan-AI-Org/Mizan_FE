@@ -25,7 +25,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
         setError("");
 
         try {
-            await api.requestPasswordReset(email);
+            await api.requestPasswordReset(email.trim());
             setSuccess(true);
         } catch (error: unknown) {
             if (error instanceof Error) {
@@ -100,7 +100,9 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                         <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
                         <Input
                             id="reset-email"
-                            type="email"
+                            type="text"
+                            inputMode="email"
+                            autoComplete="username"
                             placeholder={t("auth.forgot.email_placeholder")}
                             required
                             value={email}

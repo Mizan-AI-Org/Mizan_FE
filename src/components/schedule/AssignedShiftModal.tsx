@@ -135,8 +135,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     const handleAddManualTask = () => {
         if (!newTaskTitle.trim()) {
             toast({
-                title: "Error",
-                description: "Task title cannot be empty",
+                title: t("shift_modal.toast_error"),
+                description: t("generic.toast.task_title_cannot_be_empty"),
                 variant: "destructive",
             });
             return;
@@ -155,13 +155,13 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     };
 
     const roleOptions = [
-        { value: 'SUPER_ADMIN', label: 'Super Admin' },
-        { value: 'ADMIN', label: 'Admin' },
-        { value: 'MANAGER', label: 'Manager' },
-        { value: 'CHEF', label: 'Chef' },
-        { value: 'WAITER', label: 'Waiter' },
-        { value: 'CLEANER', label: 'Cleaner' },
-        { value: 'CASHIER', label: 'Cashier' },
+        { value: 'SUPER_ADMIN', label: t("staff.roles.super_admin") },
+        { value: 'ADMIN', label: t("staff.roles.admin") },
+        { value: 'MANAGER', label: t("staff.roles.manager") },
+        { value: 'CHEF', label: t("staff.roles.chef") },
+        { value: 'WAITER', label: t("staff.roles.waiter") },
+        { value: 'CLEANER', label: t("staff.roles.cleaner") },
+        { value: 'CASHIER', label: t("staff.roles.cashier") },
     ];
 
     const { data: staffMembers, isLoading: isLoadingStaff, error: staffError } = useQuery<StaffMember[]>({
@@ -176,9 +176,9 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             if (!response.ok) {
                 if (response.status === 401) {
                     logout();
-                    throw new Error('Session expired');
+                    throw new Error(t("shift_modal.session_expired"));
                 }
-                throw new Error('Failed to fetch staff data');
+                throw new Error(t("shift_modal.failed_fetch_staff"));
             }
             const data = await response.json();
             return (Array.isArray(data) ? data : []).map((s: any) => ({
@@ -223,9 +223,9 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             if (!response.ok) {
                 if (response.status === 401) {
                     logout();
-                    throw new Error('Session expired');
+                    throw new Error(t("shift_modal.session_expired"));
                 }
-                throw new Error('Failed to fetch task templates');
+                throw new Error(t("shift_modal.failed_fetch_templates"));
             }
             return response.json();
         },
@@ -234,7 +234,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     const createUpdateShiftMutation = useMutation({
         mutationFn: async (data: AssignedShift & { multi_staff?: string[], is_recurring?: boolean, frequency?: string, recurring_end_date?: string }) => {
             const token = localStorage.getItem('access_token');
-            if (!token) throw new Error('No access token');
+            if (!token) throw new Error(t("shift_modal.session_expired"));
 
             const withSeconds = (t: string) => (t?.length === 5 ? `${t}:00` : t);
             const makeISO = (dateStr: string, timeStr: string) => {
@@ -337,7 +337,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                     }
                 }
 
-                if (!scheduleId) throw new Error('Could not resolve weekly schedule');
+                if (!scheduleId) throw new Error(t("schedule.could_not_resolve_schedule"));
 
                 if (method === 'POST') {
                     url = `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`;
@@ -362,15 +362,17 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             queryClient.invalidateQueries({ queryKey: ['shifts'] });
             queryClient.invalidateQueries({ queryKey: ['assigned-shifts'] });
             toast({
-                title: `Success`,
-                description: `${results.length} shift(s) ${shift?.id ? 'processed' : 'created'}.`,
+                title: t("shift_modal.toast_success"),
+                description: shift?.id
+                    ? t("shift_modal.shifts_saved", { count: results.length })
+                    : t("shift_modal.shifts_created", { count: results.length }),
             });
             onClose();
         },
         onError: (error: any) => {
             toast({
-                title: `Operation failed`,
-                description: error?.message || "An unexpected error occurred.",
+                title: t("shift_modal.operation_failed"),
+                description: error?.message || t("profile.errors.unexpected"),
                 variant: "destructive",
             });
         },
@@ -388,25 +390,25 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             if (!response.ok) {
                 if (response.status === 401) {
                     logout();
-                    throw new Error('Session expired');
+                    throw new Error(t("shift_modal.session_expired"));
                 }
                 const errorData = await response.json();
-                throw new Error(errorData.detail || errorData.message || 'Failed to delete shift');
+                throw new Error(errorData.detail || errorData.message || t("schedule.failed_delete_shift"));
             }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['weekly-schedule'] });
             queryClient.invalidateQueries({ queryKey: ['shifts'] });
             toast({
-                title: "Shift deleted successfully!",
-                description: "The assigned shift has been removed.",
+                title: t("shift_modal.shift_deleted"),
+                description: t("shift_modal.shift_deleted_desc"),
             });
             onClose();
         },
         onError: (error: any) => {
             toast({
-                title: "Failed to delete shift.",
-                description: error.message || "An unexpected error occurred.",
+                title: t("schedule.failed_delete_shift"),
+                description: error.message || t("profile.errors.unexpected"),
                 variant: "destructive",
             });
         },
@@ -419,7 +421,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             return h * 60 + m;
         };
         if (selectedStaffIds.length === 0 || !shiftDate || !startTime || !endTime || !role) {
-            toast({ title: 'Missing required fields', description: 'Please select staff, date, start, end, and role.', variant: 'destructive' });
+            toast({ title: t("shift_modal.missing_fields"), description: t("shift_modal.missing_fields_desc"), variant: 'destructive' });
             return;
         }
         const pendingTaskTitle = newTaskTitle?.trim() ?? '';
@@ -428,8 +430,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             : (manualTasks || []);
         if (selectedTemplates.length === 0 && effectiveManualTasks.length === 0) {
             toast({
-                title: 'Tasks or templates required',
-                description: 'Every shift must have either at least one Process & Task Template or at least one Custom Task. Add a template above or type a custom task and click +.',
+                title: t("shift_modal.tasks_required_title"),
+                description: t("shift_modal.err_tasks_required"),
                 variant: 'destructive',
             });
             return;
@@ -438,11 +440,11 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
         const endM = toMinutes(endTime);
         // Overnight (e.g. 22:00-01:30) is allowed - backend bumps end to next day.
         if (Number.isNaN(startM) || Number.isNaN(endM)) {
-            toast({ title: 'Invalid time', description: 'Please enter valid start and end times.', variant: 'destructive' });
+            toast({ title: t("shift_modal.invalid_time"), description: t("shift_modal.invalid_time_desc"), variant: 'destructive' });
             return;
         }
         if (isRecurring && !recurringEndDate) {
-            toast({ title: 'End date required', description: 'Please select an end date for recurring shifts.', variant: 'destructive' });
+            toast({ title: t("shift_modal.end_date_required_title"), description: t("shift_modal.err_end_date_required"), variant: 'destructive' });
             return;
         }
 
@@ -498,9 +500,9 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
                     {/* Shift Title */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Shift Title</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937]">{t("schedule.shift_title")}</Label>
                         <Input
-                            placeholder="e.g. Morning Shift, Dinner Service"
+                            placeholder={t("schedule.shift_title_placeholder")}
                             value={role}
                             onChange={(e) => setRole(e.target.value)}
                             className="h-12 rounded-xl border-gray-200"
@@ -510,7 +512,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
                     {/* Multi-Staff Selection */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Assign Staff ({selectedStaffIds.length} selected)</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937]">{t("shift_modal.assign_staff_count", { count: selectedStaffIds.length })}</Label>
                         <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
                             <PopoverTrigger asChild>
                                 <Button
@@ -522,10 +524,10 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                             <span className="truncate">
                                                 {selectedStaffIds.length === 1
                                                     ? staffMembers?.find(s => s.id === selectedStaffIds[0])?.user?.first_name
-                                                    : `${selectedStaffIds.length} members selected`}
+                                                    : t("shift_modal.members_selected", { count: selectedStaffIds.length })}
                                             </span>
                                         ) : (
-                                            "Select staff members..."
+                                            t("shift_modal.select_staff_members")
                                         )}
                                     </div>
                                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -533,9 +535,9 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                             </PopoverTrigger>
                             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 overflow-hidden" align="start">
                                 <Command className="rounded-xl border-none">
-                                    <CommandInput placeholder="Search staff..." className="h-12 border-none focus:ring-0" />
+                                    <CommandInput placeholder={t("common.search_staff")} className="h-12 border-none focus:ring-0" />
                                     <CommandList className="max-h-[300px] overflow-y-auto">
-                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500">No staff found.</CommandEmpty>
+                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500">{t("shift_modal.no_staff_found")}</CommandEmpty>
                                         <CommandGroup>
                                             {staffMembers?.map((s) => (
                                                 <CommandItem
@@ -567,7 +569,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                     {/* Date and Time Pickers */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label className="text-sm font-semibold text-[#1F2937]">Start Time</Label>
+                            <Label className="text-sm font-semibold text-[#1F2937]">{t("shift_modal.start_time")}</Label>
                             <div className="relative">
                                 <Input
                                     type="datetime-local"
@@ -584,7 +586,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-sm font-semibold text-[#1F2937]">End Time</Label>
+                            <Label className="text-sm font-semibold text-[#1F2937]">{t("shift_modal.end_time")}</Label>
                             <div className="relative">
                                 <Input
                                     type="datetime-local"
@@ -638,8 +640,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                     <div className="bg-slate-50 p-4 rounded-2xl space-y-4 border border-slate-100">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                                <Label className="text-sm font-bold text-slate-900 leading-none">Recurring Shift</Label>
-                                <p className="text-[10px] text-slate-500 mt-1">Create this shift repeatedly until the end date.</p>
+                                <Label className="text-sm font-bold text-slate-900 leading-none">{t("shift_modal.recurring_shift")}</Label>
+                                <p className="text-[10px] text-slate-500 mt-1">{t("shift_modal.recurring_hint")}</p>
                             </div>
                             <Checkbox
                                 checked={isRecurring}
@@ -650,7 +652,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
                         {isRecurring && (
                             <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat Frequency</Label>
+                                <Label className="text-xs font-semibold text-slate-700 block mb-2">{t("shift_modal.repeat_frequency")}</Label>
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
@@ -661,7 +663,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                             frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
                                         )}
                                     >
-                                        Daily
+                                        {t("shift_modal.freq_daily")}
                                     </Button>
                                     <Button
                                         type="button"
@@ -672,7 +674,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                             frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
                                         )}
                                     >
-                                        Weekly
+                                        {t("shift_modal.freq_weekly")}
                                     </Button>
                                     <Button
                                         type="button"
@@ -683,11 +685,11 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                             frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
                                         )}
                                     >
-                                        Monthly
+                                        {t("shift_modal.freq_monthly")}
                                     </Button>
                                 </div>
                                 <div className="mt-4">
-                                    <Label className="text-xs font-semibold text-slate-700 block mb-2">End Date</Label>
+                                    <Label className="text-xs font-semibold text-slate-700 block mb-2">{t("shift_modal.end_date")}</Label>
                                     <Input
                                         type="date"
                                         value={recurringEndDate}
@@ -695,7 +697,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                         min={shiftDate}
                                         className="h-10 rounded-xl border-slate-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
                                     />
-                                    {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">Please select an end date for recurring shifts.</p>}
+                                    {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">{t("shift_modal.err_end_date_required")}</p>}
                                 </div>
                             </div>
                         )}
@@ -704,8 +706,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                     {/* Process & Task Templates (required: templates OR custom tasks) */}
                     <div className="space-y-4 pt-4 border-t border-gray-100">
                         <div>
-                            <Label className="text-sm font-semibold text-[#1F2937]">Process & Task Templates</Label>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Assign at least one template or add custom tasks below.</p>
+                            <Label className="text-sm font-semibold text-[#1F2937]">{t("shift_modal.templates_label")}</Label>
+                            <p className="text-[10px] text-slate-500 mt-0.5">{t("shift_modal.templates_or_tasks_hint")}</p>
                         </div>
                         <Popover>
                             <PopoverTrigger asChild>
@@ -716,8 +718,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 >
                                     <span>
                                         {selectedTemplates.length > 0
-                                            ? `${selectedTemplates.length} template(s) selected`
-                                            : "Select templates..."}
+                                            ? t("shift_modal.templates_selected", { count: selectedTemplates.length })
+                                            : t("shift_modal.select_templates")}
                                     </span>
                                     <ChevronDown className="h-4 w-4 opacity-50" />
                                 </Button>
@@ -725,13 +727,13 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl" align="start">
                                 <Command className="rounded-xl border-none">
                                     <CommandInput
-                                        placeholder="Search templates..."
+                                        placeholder={t("common.search_templates")}
                                         value={templateSearch}
                                         onValueChange={setTemplateSearch}
                                         className="h-10"
                                     />
                                     <CommandList className="max-h-[220px] overflow-y-auto">
-                                        <CommandEmpty>No templates found.</CommandEmpty>
+                                        <CommandEmpty>{t("shift_modal.no_templates_found")}</CommandEmpty>
                                         <CommandGroup>
                                             {(filteredTemplates || []).map((t) => (
                                                 <CommandItem
@@ -766,7 +768,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                                 type="button"
                                                 onClick={() => setSelectedTemplates(selectedTemplates.filter((x) => x !== id))}
                                                 className="hover:bg-emerald-100 rounded p-0.5"
-                                                aria-label="Remove"
+                                                aria-label={t("common.remove")}
                                             >
                                                 <X className="h-3 w-3" />
                                             </button>
@@ -779,11 +781,11 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
                     {/* Manual Task Creation Section */}
                     <div className="space-y-4 pt-4 border-t border-gray-100">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Custom Tasks</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937]">{t("shift_modal.custom_tasks")}</Label>
 
                         <div className="flex gap-2 items-center">
                             <Input
-                                placeholder="Add a custom task..."
+                                placeholder={t("common.add_custom_task")}
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                 onKeyDown={(e) => {
@@ -799,20 +801,20 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
                             >
                                 <SelectTrigger className="h-12 w-[7.25rem] shrink-0 rounded-xl border-gray-200 text-sm">
-                                    <SelectValue placeholder="Priority" />
+                                    <SelectValue placeholder={t("common.priority")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="LOW">Low</SelectItem>
-                                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                                    <SelectItem value="HIGH">High</SelectItem>
-                                    <SelectItem value="URGENT">Urgent</SelectItem>
+                                    <SelectItem value="LOW">{shiftTaskPriorityLabel("LOW", t)}</SelectItem>
+                                    <SelectItem value="MEDIUM">{shiftTaskPriorityLabel("MEDIUM", t)}</SelectItem>
+                                    <SelectItem value="HIGH">{shiftTaskPriorityLabel("HIGH", t)}</SelectItem>
+                                    <SelectItem value="URGENT">{shiftTaskPriorityLabel("URGENT", t)}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={handleAddManualTask}
-                                aria-label="Add custom task"
+                                aria-label={t("shift_modal.add_custom_task_aria")}
                                 className="h-12 w-12 shrink-0 rounded-xl border-2 border-[#106B4E] bg-[#106B4E] p-0 text-white shadow-sm hover:border-[#0D5A41] hover:bg-[#0D5A41] hover:text-white"
                             >
                                 <Plus className="h-5 w-5 shrink-0" strokeWidth={2.5} />
@@ -860,7 +862,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 );
                             })}
                             {manualTasks.length === 0 && (
-                                <p className="text-xs text-gray-400 text-center py-4">No custom tasks added yet.</p>
+                                <p className="text-xs text-gray-400 text-center py-4">{t("schedule.no_custom_tasks_yet")}</p>
                             )}
                         </div>
                     </div>

@@ -5,6 +5,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { API_BASE, authFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import type { AgencyJob } from "@/pages/AgencyJobsPage";
+import { safeMediaUrl } from "@/lib/safeUrl";
 
 /** On a restaurant's incident: where the avenue's agency is on it (Mizan_BE apps/agencies). Nothing when the
  * incident is the team's own (the endpoint answers 404). */
@@ -44,6 +45,7 @@ export default function IncidentAgencyStatus({ incidentId }: { incidentId?: stri
   if (!data) return null;
   const job = data.job;
   const open = !["DONE", "CANCELLED"].includes(job.status);
+  const proofHref = job.proof.length ? safeMediaUrl(job.proof[job.proof.length - 1]) : undefined;
   return (
     <div className="space-y-1 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs dark:border-sky-900 dark:bg-sky-950/40">
       <div className="flex items-center gap-1 font-semibold">
@@ -54,8 +56,8 @@ export default function IncidentAgencyStatus({ incidentId }: { incidentId?: stri
       </div>
       {job.assignedTo ? <div>{job.assignedTo.name}</div> : null}
       {job.fixBy && open ? <div>{t("agency.fix")} {new Date(job.fixBy).toLocaleString()}</div> : null}
-      {job.proof.length ? (
-        <a href={job.proof[job.proof.length - 1]} target="_blank" rel="noreferrer" className="underline">
+      {proofHref ? (
+        <a href={proofHref} target="_blank" rel="noreferrer" className="underline">
           📷 {t("agency.status.DONE")}
         </a>
       ) : null}

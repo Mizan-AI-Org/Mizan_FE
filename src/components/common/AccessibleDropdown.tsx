@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronDown } from 'lucide-react';
+import { useLanguage } from '@/hooks/use-language';
 
 export interface DropdownOption {
   value: string;
@@ -25,10 +26,11 @@ export default function AccessibleDropdown({
   value,
   onChange,
   options,
-  placeholder = "Select an option",
+  placeholder,
   renderOption,
   renderTriggerValue
 }: AccessibleDropdownProps) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -63,7 +65,7 @@ export default function AccessibleDropdown({
       >
         <span className="truncate">
           {renderTriggerValue ? renderTriggerValue(selectedOption) : 
-           selectedOption ? selectedOption.label : placeholder}
+           selectedOption ? selectedOption.label : (placeholder ?? t('common.select_option'))}
         </span>
         <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </Button>

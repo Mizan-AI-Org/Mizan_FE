@@ -14,7 +14,7 @@ import {
   opsMuted,
 } from "@/components/platform-admin/opsStyles";
 
-const ROLES = ["OWNER", "SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "STAFF"];
+const ROLES = ["OWNER", "SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "DISHWASHER", "CASHIER", "KITCHEN_HELP", "CLEANER", "RECEPTIONIST", "SECURITY", "STAFF"];
 
 /** Ops Admin: the businesses this person runs (one account per business, linked). Add them to another business —
  * they get the WhatsApp welcome and Join activates it — or link an account that already exists. */

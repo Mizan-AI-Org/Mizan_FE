@@ -79,7 +79,7 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate report");
+        throw new Error(errorData.error || t("reportsPage.generate_failed"));
       }
       return response.json();
     },
@@ -88,7 +88,7 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
       toast.success(t("generic.toast.report_generated_successfully"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to generate report.");
+      toast.error(err.message || t("reportsPage.generate_failed"));
     },
   });
 
@@ -98,10 +98,10 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
         return (
           <div className="space-y-2 text-body">
             <p>
-              <span className="font-medium">Total Sales:</span> ${report.data.total_sales}
+              <span className="font-medium">{t("reportsPage.total_sales")}</span> ${report.data.total_sales}
             </p>
             <p>
-              <span className="font-medium">Orders:</span> {report.data.total_orders}
+              <span className="font-medium">{t("reportsPage.orders")}</span> {report.data.total_orders}
             </p>
           </div>
         );
@@ -118,15 +118,15 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
     variant === "intelligence" ? <>{node}</> : <div className={PAGE_SHELL_PADDED}>{node}</div>;
 
   if (isLoading) {
-    return wrap(<EmptyOpsState title="Loading reports…" />);
+    return wrap(<EmptyOpsState title={t("reportsPage.loading")} />);
   }
 
   if (error) {
-    return wrap(<EmptyOpsState title="Couldn't load reports" description={(error as Error).message} />);
+    return wrap(<EmptyOpsState title={t("reportsPage.load_failed")} description={(error as Error).message} />);
   }
 
   if (!user || !["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"].includes(user.role)) {
-    return wrap(<EmptyOpsState title="No access" description="You do not have permission to view this page." />);
+    return wrap(<EmptyOpsState title={t("generic.no_access")} description={t("generic.no_access_description")} />);
   }
 
   const hubLinks = [
@@ -204,7 +204,7 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
               <Label htmlFor="report-type">{t("reportsPage.report_type")}</Label>
               <Select value={selectedReportType} onValueChange={setSelectedReportType}>
                 <SelectTrigger id="report-type">
-                  <SelectValue placeholder="Select a report type" />
+                  <SelectValue placeholder={t("reportsPage.select_type")} />
                 </SelectTrigger>
                 <SelectContent>
                   {ReportTypes.map((type) => (
@@ -256,7 +256,7 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
           {reports.length === 0 ? (
             <EmptyOpsState
               title={t("reportsPage.empty")}
-              description="Generate a report when you need a decision-ready summary."
+              description={t("reportsPage.empty_desc")}
             />
           ) : (
             <ul className="max-h-[420px] space-y-2 overflow-y-auto">

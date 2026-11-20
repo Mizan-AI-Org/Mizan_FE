@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { API_BASE } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 
 interface DeactivateStaffConfirmationProps {
     isOpen: boolean;
@@ -29,6 +30,7 @@ const DeactivateStaffConfirmation: React.FC<DeactivateStaffConfirmationProps> = 
     staffName,
     onSuccess,
 }) => {
+    const { t } = useLanguage();
     const queryClient = useQueryClient();
     const { logout } = useAuth() as AuthContextType;
 
@@ -43,11 +45,11 @@ const DeactivateStaffConfirmation: React.FC<DeactivateStaffConfirmationProps> = 
             if (!response.ok) {
                 if (response.status === 401) {
                     logout();
-                    throw new Error("Session expired");
+                    throw new Error(t("staffconfirm.session_expired"));
                 }
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(
-                    (errorData as { detail?: string })?.detail || "Failed to deactivate staff member"
+                    (errorData as { detail?: string })?.detail || t("staffconfirm.deactivate_failed_desc")
                 );
             }
             return response.json();
@@ -57,15 +59,15 @@ const DeactivateStaffConfirmation: React.FC<DeactivateStaffConfirmationProps> = 
             queryClient.invalidateQueries({ queryKey: ["staff-members"] });
             onSuccess?.();
             toast({
-                title: "Staff deactivated",
-                description: `${staffName} has been deactivated and can no longer sign in.`,
+                title: t("staffconfirm.deactivate_success_title"),
+                description: t("staffconfirm.deactivate_success_desc", { name: staffName ?? "" }),
             });
             onClose();
         },
         onError: (error: Error) => {
             toast({
-                title: "Deactivate failed",
-                description: error.message || "An unexpected error occurred.",
+                title: t("staffconfirm.deactivate_failed_title"),
+                description: error.message || t("staffconfirm.unexpected_error"),
                 variant: "destructive",
             });
         },
@@ -79,10 +81,10 @@ const DeactivateStaffConfirmation: React.FC<DeactivateStaffConfirmationProps> = 
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Deactivate staff member</DialogTitle>
+                    <DialogTitle>{t("staffconfirm.deactivate_title")}</DialogTitle>
                     <DialogDescription>
-                        Deactivate <span className="font-semibold">{staffName}</span>? They will no
-                        longer be able to sign in. You can reactivate them later if needed.
+                        {t("staffconfirm.deactivate_desc_prefix")} <span className="font-semibold">{staffName}</span>
+                        {t("staffconfirm.deactivate_desc_suffix")}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
@@ -91,14 +93,14 @@ const DeactivateStaffConfirmation: React.FC<DeactivateStaffConfirmationProps> = 
                         onClick={onClose}
                         disabled={deactivateMutation.isPending}
                     >
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button
                         variant="secondary"
                         onClick={handleDeactivate}
                         disabled={deactivateMutation.isPending}
                     >
-                        {deactivateMutation.isPending ? "Deactivating…" : "Deactivate"}
+                        {deactivateMutation.isPending ? t("staffconfirm.deactivating") : t("staffconfirm.deactivate")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

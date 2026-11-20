@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { shrinkPhoto } from "@/lib/image";
+import type { User as AuthUser } from "@/contexts/AuthContext.types";
 import {
   User,
   AccountabilityScorecard,
@@ -410,6 +411,101 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   return response;
 }
 
+export type ReservationInput = {
+  name: string;
+  phone?: string;
+  party_size: number;
+  starts_at: string;
+  table?: string;
+  notes?: string;
+};
+
+async function assertReservationOk(response: Response, fallback: string): Promise<void> {
+  if (response.ok) return;
+  const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+  throw new Error(data?.error || data?.detail || fallback);
+}
+
+/**
+ * PATCH /auth/me/language/ body. business=true also makes it the business default (owners / settings managers);
+ * businessOnly=true changes only the business default (the person's own language stays; 403 without settings rights).
+ */
+export type UpdateMyLanguageInput = { language: "en" | "fr" | "ar"; business?: boolean; businessOnly?: boolean };
+
+// ── Audience (who a task / process reaches) ──────────────────────────────────
+export type AudienceMode = "first" | "all" | "each";
+export interface AudienceSpec {
+  people: string[];
+  roles: string[];
+  titles: string[];
+  departments: string[];
+  everyone: boolean;
+  on_shift: boolean;
+  branch_id?: string | null;
+  mode: AudienceMode;
+}
+export interface AudiencePerson {
+  id: string;
+  name: string;
+  role?: string;
+  title?: string;
+  department?: string;
+}
+export interface AudienceOptions {
+  people: AudiencePerson[];
+  roles: { value: string; label: string; count: number }[];
+  titles: { value: string; count: number }[];
+  departments: { value: string; count: number }[];
+  branches: { id: string; name: string }[];
+  modes: AudienceMode[];
+}
+export interface AudiencePreview {
+  audience: AudienceSpec;
+  label: string;
+  count: number;
+  people: AudiencePerson[];
+}
+export interface TaskScheduleRow {
+  id: string;
+  title: string;
+  notes?: string;
+  audience: Partial<AudienceSpec>;
+  mode?: AudienceMode;
+  onShiftOnly?: boolean;
+  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUALLY";
+  interval: number;
+  weekdays: number[];
+  monthDay?: number | null;
+  releaseTime?: string;
+  dueTime?: string | null;
+  dueInDays?: number | null;
+  priority: "normal" | "medium" | "urgent";
+  requirePhotoProof?: boolean;
+  requiresValidation?: boolean;
+  startsOn?: string | null;
+  endsOn?: string | null;
+  isActive: boolean;
+  branch?: string | null;
+  audienceLabel?: string;
+  rule?: string;
+  nextDates?: string[];
+  lastRunOn?: string | null;
+  branchName?: string | null;
+  recentRuns?: { date: string; taskIds: string[]; people: number; note?: string }[];
+}
+export type TaskSchedulePayload = Partial<Omit<TaskScheduleRow, "id" | "audienceLabel" | "rule" | "nextDates" | "lastRunOn" | "branchName" | "recentRuns">>;
+export interface CreateTaskPayload {
+  title: string;
+  description?: string;
+  priority?: string;
+  due_date?: string | null;
+  due_time?: string | null;
+  assigned_to?: string | null;
+  audience?: AudienceSpec;
+  require_photo_proof?: boolean;
+  requires_validation?: boolean;
+}
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -608,12 +704,13 @@ export class BackendService {
     }
   }
 
-  async requestPasswordReset(email: string): Promise<{ message: string }> {
+  /** `identifier`: the account's email or WhatsApp number; the answer never says whether an account matched. */
+  async requestPasswordReset(identifier: string): Promise<{ message: string }> {
     try {
       const response = await fetch(`${API_BASE}/password-reset-request/`, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(identifier.includes("@") ? { email: identifier } : { identifier }),
       });
 
       // Read raw text first to handle non-JSON responses gracefully
@@ -662,7 +759,8 @@ export class BackendService {
       if (!response.ok) {
         const message = (parsed && (parsed.error || parsed.message || parsed.detail))
           || `Password reset failed (${response.status})`;
-        throw new Error(message);
+        const { accountErrorText } = await import("@/lib/accountErrors");
+        throw new Error(accountErrorText(parsed?.code, message));
       }
 
       if (parsed) {
@@ -1761,6 +1859,46 @@ export class BackendService {
     return this.fetchWithError(`/timeclock/staff/${staffId}/manager-clock-out/`, { method: "POST" });
   }
 
+  // ── Audience + recurring tasks ─────────────────────────────────────────────
+  async getAudienceOptions(): Promise<AudienceOptions> {
+    return this.fetchWithError("/operations/audience/options/");
+  }
+
+  /** Read-only: who would this audience reach (POST only to carry the body). */
+  async previewAudience(audience: AudienceSpec, date?: string): Promise<AudiencePreview> {
+    return this.fetchWithError("/operations/audience/preview/", {
+      method: "POST",
+      body: JSON.stringify({ audience, ...(date ? { date } : {}) }),
+    });
+  }
+
+  /** One-off task; with `audience` the backend may fan out (createdCount / taskIds). */
+  async createDashboardTask(
+    payload: CreateTaskPayload,
+  ): Promise<{ id?: string; createdCount?: number; taskIds?: string[] } & Record<string, unknown>> {
+    return this.fetchWithError("/dashboard/tasks/", { method: "POST", body: JSON.stringify(payload) });
+  }
+
+  async listTaskSchedules(q?: string): Promise<{ count: number; results: TaskScheduleRow[] }> {
+    return this.fetchWithError(`/operations/task-schedules/${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+  }
+
+  async getTaskSchedule(id: string): Promise<TaskScheduleRow> {
+    return this.fetchWithError(`/operations/task-schedules/${id}/`);
+  }
+
+  async createTaskSchedule(payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
+    return this.fetchWithError("/operations/task-schedules/", { method: "POST", body: JSON.stringify(payload) });
+  }
+
+  async updateTaskSchedule(id: string, payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
+    return this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+
+  async archiveTaskSchedule(id: string): Promise<void> {
+    await this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "DELETE" });
+  }
+
   async getTasks(accessToken: string): Promise<Task[]> {
     try {
       const response = await fetch(`${API_BASE}/dashboard/tasks/`, {
@@ -2369,11 +2507,51 @@ export class BackendService {
   }
 
   /** "We paid this by bank transfer": Mizan confirms it against the bank, then marks it paid. */
-  async reportBillingPayment(id: string, reference: string, note = ""): Promise<BillingInvoiceRow> {
-    return this.peopleRequest(localStorage.getItem("access_token") || "", `/billing/invoices/${id}/report-payment/`, {
+  async reportBillingPayment(id: string, reference = "", note = "", receipt?: File | null): Promise<BillingInvoiceRow> {
+    const token = localStorage.getItem("access_token") || "";
+    if (receipt) {
+      const form = new FormData();
+      form.append("reference", reference);
+      form.append("note", note);
+      form.append("receipt", receipt);
+      return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, { method: "POST", body: form });
+    }
+    return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, {
       method: "POST",
       body: JSON.stringify({ reference, note }),
     });
+  }
+
+  async previewPlanChange(modules: string[]): Promise<import("./types").PlanChangePreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules, preview: true }),
+    });
+  }
+
+  async changePlan(modules: string[]): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules }),
+    });
+  }
+
+  async previewCancelSubscription(): Promise<import("./types").CancelPreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "POST",
+      body: JSON.stringify({ preview: true }),
+    });
+  }
+
+  async cancelSubscription(reason = ""): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async resumeSubscription(): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/resume/", { method: "POST" });
   }
 
   async listApprovals(scope: "mine" | "pending" | "requested" | "decided" | "all" = "mine"): Promise<ApprovalsListResponse> {
@@ -3765,6 +3943,7 @@ export class BackendService {
       phone?: string;
       email?: string;
       notes?: string;
+      table?: string;
     }>;
     count?: number;
     error?: string;
@@ -3800,6 +3979,41 @@ export class BackendService {
       reservations: data.reservations || [],
       count: data.count ?? (data.reservations || []).length,
     };
+  }
+
+  /** Manual reservations (create / edit / status), Mizan_BE apps/operations/reservation_views.py. */
+  async createReservation(accessToken: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
+  }
+
+  async updateReservation(accessToken: string, id: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/`, {
+      method: "PATCH",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
+  }
+
+  async setReservationStatus(
+    accessToken: string,
+    id: string,
+    status: "booked" | "seated" | "completed" | "cancelled" | "no_show"
+  ): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/status/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+      throw new Error(data?.error || data?.detail || "Could not update the reservation");
+    }
   }
 
   async postEatNowDiscover(
@@ -5656,6 +5870,21 @@ export class BackendService {
     });
   }
 
+  /**
+   * The person's own language (web app, Miya, WhatsApp): PATCH /auth/me/language/. Returns the refreshed
+   * login/me user payload (top-level `language` = theirs, `restaurant_data.language` = the business default).
+   */
+  async updateMyLanguage(body: UpdateMyLanguageInput): Promise<AuthUser | null> {
+    const data = (await this.fetchWithError("/auth/me/language/", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    })) as { data?: AuthUser; user?: AuthUser } | AuthUser | null;
+    if (!data || typeof data !== "object") return null;
+    const wrapped = data as { data?: AuthUser; user?: AuthUser };
+    const user = wrapped.user ?? wrapped.data ?? (data as AuthUser);
+    return user && typeof user === "object" && "id" in user ? user : null;
+  }
+
   /** CSV staff import preview (POST /staff/import/): each row's resolved role + the titles nobody recognised. */
   async previewStaffImport(csv: string): Promise<StaffImportPreview> {
     const data = (await this.fetchWithError("/staff/import/", {
@@ -5674,7 +5903,7 @@ export class BackendService {
 }
 
 /** Roles a job title can map to (apps/accounts/job_titles.py TITLE_ROLES), highest first. */
-export const JOB_TITLE_ROLES = ["ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "STAFF"] as const;
+export const JOB_TITLE_ROLES = ["ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "DISHWASHER", "CASHIER", "KITCHEN_HELP", "CLEANER", "RECEPTIONIST", "SECURITY", "STAFF"] as const;
 
 /** A job title on an import that no role matched: everyone with it was added as STAFF, title kept. */
 export type UnmatchedTitle = {

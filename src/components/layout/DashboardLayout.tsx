@@ -13,6 +13,7 @@ import { LiveDateTime } from "@/components/LiveDateTime";
 import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
 import { closeDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 import { IntentRail, MobileIntentDock } from "@/components/layout/IntentRail";
+import HelpPanel from "@/components/layout/HelpPanel";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import { CommandSearchBar } from "@/components/command/CommandSearchBar";
 import { AgentPanelProvider } from "@/context/AgentPanelContext";
@@ -21,6 +22,7 @@ import { isImpersonating } from "@/lib/impersonation";
 import { useAgentRailGutter } from "@/hooks/use-agent-rail";
 import { ModuleGate } from "@/components/layout/ModuleGate";
 import { BillingBanner } from "@/components/layout/BillingBanner";
+import { WhatsAppVerifyBanner } from "./WhatsAppVerifyBanner";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { BranchScopeProvider } from "@/contexts/BranchScopeContext";
 
@@ -87,6 +89,7 @@ const DashboardLayoutInner: React.FC = () => {
             <div className="hidden sm:block">
               <LiveDateTime showTime={false} />
             </div>
+            <HelpPanel />
             <ThemeToggle />
 
             <div className="relative">
@@ -130,6 +133,7 @@ const DashboardLayoutInner: React.FC = () => {
               id="mizan-main"
               className="mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-6"
             >
+              <WhatsAppVerifyBanner />
               <BillingBanner />
               <ModuleGate>
                 <Outlet />

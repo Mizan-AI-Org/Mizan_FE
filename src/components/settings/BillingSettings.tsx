@@ -14,7 +14,9 @@ import {
   MapPin,
   Package,
   PauseCircle,
+  Paperclip,
   Sparkles,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,7 +30,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
 import { PRIVILEGED_ROLES } from "@/lib/operationalCommandRoles";
 import { cn } from "@/lib/utils";
-import type { BillingInvoiceRow, BillingOverview, BillingState } from "@/lib/types";
+import type { BillingInvoiceRow, BillingOverview, BillingState, ModuleKey, PlanChangePreview } from "@/lib/types";
 
 const fmtDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -41,7 +43,13 @@ const STATE_TONE: Record<BillingState, string> = {
   due: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100",
   overdue: "border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100",
   suspended: "border-red-300 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-100",
+  canceled: "border-border bg-muted/40 text-foreground",
+  inactive: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100",
 };
+
+/** What goes on the bank transfer: the invoice number(s), so Mizan matches the payment. */
+export const transferReferenceOf = (invoices: BillingInvoiceRow[]) =>
+  invoices.map((i) => i.transferReference || i.number).join(", ");
 
 export function useBillingOverview() {
   return useQuery({ queryKey: ["billing-overview"], queryFn: () => api.getBillingOverview() });
@@ -57,7 +65,7 @@ function AccountHero({ data }: { data: BillingOverview }) {
   const { t } = useLanguage();
   const cur = data.current.currency;
   const nextDue = data.openInvoices[0];
-  const Icon = { trial: Sparkles, trial_over: Clock, active: BadgeCheck, none: BadgeCheck, due: Clock, overdue: AlertTriangle, suspended: PauseCircle }[data.state];
+  const Icon = { trial: Sparkles, trial_over: Clock, active: BadgeCheck, none: BadgeCheck, due: Clock, overdue: AlertTriangle, suspended: PauseCircle, canceled: XCircle, inactive: Sparkles }[data.state];
   const headline = {
     trial: t("billing.hero.trial", { days: String(data.trialDaysLeft ?? 0) }),
     trial_over: t("billing.hero.trial_over"),
@@ -66,6 +74,8 @@ function AccountHero({ data }: { data: BillingOverview }) {
     due: t("billing.hero.due", { amount: formatMoney(data.balanceDue, cur), date: fmtDate(nextDue?.dueAt) }),
     overdue: t("billing.hero.overdue", { amount: formatMoney(data.balanceDue, cur) }),
     suspended: t("billing.hero.suspended", { amount: formatMoney(data.balanceDue, cur) }),
+    canceled: t("billing.hero.canceled"),
+    inactive: t("billing.hero.inactive"),
   }[data.state];
   const detail =
     data.state === "trial"
@@ -78,7 +88,11 @@ function AccountHero({ data }: { data: BillingOverview }) {
             ? t("billing.hero.suspended_detail")
             : data.state === "trial_over"
               ? t("billing.hero.trial_over_detail")
-              : t("billing.hero.managed");
+              : data.state === "canceled"
+                ? t("billing.hero.canceled_detail")
+                : data.state === "inactive"
+                  ? t("billing.hero.inactive_detail")
+                  : t("billing.hero.managed");
   return (
     <section className={cn("rounded-2xl border p-5 sm:p-6", STATE_TONE[data.state])}>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -252,8 +266,9 @@ function ReportPaymentDialog({ invoice, onClose }: { invoice: BillingInvoiceRow;
   const qc = useQueryClient();
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
+  const [receipt, setReceipt] = useState<File | null>(null);
   const report = useMutation({
-    mutationFn: () => api.reportBillingPayment(invoice.id, reference.trim(), note.trim()),
+    mutationFn: () => api.reportBillingPayment(invoice.id, reference.trim(), note.trim(), receipt),
     onSuccess: () => {
       toast.success(t("billing.report.sent"));
       void qc.invalidateQueries({ queryKey: ["billing-overview"] });
@@ -271,7 +286,15 @@ function ReportPaymentDialog({ invoice, onClose }: { invoice: BillingInvoiceRow;
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="pay-ref">{t("billing.report.reference")}</Label>
-            <Input id="pay-ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder={t("billing.report.reference_ph")} />
+            <Input id="pay-ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder={invoice.transferReference || invoice.number} />
+            <p className="text-xs text-muted-foreground">{t("billing.report.reference_hint", { number: invoice.number })}</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pay-receipt" className="flex items-center gap-1.5">
+              <Paperclip className="h-3.5 w-3.5" aria-hidden />
+              {t("billing.report.receipt")}
+            </Label>
+            <Input id="pay-receipt" type="file" accept="image/*,application/pdf" onChange={(e) => setReceipt(e.target.files?.[0] ?? null)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pay-note">{t("billing.report.note")}</Label>
@@ -280,7 +303,7 @@ function ReportPaymentDialog({ invoice, onClose }: { invoice: BillingInvoiceRow;
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>{t("billing.cancel")}</Button>
-          <Button onClick={() => report.mutate()} disabled={!reference.trim() || report.isPending}>
+          <Button onClick={() => report.mutate()} disabled={report.isPending}>
             {report.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
             {t("billing.report.submit")}
           </Button>
@@ -311,6 +334,7 @@ function ToPay({ data }: { data: BillingOverview }) {
   const privileged = usePrivileged();
   const [reporting, setReporting] = useState<BillingInvoiceRow | null>(null);
   const pay = data.paymentInstructions;
+  const reference = transferReferenceOf(data.openInvoices);
   if (!data.openInvoices.length) return null;
   return (
     <section className="space-y-4 rounded-2xl border border-amber-200 bg-card p-5 dark:border-amber-900/40 sm:p-6" id="to-pay">
@@ -346,7 +370,7 @@ function ToPay({ data }: { data: BillingOverview }) {
               </Button>
               {privileged && !inv.reportedAt ? (
                 <Button size="sm" onClick={() => setReporting(inv)}>
-                  {t("billing.mark_paid")}
+                  {t("billing.i_have_paid")}
                 </Button>
               ) : null}
             </div>
@@ -358,12 +382,172 @@ function ToPay({ data }: { data: BillingOverview }) {
         <CopyValue label={t("billing.pay.bank")} value={pay.bankName} />
         <CopyValue label={t("billing.pay.rib")} value={pay.rib} />
         <CopyValue label={t("billing.pay.swift")} value={pay.swift} />
-        <CopyValue label={t("billing.pay.reference")} value={data.openInvoices.map((i) => i.number).join(", ")} />
+        <CopyValue label={t("billing.pay.amount")} value={String(data.balanceDue)} />
+        <CopyValue label={t("billing.pay.reference")} value={reference} />
       </div>
       {pay.instructions ? <p className="text-sm text-muted-foreground">{pay.instructions}</p> : null}
-      {!pay.rib ? <p className="text-sm text-muted-foreground">{t("billing.pay.contact", { email: pay.contactEmail || "billing@mizan.ai" })}</p> : null}
-      <p className="text-xs text-muted-foreground">{t("billing.pay.after")}</p>
+      {!pay.rib ? <p className="text-sm text-muted-foreground">{t("billing.pay.contact", { email: pay.contactEmail || "billing@heymizan.ai" })}</p> : null}
+      <p className="text-sm font-medium text-foreground">{t("billing.pay.exact", { amount: formatMoney(data.balanceDue, data.current.currency), reference })}</p>
+      <p className="text-xs text-muted-foreground">{t("billing.pay.after", { days: String(data.graceDays ?? 7) })}</p>
       {reporting ? <ReportPaymentDialog invoice={reporting} onClose={() => setReporting(null)} /> : null}
+    </section>
+  );
+}
+
+/** Change modules (add now, remove at period end) and cancel / keep the subscription: owner and admin only. */
+function PlanChangeDialog({ data, onClose }: { data: BillingOverview; onClose: () => void }) {
+  const { t } = useLanguage();
+  const qc = useQueryClient();
+  const catalog = useQuery({ queryKey: ["tenant-modules"], queryFn: () => api.getTenantModules() });
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const current = picked ?? (data.selectedModules as string[] | undefined) ?? catalog.data?.selected ?? [];
+  const [preview, setPreview] = useState<PlanChangePreview | null>(null);
+  const check = useMutation({
+    mutationFn: (modules: string[]) => api.previewPlanChange(modules),
+    onSuccess: setPreview,
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const apply = useMutation({
+    mutationFn: () => api.changePlan(current),
+    onSuccess: (res) => {
+      qc.setQueryData(["billing-overview"], res.overview);
+      void qc.invalidateQueries({ queryKey: ["tenant-modules"] });
+      toast.success(t("billing.plan.changed"));
+      onClose();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const optional = (catalog.data?.modules ?? []).filter((m) => !m.core);
+  const toggle = (key: string) => {
+    const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+    setPicked(next);
+    setPreview(null);
+    check.mutate(next);
+  };
+  const cur = data.current.currency;
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("billing.plan.title")}</DialogTitle>
+          <DialogDescription>{t("billing.plan.desc")}</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-64 space-y-1 overflow-y-auto">
+          {optional.map((m) => (
+            <label key={m.key} className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/50">
+              <span className="flex items-center gap-2">
+                <input type="checkbox" checked={current.includes(m.key)} onChange={() => toggle(m.key)} />
+                {t(`modules.${m.key}.name`)}
+              </span>
+              <span className="tabular-nums text-muted-foreground">{formatMoney(m.priceMonthly, cur)}</span>
+            </label>
+          ))}
+        </div>
+        {preview?.changed ? (
+          <div className="space-y-1 rounded-xl border border-border bg-muted/40 p-3 text-sm">
+            {preview.addedLabels.length ? (
+              <p>
+                {t("billing.plan.adds", { modules: preview.addedLabels.join(", ") })}{" "}
+                {preview.chargeNow ? t("billing.plan.charge_now", { amount: formatMoney(preview.chargeNow.total, cur) }) : preview.inTrial ? t("billing.plan.in_trial") : ""}
+              </p>
+            ) : null}
+            {preview.removedLabels.length ? (
+              <p>{t("billing.plan.removes", { modules: preview.removedLabels.join(", "), date: fmtDate(preview.removedEffectiveAt) })}</p>
+            ) : null}
+            <p className="font-semibold">{t("billing.plan.next_bill", { amount: formatMoney(preview.nextBill.totalTtc ?? preview.nextBill.total, cur) })}</p>
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>{t("billing.cancel")}</Button>
+          <Button onClick={() => apply.mutate()} disabled={!preview?.changed || apply.isPending}>
+            {apply.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
+            {t("billing.plan.confirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CancelDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage();
+  const qc = useQueryClient();
+  const [reason, setReason] = useState("");
+  const preview = useQuery({ queryKey: ["billing-cancel-preview"], queryFn: () => api.previewCancelSubscription() });
+  const cancel = useMutation({
+    mutationFn: () => api.cancelSubscription(reason.trim()),
+    onSuccess: (res) => {
+      qc.setQueryData(["billing-overview"], res.overview);
+      toast.success(t("billing.cancel_sub.done"));
+      onClose();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("billing.cancel_sub.title")}</DialogTitle>
+          <DialogDescription>
+            {preview.data ? t("billing.cancel_sub.desc", { date: fmtDate(preview.data.effectiveAt) }) : t("billing.loading")}
+          </DialogDescription>
+        </DialogHeader>
+        {preview.data?.openBalance ? (
+          <p className="text-sm text-amber-700 dark:text-amber-300">{t("billing.cancel_sub.owed", { amount: String(preview.data.openBalance) })}</p>
+        ) : null}
+        <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("billing.cancel_sub.reason")} />
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>{t("billing.cancel_sub.keep")}</Button>
+          <Button variant="destructive" onClick={() => cancel.mutate()} disabled={!preview.data || cancel.isPending}>
+            {cancel.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
+            {t("billing.cancel_sub.confirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SubscriptionActions({ data }: { data: BillingOverview }) {
+  const { t } = useLanguage();
+  const privileged = usePrivileged();
+  const qc = useQueryClient();
+  const [dialog, setDialog] = useState<"plan" | "cancel" | null>(null);
+  const resume = useMutation({
+    mutationFn: () => api.resumeSubscription(),
+    onSuccess: (res) => {
+      qc.setQueryData(["billing-overview"], res.overview);
+      toast.success(t("billing.cancel_sub.resumed"));
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  if (!privileged || !data.moduleBilling) return null;
+  const canceled = data.state === "canceled";
+  return (
+    <section className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <h3 className="text-base font-bold text-foreground">{t("billing.subscription")}</h3>
+      {data.cancelAtPeriodEnd ? (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t("billing.cancel_sub.scheduled", { date: fmtDate(data.cancelEffectiveAt) })}</p>
+      ) : null}
+      {data.pendingModules ? (
+        <p className="text-sm text-muted-foreground">{t("billing.plan.pending", { date: fmtDate(data.pendingEffectiveAt) })}</p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {!canceled ? (
+          <Button size="sm" variant="outline" onClick={() => setDialog("plan")}>{t("billing.plan.title")}</Button>
+        ) : null}
+        {data.cancelAtPeriodEnd || canceled ? (
+          <Button size="sm" onClick={() => resume.mutate()} disabled={resume.isPending}>
+            {canceled ? t("billing.cancel_sub.restart") : t("billing.cancel_sub.keep_sub")}
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDialog("cancel")}>
+            {t("billing.cancel_sub.title")}
+          </Button>
+        )}
+      </div>
+      {dialog === "plan" ? <PlanChangeDialog data={data} onClose={() => setDialog(null)} /> : null}
+      {dialog === "cancel" ? <CancelDialog onClose={() => setDialog(null)} /> : null}
     </section>
   );
 }
@@ -455,6 +639,7 @@ export default function BillingSettings() {
       <AccountHero data={data} />
       <ToPay data={data} />
       <WhatYouPay data={data} />
+      <SubscriptionActions data={data} />
       <History data={data} />
     </div>
   );

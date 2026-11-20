@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { safeMediaUrl } from "@/lib/safeUrl";
 
 /** Facility agency: the jobs from the restaurants it services (Mizan_BE apps/agencies). Most of the work happens on
  * WhatsApp (dispatch, "on my way", done with a photo); this board is the coordinators' overview. */
@@ -294,11 +295,14 @@ function JobDialog({ job, onClose }: { job: AgencyJob; onClose: () => void }) {
           {job.urgencyReason ? <p className="text-muted-foreground">{job.urgencyReason}</p> : null}
           {job.description ? <p className="whitespace-pre-line">{job.description}</p> : null}
           <div className="flex flex-wrap gap-2">
-            {[...job.photos, ...job.proof].map((url) => (
-              <a key={url} href={url} target="_blank" rel="noreferrer">
-                <img src={url} alt="" className="h-20 w-20 rounded object-cover" />
-              </a>
-            ))}
+            {[...job.photos, ...job.proof]
+              .map((raw) => safeMediaUrl(raw))
+              .filter((url): url is string => Boolean(url))
+              .map((url) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer">
+                  <img src={url} alt="" className="h-20 w-20 rounded object-cover" />
+                </a>
+              ))}
           </div>
           {!closed ? (
             <Card>
