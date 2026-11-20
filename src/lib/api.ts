@@ -5979,6 +5979,7 @@ export const TENANT_SEARCH_GROUPS = [
   "invoices",
   "inventory",
   "checklists",
+  "processes",
   "meetings",
   "shifts",
   "reminders",

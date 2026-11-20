@@ -4040,6 +4040,7 @@
   "command.search.group_invoices": "الفواتير",
   "command.search.group_inventory": "المخزون",
   "command.search.group_checklists": "لوائح المراجعة",
+  "command.search.group_processes": "الإجراءات واللوائح",
   "command.search.group_meetings": "الاجتماعات",
   "command.search.group_shifts": "الورديات",
   "command.search.group_reminders": "التذكيرات",

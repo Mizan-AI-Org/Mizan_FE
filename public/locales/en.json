@@ -3586,6 +3586,7 @@
   "command.search.group_invoices": "Invoices",
   "command.search.group_inventory": "Inventory",
   "command.search.group_checklists": "Checklists",
+  "command.search.group_processes": "Procedures & checklists",
   "command.search.group_meetings": "Meetings",
   "command.search.group_shifts": "Shifts",
   "command.search.group_reminders": "Reminders",
