@@ -172,6 +172,7 @@ export default function ComplianceDocumentsSettings({
   const [viewerAttachment, setViewerAttachment] = useState<AttachmentViewerState | null>(
     null,
   );
+  const [viewerDoc, setViewerDoc] = useState<ComplianceDoc | null>(null);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const attachFileRef = useRef<HTMLInputElement>(null);
 
@@ -708,6 +709,7 @@ export default function ComplianceDocumentsSettings({
                             toast.error(t("settings.compliance.preview_unavailable"));
                             return;
                           }
+                          setViewerDoc(doc);
                           setViewerAttachment({
                             url,
                             name: doc.attachment?.filename || doc.title,
@@ -773,9 +775,44 @@ export default function ComplianceDocumentsSettings({
     <AttachmentViewerModal
       open={!!viewerAttachment}
       onOpenChange={(open) => {
-        if (!open) setViewerAttachment(null);
+        if (!open) {
+          setViewerAttachment(null);
+          setViewerDoc(null);
+        }
       }}
       attachment={viewerAttachment}
+      details={
+        viewerDoc ? (
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            <div className="text-muted-foreground">{t("settings.compliance.document_type")}</div>
+            <div>{types.find((x) => x.id === viewerDoc.document_type)?.label || viewerDoc.document_type}</div>
+            {viewerDoc.expires_at ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.field_expires")}</div>
+                <div>{new Date(viewerDoc.expires_at).toLocaleDateString()}</div>
+              </>
+            ) : null}
+            {viewerDoc.attachment?.uploaded_at ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.uploaded")}</div>
+                <div>{new Date(viewerDoc.attachment.uploaded_at).toLocaleDateString()}</div>
+              </>
+            ) : null}
+            {viewerDoc.attachment?.filename ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.filename")}</div>
+                <div className="truncate">{viewerDoc.attachment.filename}</div>
+              </>
+            ) : null}
+            {viewerDoc.attachment?.size ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.size")}</div>
+                <div>{formatFileSize(viewerDoc.attachment.size)}</div>
+              </>
+            ) : null}
+          </div>
+        ) : null
+      }
     />
   );
 

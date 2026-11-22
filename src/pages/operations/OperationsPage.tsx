@@ -7,6 +7,7 @@ import { publishUiContext } from "@/lib/uiContext";
 import { useLanguage } from "@/hooks/use-language";
 import { useModules } from "@/hooks/use-modules";
 import ComplianceDocumentsSettings from "@/components/settings/ComplianceDocumentsSettings";
+import { ResponsibilityGapCard } from "@/components/responsibilities/ResponsibilityGapCard";
 import { AccountabilityPanel } from "@/components/operations/AccountabilityPanel";
 import { OperationsProgressPanel } from "@/components/operations/OperationsProgressPanel";
 import { OperationsSubviewShell } from "@/components/operations/OperationsSubviewShell";
@@ -130,6 +131,7 @@ export default function OperationsPage() {
 
       {view === "work" ? (
         <div className="space-y-4">
+          <ResponsibilityGapCard />
           <OperationsSummaryStrip
             summary={overview.data?.summary}
             focus={focus}
@@ -170,7 +172,7 @@ export default function OperationsPage() {
 
       {view === "compliance" ? (
         <OperationsSubviewShell>
-          <ComplianceDocumentsSettings />
+          <ComplianceDocumentsSettings surface="operations" />
         </OperationsSubviewShell>
       ) : null}
 

@@ -545,10 +545,13 @@ export function AttachmentViewerModal({
   open,
   onOpenChange,
   attachment,
+  details,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   attachment: AttachmentViewerState | null;
+  /** Optional metadata shown under the preview (e.g. a compliance document's type, expiry, size). */
+  details?: React.ReactNode;
 }) {
   const [imgError, setImgError] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -659,6 +662,7 @@ export function AttachmentViewerModal({
             </div>
           )}
         </div>
+        {details ? <div className="border-t border-border px-5 py-3 text-sm">{details}</div> : null}
         {url ? (
           <DialogFooter className="border-t border-border px-5 py-3 sm:justify-between">
             <Button type="button" variant="outline" size="sm" asChild>

@@ -6,10 +6,10 @@
  */
 export const COMMAND_ROUTES = {
   operations: "/dashboard/operations",
-  accountability: "/dashboard/operations/accountability",
-  progress: "/dashboard/operations/live?view=progress&tab=staff",
+  accountability: "/dashboard/operations?view=accountability",
+  progress: "/dashboard/operations?view=progress&tab=staff",
   // Compliance stays in settings until the Operations page has a compliance view.
-  compliance: "/dashboard/settings?tab=compliance-approvals",
+  compliance: "/dashboard/operations?view=compliance",
   incidents: "/dashboard/operations/incidents",
   performance: "/dashboard/employees/performance",
   attendance: "/dashboard/employees/attendance",

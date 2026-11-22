@@ -6939,11 +6939,7 @@
   "firstrun.owners_set_cta": "Who owns what",
   "firstrun.owners_set_ask": "Help me choose who owns each area of my business.",
   "firstrun.owners_gap_detail": "{{count}} areas have nobody in charge, so their work goes to the managers.",
-  "cursorUi": {
-    "auth": {
-      "slides_aria": "Showcase slides"
-    }
-  },
+  "cursorUi.auth.slides_aria": "Showcase slides",
   "cursorUi.resp.title": "Who owns what",
   "cursorUi.resp.loading": "Loading responsibilities…",
   "cursorUi.resp.load_error": "Could not load responsibilities.",
