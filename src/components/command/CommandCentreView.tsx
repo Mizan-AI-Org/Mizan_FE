@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
+import { ApprovalsPopupHost } from "@/components/command/ApprovalsPopupHost";
 import { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
 import { OperationsLiveFeed } from "@/pages/OperationsLivePage";
 import { AttentionCard } from "@/components/os/AttentionCard";
@@ -544,6 +545,7 @@ export function CommandCentreView({ className }: { className?: string }) {
           ) : null}
         </>
       )}
+      <ApprovalsPopupHost />
     </div>
   );
 }

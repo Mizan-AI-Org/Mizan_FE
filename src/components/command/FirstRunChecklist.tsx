@@ -7,7 +7,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAgentPanelOptional } from "@/context/AgentPanelContext";
 import { useLanguage } from "@/hooks/use-language";
 import { API_BASE, authFetch } from "@/lib/api";
+import { api } from "@/lib/api";
+import { CATEGORY_OWNER_GROUPS } from "@/lib/categoryOwners";
 import { unwrapEnvelope } from "@/lib/envelope";
+
+/** Pure: how many owner areas have nobody in charge (their work falls to the managers). */
+export function countOwnerGaps(owners: Record<string, string | string[]> | undefined): number {
+  if (!owners) return 0;
+  return CATEGORY_OWNER_GROUPS.flatMap((g) => g.items).filter((cat) => {
+    const value = owners[cat.key];
+    return !(Array.isArray(value) ? value.some(Boolean) : value);
+  }).length;
+}
 
 export type FirstRunState = {
   team_invited: boolean;
@@ -16,16 +27,23 @@ export type FirstRunState = {
   pos_connected: boolean;
 };
 
-type Item = { key: keyof FirstRunState; route: string; done: boolean };
+/** The setup steps: the four from the API, plus "areas nobody owns" when the owners map has gaps. */
+export type StepKey = keyof FirstRunState | "owners_set";
+type Item = { key: StepKey; route: string; done: boolean };
+
+export const OWNERS_ROUTE = "/dashboard/settings?tab=general-settings&section=general#who-owns-what";
 
 /** Pure: the four first-run steps, in the order a new business should do them. */
-export function checklistItems(state: FirstRunState): Item[] {
-  return [
+export function checklistItems(state: FirstRunState, ownerGaps = 0): Item[] {
+  const items: Item[] = [
     { key: "team_invited", route: "/dashboard/staff-app", done: state.team_invited },
     { key: "schedule_created", route: "/dashboard/scheduling", done: state.schedule_created },
     { key: "work_zone_set", route: "/dashboard/settings?tab=location", done: state.work_zone_set },
     { key: "pos_connected", route: "/dashboard/settings?tab=pos", done: state.pos_connected },
   ];
+  // Only once there is a team to hand areas to; a business where managers do everything just hides the banner.
+  if (state.team_invited && ownerGaps > 0) items.push({ key: "owners_set", route: OWNERS_ROUTE, done: false });
+  return items;
 }
 
 const HIDE_KEY = "mizan_setup_hidden_until";
@@ -73,12 +91,12 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
  * First-run setup as one quiet line: progress, the single next step with its action, and the full list on demand.
  * It never takes over the dashboard and can be put away for a week.
  */
-export function FirstRunChecklistCard({ state }: { state: FirstRunState }) {
+export function FirstRunChecklistCard({ state, ownerGaps = 0 }: { state: FirstRunState; ownerGaps?: number }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const agent = useAgentPanelOptional();
   const [hidden, setHidden] = useState(hiddenNow);
-  const items = checklistItems(state);
+  const items = checklistItems(state, ownerGaps);
   const open = items.filter((i) => !i.done);
   if (open.length === 0 || hidden) return null;
   const next = open[0];
@@ -100,6 +118,11 @@ export function FirstRunChecklistCard({ state }: { state: FirstRunState }) {
       <span className="min-w-0 flex-1 truncate">
         <span className="text-muted-foreground">{t("firstrun.next")} </span>
         <span className="font-medium">{t(`firstrun.${next.key}`)}</span>
+        {next.key === "owners_set" ? (
+          <span className="ms-2 hidden text-muted-foreground md:inline">
+            {t("firstrun.owners_gap_detail", { count: ownerGaps })}
+          </span>
+        ) : null}
       </span>
 
       <span className="flex items-center gap-1">
@@ -191,6 +214,20 @@ export default function FirstRunChecklist() {
       return unwrapEnvelope(await res.json()) as FirstRunState;
     },
   });
+  // Managers only (the owners map is 403 for staff): a failed read just means no extra step.
+  const owners = useQuery<number>({
+    queryKey: ["first-run-owner-gaps"],
+    staleTime: 60_000,
+    retry: false,
+    enabled: Boolean(query.data),
+    queryFn: async () => {
+      try {
+        return countOwnerGaps((await api.getCategoryOwners())?.owners);
+      } catch {
+        return 0;
+      }
+    },
+  });
   if (!query.data) return null;
-  return <FirstRunChecklistCard state={query.data} />;
+  return <FirstRunChecklistCard state={query.data} ownerGaps={owners.data ?? 0} />;
 }

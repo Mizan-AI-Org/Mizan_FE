@@ -50,6 +50,7 @@ import { HUB_TABS_LIST, HUB_TABS_TRIGGER_GRID, MIZAN_TOOLBAR } from "@/lib/mizan
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { AttachmentList } from "@/components/ui/attachment-preview";
 import { api, BACKEND_URL } from "@/lib/api";
+import { publishUiContext } from "@/lib/uiContext";
 import type { DashboardTaskDemandItem, Invoice } from "@/lib/types";
 import { toast } from "sonner";
 import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTaskDetailContent";
@@ -840,6 +841,18 @@ const StaffRequestsPage: React.FC = () => {
   const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Tell Miya which status tab, lane and filters of the inbox are on screen.
+  useEffect(() => {
+    const filters: Record<string, string> = {};
+    if (debouncedSearch) filters.q = debouncedSearch;
+    if (activePriority) filters.priority = activePriority;
+    publishUiContext({
+      tab: String(activeStatus),
+      category: activeLaneId || undefined,
+      view: "staff-requests",
+      filters: Object.keys(filters).length ? filters : undefined,
+    });
+  }, [activeStatus, activeLaneId, debouncedSearch, activePriority]);
   const deepLinkAppliedRef = useRef(false);
   const initialDeepLinkRef = useRef<StaffRequestsDeepLink>(
     captureStaffRequestsDeepLink(searchParams),

@@ -6904,5 +6904,16 @@
   "process.schedule.month_day": "Day of the month",
   "process.schedule.month_day_help": "The process is handed out on this day of the month.",
   "process.audience.groups_title": "Or give it to a group",
-  "process.audience.groups_help": "Roles, job titles, departments or everyone. Named people above stay as they are."
+  "process.audience.groups_help": "Roles, job titles, departments or everyone. Named people above stay as they are.",
+  "approvals.popup.title": "Needs your decision",
+  "approvals.popup.to_validate": "To validate",
+  "approvals.popup.untitled": "Approval request",
+  "approvals.popup.approve": "Approve",
+  "approvals.popup.reject": "Reject",
+  "approvals.popup.validate": "Validate",
+  "approvals.popup.later": "Later",
+  "firstrun.owners_set": "Name who owns each area",
+  "firstrun.owners_set_cta": "Who owns what",
+  "firstrun.owners_set_ask": "Help me choose who owns each area of my business.",
+  "firstrun.owners_gap_detail": "{{count}} areas have nobody in charge, so their work goes to the managers."
 }

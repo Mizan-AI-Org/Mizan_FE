@@ -1177,6 +1177,7 @@ function Settings() {
             </SettingsSection>
 
             <SettingsSection
+              id="who-owns-what"
               icon={<Route className="h-5 w-5" />}
               iconClassName="bg-violet-50 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
               title={t("onboarding.owners.title", "Who owns what?")}

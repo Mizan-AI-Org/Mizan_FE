@@ -6904,5 +6904,16 @@
   "process.schedule.month_day": "Jour du mois",
   "process.schedule.month_day_help": "Le processus est lancé ce jour du mois.",
   "process.audience.groups_title": "Ou le confier à un groupe",
-  "process.audience.groups_help": "Rôles, intitulés de poste, services ou tout le monde. Les personnes nommées ci-dessus restent inchangées."
+  "process.audience.groups_help": "Rôles, intitulés de poste, services ou tout le monde. Les personnes nommées ci-dessus restent inchangées.",
+  "approvals.popup.title": "Votre décision est attendue",
+  "approvals.popup.to_validate": "À valider",
+  "approvals.popup.untitled": "Demande d'approbation",
+  "approvals.popup.approve": "Approuver",
+  "approvals.popup.reject": "Refuser",
+  "approvals.popup.validate": "Valider",
+  "approvals.popup.later": "Plus tard",
+  "firstrun.owners_set": "Désignez le responsable de chaque domaine",
+  "firstrun.owners_set_cta": "Qui s'occupe de quoi",
+  "firstrun.owners_set_ask": "Aide-moi à choisir qui s'occupe de chaque domaine de mon établissement.",
+  "firstrun.owners_gap_detail": "{{count}} domaines n'ont personne en charge : leur travail revient aux managers."
 }
