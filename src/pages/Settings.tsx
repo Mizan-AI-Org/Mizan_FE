@@ -35,7 +35,7 @@ import {
   Shield,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
-import { useState, useEffect, useMemo, lazy, Suspense, memo } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { SectionErrorBoundary } from "@/components/ErrorBoundary";
 import { useQueryClient } from "@tanstack/react-query";
 import ReservationIntegration from "@/components/ReservationIntegration";
@@ -87,6 +87,7 @@ import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
 import { CATEGORY_OWNER_GROUPS, mergeLegacyIncidentAssignees } from "@/lib/categoryOwners";
+import { ResponsibilitySettings } from "@/components/responsibilities/ResponsibilitySettings";
 import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
 import type { StaffPickerRow } from "@/lib/staffPicker";
 import {
@@ -168,49 +169,6 @@ function resolveIntegrationSection(params: URLSearchParams): IntegrationSection 
 }
 
 /** Main's category-owners picker, kept as the Responsibilities slot until workstream D lands. */
-function CategoryOwnersSlot({
-  owners: categoryOwners,
-  directory: categoryOwnerDirectory,
-  setOwners: setCategoryOwners,
-}: {
-  owners: Record<string, string[]>;
-  directory: Record<string, StaffPickerRow>;
-  setOwners: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-}) {
-  const { t } = useLanguage();
-  return (
-    <div className="space-y-6">
-      {CATEGORY_OWNER_GROUPS.map((group) => (
-        <div key={group.groupKey} className="space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {t(group.groupKey)}
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {group.items.map((cat) => (
-              <div key={cat.key} className="space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-3 min-w-0">
-                <Label className="text-sm font-medium">{t(cat.labelKey)}</Label>
-                <CategoryOwnerPicker
-                  selectedIds={categoryOwners[cat.key] || []}
-                  staffDirectory={categoryOwnerDirectory}
-                  onChange={(ids) => {
-                    setCategoryOwners((prev) => {
-                      if (ids.length === 0) {
-                        const { [cat.key]: _, ...rest } = prev;
-                        return rest;
-                      }
-                      return { ...prev, [cat.key]: ids };
-                    });
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function Settings() {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
@@ -250,6 +208,9 @@ function Settings() {
   const [automaticClockOut, setAutomaticClockOut] = useState(false);
   const [allowChecklistWithoutClockIn, setAllowChecklistWithoutClockIn] = useState(false);
   const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
+  // Legacy incident_category_assignees still get promoted to owners on save (as before), but against the
+  // LIVE owner map: ResponsibilitySettings saves owners itself, so this state may be stale.
+  const legacyAssigneesRef = useRef<Record<string, string>>({});
   const [categoryOwnerDirectory, setCategoryOwnerDirectory] = useState<
     Record<string, StaffPickerRow>
   >({});
@@ -653,6 +614,7 @@ function Settings() {
         for (const [k, v] of Object.entries(raw)) {
           normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
         }
+        legacyAssigneesRef.current = legacyAssignees;
         setCategoryOwners(mergeLegacyIncidentAssignees(normalized, legacyAssignees));
         const directory: Record<string, StaffPickerRow> = {};
         for (const [id, row] of Object.entries(ownersRes?.staff_directory || {})) {
@@ -767,7 +729,15 @@ function Settings() {
         // Include the version for optimistic locking
         settings_schema_version: settingsSchemaVersion,
       });
-      await api.saveCategoryOwners(categoryOwners);
+      if (Object.keys(legacyAssigneesRef.current).length) {
+        const live = (await api.getCategoryOwners())?.owners || {};
+        const normalized: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(live)) {
+          normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
+        }
+        const merged = mergeLegacyIncidentAssignees(normalized, legacyAssigneesRef.current);
+        if (JSON.stringify(merged) !== JSON.stringify(normalized)) await api.saveCategoryOwners(merged);
+      }
       if (response.status === 200) {
         const ver =
           typeof response.data?.settings_schema_version === "number"
@@ -1280,13 +1250,8 @@ function Settings() {
               defaultOpen
               contentClassName="pt-0"
             >
-              {/* RESPONSIBILITIES SLOT (workstream D): the integrator swaps this single
-                  component for <ResponsibilitySettings /> from components/responsibilities. */}
-              <CategoryOwnersSlot
-                owners={categoryOwners}
-                directory={categoryOwnerDirectory}
-                setOwners={setCategoryOwners}
-              />
+              {/* Responsibilities: owners (several per area) + opt-in watchers; saves each change itself. */}
+              <ResponsibilitySettings />
             </SettingsSection>
 
             <SettingsStickyActions hint={t("settings.save_hint")}>
