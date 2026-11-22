@@ -6969,7 +6969,7 @@
   "cursorUi.cmd.tiles.incidents": "Incidents",
   "cursorUi.cmd.tiles.attendance": "Présence",
   "cursorUi.cmd.tiles.open": "Ouvrir",
-  "cursorUi.cmd.tiles.open_count": "{{count}} en cours",
+  "cursorUi.cmd.tiles.open_count": "{{count}} ouverts",
   "cursorUi.cmd.tiles.incident_count": "{{count}} incidents",
   "cursorUi.ops.tab.work": "Travail",
   "cursorUi.ops.tab.compliance": "Conformité",
