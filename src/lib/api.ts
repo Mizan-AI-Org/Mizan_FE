@@ -1008,7 +1008,9 @@ export class BackendService {
       | "IN_PROGRESS"
       | "COMPLETED"
       | "UNABLE_TO_COMPLETE"
-      | "CANCELLED",
+      | "CANCELLED"
+      | "GOT_IT"
+      | "NEED_HELP",
   ): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(
       `/dashboard/tasks-demands/${taskId}/status/`,

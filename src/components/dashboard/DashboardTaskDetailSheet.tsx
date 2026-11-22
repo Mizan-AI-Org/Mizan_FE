@@ -64,7 +64,7 @@ export function DashboardTaskDetailSheet({
   };
 
   const statusMutation = useMutation({
-    mutationFn: (nextStatus: DashboardTaskDemandItem["status"]) => {
+    mutationFn: (nextStatus: DashboardTaskDemandItem["status"] | "GOT_IT" | "NEED_HELP") => {
       if (!taskId) throw new Error("No task selected");
       return api.updateDashboardTaskStatus(taskId, nextStatus);
     },

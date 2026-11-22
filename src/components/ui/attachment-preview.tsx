@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { safeUrl } from "@/lib/safeUrl";
+import { BACKEND_URL, resolveMediaUrl } from "@/lib/api";
 
 /**
  * Loose attachment shape - every back-end serializer that surfaces a file
@@ -550,6 +551,8 @@ export function AttachmentViewerModal({
   attachment: AttachmentViewerState | null;
 }) {
   const [imgError, setImgError] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const url = attachment?.url?.trim() || "";
   const name = attachment?.name?.trim() || i18n.t("attachment.default_name");
   const kind = attachment ? viewerKind(attachment) : "other";
@@ -557,6 +560,45 @@ export function AttachmentViewerModal({
   useEffect(() => {
     if (open) setImgError(false);
   }, [open, url]);
+
+  // PDFs are fetched as a blob and shown from a blob: URL. The API host sends frame-blocking headers
+  // (X-Frame-Options) so framing the media URL directly renders blank (signed contract PDFs).
+  // If the fetch fails (CORS, expired link) we fall back to framing the URL, as before.
+  useEffect(() => {
+    if (!open || kind !== "pdf" || !url) {
+      setPdfBlobUrl(null);
+      setPdfLoading(false);
+      return;
+    }
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setPdfLoading(true);
+    void (async () => {
+      try {
+        const target = resolveMediaUrl(url) || url;
+        const headers: Record<string, string> = {};
+        // The access token only ever goes to our own API host, never to a third-party (e.g. S3) link.
+        const ours = !/^https?:\/\//i.test(target) || (!!BACKEND_URL && target.startsWith(BACKEND_URL));
+        const token = ours && typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const response = await fetch(target, { headers });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+        setPdfBlobUrl(objectUrl);
+      } catch {
+        if (!cancelled) setPdfBlobUrl(null);
+      } finally {
+        if (!cancelled) setPdfLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setPdfBlobUrl(null);
+    };
+  }, [open, kind, url]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -585,11 +627,15 @@ export function AttachmentViewerModal({
               />
             )
           ) : kind === "pdf" ? (
-            <iframe
-              title={name}
-              src={safeUrl(url)}
-              className="h-[70vh] w-full rounded-md border border-border bg-background"
-            />
+            pdfLoading ? (
+              <p className="text-sm text-muted-foreground">{i18n.t("attachment.loading")}</p>
+            ) : (
+              <iframe
+                title={name}
+                src={pdfBlobUrl ?? safeUrl(url)}
+                className="h-[70vh] w-full rounded-md border border-border bg-background"
+              />
+            )
           ) : kind === "video" ? (
             <video
               controls
