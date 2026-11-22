@@ -6924,5 +6924,17 @@
   "firstrun.owners_set": "Désignez le responsable de chaque domaine",
   "firstrun.owners_set_cta": "Qui s'occupe de quoi",
   "firstrun.owners_set_ask": "Aide-moi à choisir qui s'occupe de chaque domaine de mon établissement.",
-  "firstrun.owners_gap_detail": "{{count}} domaines n'ont personne en charge : leur travail revient aux managers."
+  "firstrun.owners_gap_detail": "{{count}} domaines n'ont personne en charge : leur travail revient aux managers.",
+  "cursorUi.cmd.tiles.aria": "Raccourcis",
+  "cursorUi.cmd.tiles.operations": "Opérations",
+  "cursorUi.cmd.tiles.accountability": "Responsabilisation",
+  "cursorUi.cmd.tiles.progress": "Avancement",
+  "cursorUi.cmd.tiles.performance": "Performance de l'équipe",
+  "cursorUi.cmd.tiles.calendar": "Google Agenda",
+  "cursorUi.cmd.tiles.orders": "Commandes",
+  "cursorUi.cmd.tiles.incidents": "Incidents",
+  "cursorUi.cmd.tiles.attendance": "Présence",
+  "cursorUi.cmd.tiles.open": "Ouvrir",
+  "cursorUi.cmd.tiles.open_count": "{{count}} en cours",
+  "cursorUi.cmd.tiles.incident_count": "{{count}} incidents"
 }

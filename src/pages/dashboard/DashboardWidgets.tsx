@@ -1866,6 +1866,31 @@ function WidgetTasksTabBar({
   );
 }
 
+function widgetTaskAssigneeAvatar(
+  assignee: DashboardTaskDemandItem["assignee"],
+  unassignedLabel: string,
+): React.ReactNode {
+  if (assignee?.initials) {
+    return (
+      <div
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[10px] font-bold text-white"
+        aria-label={assignee.name}
+        title={assignee.name}
+      >
+        {assignee.initials.slice(0, 2)}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-400"
+      title={unassignedLabel}
+    >
+      ?
+    </div>
+  );
+}
+
 const WIDGET_TASK_EXPANDED_LIMIT = 25;
 
 function TasksDemandsCard({
@@ -2131,7 +2156,7 @@ function TasksDemandsCard({
               {t(`dashboard.tasks_demands.empty_${tab}`)}
             </div>
           ) : (
-            <ul className={cn("space-y-1.5", expanded && "max-h-[420px] overflow-y-auto pr-1")}>
+            <ul className={cn("divide-y divide-slate-100 dark:divide-slate-800/80", expanded && "max-h-[420px] overflow-y-auto pr-1")}>
               {previewRows.map((row) => {
                 const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);
@@ -2150,6 +2175,15 @@ function TasksDemandsCard({
                 ]
                   .filter(Boolean)
                   .join(" · ");
+                const assigneeLabel = row.assignee?.name?.trim()
+                  ? row.assignee.name.split(" ")[0]
+                  : t("dashboard.tasks_demands.unassigned");
+                const showUrgentBadge =
+                  row.priority === "URGENT" &&
+                  row.pill_status !== "OVERDUE" &&
+                  row.pill_status !== "DUE_SOON" &&
+                  row.status !== "COMPLETED" &&
+                  row.status !== "CANCELLED";
                 const rowDraggable = isDashboardTaskDraggable(row);
                 const dragHandlers = bindTaskRowDragHandlers({
                   item: row,
@@ -2163,79 +2197,77 @@ function TasksDemandsCard({
                     key={row.id}
                     onClick={() => navigate(tasksDemandsDetailHref(row))}
                     className={cn(
-                      "group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer",
+                      "group rounded-md px-1 py-1.5 first:pt-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer",
                       rowDraggable && "cursor-grab active:cursor-grabbing",
                       isDragging && "opacity-35 border border-dashed border-emerald-400/70",
                     )}
                     {...dragHandlers}
                   >
-                    <div className="flex items-start gap-2.5">
-                      {/* Avatar */}
-                      <div className="shrink-0 mt-0.5">
-                        {row.assignee ? (
-                          <div
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[10px] font-bold text-white"
-                            aria-label={row.assignee.name}
-                            title={row.assignee.name}
-                          >
-                            {row.assignee.initials}
-                          </div>
-                        ) : (
-                          <div
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-400"
-                            title={t("dashboard.tasks_demands.unassigned")}
-                          >
-                            ?
-                          </div>
+                    <div className="flex items-start gap-2 min-w-0">
+                      <div className="shrink-0 pt-0.5">
+                        {widgetTaskAssigneeAvatar(
+                          row.assignee,
+                          t("dashboard.tasks_demands.unassigned"),
                         )}
                       </div>
 
                       {/* Body */}
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 space-y-0.5">
                         {showSource ? (
-                          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                             <SrcIcon className="h-3 w-3 shrink-0" aria-hidden />
                             <span className="truncate">{srcLabel}</span>
                           </div>
                         ) : null}
-                        <div className="text-[13px] font-semibold text-slate-900 dark:text-white leading-snug truncate">
+                        <p
+                          className="w-full truncate text-[13px] font-semibold leading-tight text-slate-900 dark:text-white"
+                          title={row.title}
+                        >
                           {row.title}
-                        </div>
+                        </p>
                         {row.ai_summary || row.description ? (
-                          <div className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 leading-snug line-clamp-1">
+                          <div className="truncate text-[10px] leading-snug text-emerald-600 dark:text-emerald-400">
                             {t("dashboard.tasks_demands.ai_prefix")}{" "}
                             {row.ai_summary || row.description}
                           </div>
                         ) : null}
-                        {row.assignee ? (
-                          <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            {row.assignee.name}
-                          </div>
-                        ) : null}
-                      </div>
-
+                        <div
+                          className="flex min-h-[1.25rem] items-center justify-between gap-2 pt-0.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <p className="min-w-0 flex-1 truncate text-[10px] text-slate-500 dark:text-slate-400">
+                            {assigneeLabel}
+                          </p>
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            {showUrgentBadge ? (
+                              <span className="inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1 py-px text-[8px] font-bold uppercase tracking-wider text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+                                {t("dashboard.category_tasks.priority_urgent_short")}
+                              </span>
+                            ) : null}
                       {/* Status pill (right-aligned, mirrors row-level
                           hierarchy - status is the primary signal now) */}
                       <span
-                        className={cn(
-                          "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
-                          pill.bg,
-                          pill.text,
-                        )}
-                      >
-                        <span
-                          className={cn("h-1.5 w-1.5 rounded-full", pill.dot)}
-                          aria-hidden
-                        />
-                        {taskDemandStatusLabel(pill, t)}
-                      </span>
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold whitespace-nowrap",
+                            pill.bg,
+                            pill.text,
+                          )}
+                        >
+                          <span
+                            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", pill.dot)}
+                            aria-hidden
+                          />
+                          <span className="max-w-[4.5rem] truncate">
+                            {taskDemandStatusLabel(pill, t)}
+                          </span>
+                        </span>
 
-                      {/* Action menu */}
+                        {/* Action menu */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                             aria-label={t("dashboard.tasks_demands.row_actions")}
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -2334,6 +2366,9 @@ function TasksDemandsCard({
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </li>
                 );
@@ -5061,7 +5096,7 @@ function CategoryTasksCard({
               ) : null}
             </div>
           ) : (
-            <ul className="space-y-1">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {previewItems.map((it) => (
                 <CategoryTaskRow
                   key={it.id}
@@ -6067,7 +6102,7 @@ export function CustomWidgetTasksCard({
               {t(`dashboard.tasks_demands.empty_${tab}`)}
             </div>
           ) : (
-            <ul className={cn("space-y-1.5", expanded && "max-h-[420px] overflow-y-auto pr-1")}>
+            <ul className={cn("divide-y divide-slate-100 dark:divide-slate-800/80", expanded && "max-h-[420px] overflow-y-auto pr-1")}>
               {previewRows.map((row) => {
                 const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);

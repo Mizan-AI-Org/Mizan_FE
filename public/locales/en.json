@@ -6924,5 +6924,17 @@
   "firstrun.owners_set": "Name who owns each area",
   "firstrun.owners_set_cta": "Who owns what",
   "firstrun.owners_set_ask": "Help me choose who owns each area of my business.",
-  "firstrun.owners_gap_detail": "{{count}} areas have nobody in charge, so their work goes to the managers."
+  "firstrun.owners_gap_detail": "{{count}} areas have nobody in charge, so their work goes to the managers.",
+  "cursorUi.cmd.tiles.aria": "Shortcuts",
+  "cursorUi.cmd.tiles.operations": "Operations",
+  "cursorUi.cmd.tiles.accountability": "Accountability",
+  "cursorUi.cmd.tiles.progress": "Progress",
+  "cursorUi.cmd.tiles.performance": "Staff performance",
+  "cursorUi.cmd.tiles.calendar": "Google Calendar",
+  "cursorUi.cmd.tiles.orders": "Orders",
+  "cursorUi.cmd.tiles.incidents": "Incidents",
+  "cursorUi.cmd.tiles.attendance": "Attendance",
+  "cursorUi.cmd.tiles.open": "Open",
+  "cursorUi.cmd.tiles.open_count": "{{count}} open",
+  "cursorUi.cmd.tiles.incident_count": "{{count}} incidents"
 }

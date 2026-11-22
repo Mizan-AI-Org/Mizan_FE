@@ -6924,5 +6924,17 @@
   "firstrun.owners_set": "حدّد المسؤول عن كل مجال",
   "firstrun.owners_set_cta": "من المسؤول عن ماذا",
   "firstrun.owners_set_ask": "ساعدني في اختيار المسؤول عن كل مجال في مؤسستي.",
-  "firstrun.owners_gap_detail": "{{count}} مجالات بلا مسؤول، لذلك يذهب عملها إلى المديرين."
+  "firstrun.owners_gap_detail": "{{count}} مجالات بلا مسؤول، لذلك يذهب عملها إلى المديرين.",
+  "cursorUi.cmd.tiles.aria": "اختصارات",
+  "cursorUi.cmd.tiles.operations": "العمليات",
+  "cursorUi.cmd.tiles.accountability": "المساءلة",
+  "cursorUi.cmd.tiles.progress": "التقدم",
+  "cursorUi.cmd.tiles.performance": "أداء الموظفين",
+  "cursorUi.cmd.tiles.calendar": "تقويم Google",
+  "cursorUi.cmd.tiles.orders": "الطلبات",
+  "cursorUi.cmd.tiles.incidents": "الحوادث",
+  "cursorUi.cmd.tiles.attendance": "الحضور",
+  "cursorUi.cmd.tiles.open": "فتح",
+  "cursorUi.cmd.tiles.open_count": "{{count}} مفتوح",
+  "cursorUi.cmd.tiles.incident_count": "{{count}} حوادث"
 }
