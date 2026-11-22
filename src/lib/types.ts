@@ -564,6 +564,24 @@ export interface DashboardTaskDemandItem {
     proof_submitter_name?: string | null;
     attachment_url?: string | null;
     attachment_label?: string | null;
+    /** Who asked for it (routing_metadata.requested_by / invoice creator). */
+    created_by?: TrailPerson | null;
+    /** Every hand-over, oldest first (AssignmentEvent). */
+    assignee_trail?: AssigneeTrailStep[];
+}
+
+export interface TrailPerson {
+    id: string;
+    name: string;
+    role?: string | null;
+}
+
+export interface AssigneeTrailStep {
+    to: TrailPerson | null;
+    from: TrailPerson | null;
+    by: TrailPerson | null;
+    reason: 'create' | 'claim' | 'reassign' | 'escalate' | 'backfill' | string;
+    at: string;
 }
 
 /** Row in the Operations Live full-page feed. */
