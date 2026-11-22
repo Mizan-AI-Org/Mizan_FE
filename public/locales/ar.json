@@ -6924,5 +6924,10 @@
   "firstrun.owners_set": "حدّد المسؤول عن كل مجال",
   "firstrun.owners_set_cta": "من المسؤول عن ماذا",
   "firstrun.owners_set_ask": "ساعدني في اختيار المسؤول عن كل مجال في مؤسستي.",
-  "firstrun.owners_gap_detail": "{{count}} مجالات بلا مسؤول، لذلك يذهب عملها إلى المديرين."
+  "firstrun.owners_gap_detail": "{{count}} مجالات بلا مسؤول، لذلك يذهب عملها إلى المديرين.",
+  "cursorUi": {
+    "auth": {
+      "slides_aria": "شرائح العرض"
+    }
+  }
 }

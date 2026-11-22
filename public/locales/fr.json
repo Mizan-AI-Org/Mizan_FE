@@ -6924,5 +6924,10 @@
   "firstrun.owners_set": "Désignez le responsable de chaque domaine",
   "firstrun.owners_set_cta": "Qui s'occupe de quoi",
   "firstrun.owners_set_ask": "Aide-moi à choisir qui s'occupe de chaque domaine de mon établissement.",
-  "firstrun.owners_gap_detail": "{{count}} domaines n'ont personne en charge : leur travail revient aux managers."
+  "firstrun.owners_gap_detail": "{{count}} domaines n'ont personne en charge : leur travail revient aux managers.",
+  "cursorUi": {
+    "auth": {
+      "slides_aria": "Diapositives de présentation"
+    }
+  }
 }

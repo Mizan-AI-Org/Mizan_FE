@@ -6924,5 +6924,10 @@
   "firstrun.owners_set": "Name who owns each area",
   "firstrun.owners_set_cta": "Who owns what",
   "firstrun.owners_set_ask": "Help me choose who owns each area of my business.",
-  "firstrun.owners_gap_detail": "{{count}} areas have nobody in charge, so their work goes to the managers."
+  "firstrun.owners_gap_detail": "{{count}} areas have nobody in charge, so their work goes to the managers.",
+  "cursorUi": {
+    "auth": {
+      "slides_aria": "Showcase slides"
+    }
+  }
 }

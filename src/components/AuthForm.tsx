@@ -92,9 +92,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
         </Alert>
       )}
 
-      <div className="space-y-1">
+      <div>
         <h2 className="text-xl font-bold text-white">{t("auth.actions.sign_in")}</h2>
-        <p className="text-sm text-[#B0BEC5]">{t("auth.signup.subtitle")}</p>
       </div>
 
       <form onSubmit={handleSignIn} className="space-y-5">
