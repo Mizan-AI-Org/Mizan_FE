@@ -135,6 +135,11 @@ function dateInputValue(value?: string | null): string {
   return match?.[1] || "";
 }
 
+function titleFromFilename(filename: string): string {
+  const base = filename.replace(/\.[^.]+$/, "");
+  return base.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function typeLabel(doc: ComplianceDoc, types: DocType[]): string {
   const raw = (doc.document_type || doc.category || "").trim();
   const match = types.find(
@@ -197,6 +202,15 @@ export default function ComplianceDocumentsSettings() {
     }
   };
 
+  const resetAddForm = () => {
+    setTitle("");
+    setExpiresAt("");
+    setRemindDays("30");
+    setDocumentType("INSURANCE");
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const addDoc = async () => {
     if (!title.trim()) {
       toast.error(t("settings.compliance.title_required"));
@@ -220,10 +234,7 @@ export default function ComplianceDocumentsSettings() {
           remind_days_before: Number(remindDays) || 30,
         });
       }
-      setTitle("");
-      setExpiresAt("");
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      resetAddForm();
       toast.success(t("settings.compliance.added"));
       await load();
     } catch (err) {
@@ -393,7 +404,10 @@ export default function ComplianceDocumentsSettings() {
                 className="hidden"
                 accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.tiff,.tif"
                 onChange={(e) => {
-                  setSelectedFile(e.target.files?.[0] || null);
+                  const file = e.target.files?.[0] || null;
+                  setSelectedFile(file);
+                  // Pre-fill the name from the file so a drop-and-save is one step.
+                  if (file && !title.trim()) setTitle(titleFromFilename(file.name));
                 }}
               />
               {selectedFile ? (
@@ -408,6 +422,7 @@ export default function ComplianceDocumentsSettings() {
                       setSelectedFile(null);
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
+                    aria-label={t("settings.compliance.remove_file")}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -418,8 +433,7 @@ export default function ComplianceDocumentsSettings() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5 w-28">
+          <div className="space-y-1.5 w-28">
               <Label htmlFor="comp-remind">{t("settings.compliance.field_remind")}</Label>
               <Input
                 id="comp-remind"
@@ -429,11 +443,30 @@ export default function ComplianceDocumentsSettings() {
                 value={remindDays}
                 onChange={(e) => setRemindDays(e.target.value)}
               />
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {!title.trim()
+                ? t("settings.compliance.save_requires_name")
+                : selectedFile
+                  ? t("settings.compliance.save_ready_with_file")
+                  : t("settings.compliance.save_ready_no_file")}
+            </p>
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <Button type="button" variant="outline" disabled={saving} onClick={resetAddForm}>
+                {t("generic.cancel")}
+              </Button>
+              <Button
+                type="button"
+                className="premium-button"
+                disabled={saving || !title.trim()}
+                onClick={() => void addDoc()}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t("settings.compliance.add_btn")}
+              </Button>
             </div>
-            <Button type="button" className="premium-button" disabled={saving} onClick={() => void addDoc()}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t("settings.compliance.add_btn")}
-            </Button>
           </div>
         </div>
 
@@ -525,7 +558,7 @@ export default function ComplianceDocumentsSettings() {
                         onClick={() => setViewerDoc(doc)}
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        View
+                        {t("common.view")}
                       </Button>
                       {doc.attachment.resolved_url ? (
                         <a
@@ -536,7 +569,7 @@ export default function ComplianceDocumentsSettings() {
                         >
                           <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-xs">
                             <Download className="h-3.5 w-3.5" />
-                            Download
+                            {t("common.download")}
                           </Button>
                         </a>
                       ) : null}
@@ -549,7 +582,7 @@ export default function ComplianceDocumentsSettings() {
                         disabled={saving}
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
-                        Replace
+                        {t("common.replace")}
                       </Button>
                     </div>
                   </div>
@@ -648,7 +681,7 @@ export default function ComplianceDocumentsSettings() {
                   >
                     <Button variant="outline" size="sm" className="gap-1.5">
                       <Download className="h-4 w-4" />
-                      Download
+                      {t("common.download")}
                     </Button>
                   </a>
                 </div>

@@ -1765,7 +1765,7 @@ function statusPillClass(
 }
 
 /** Max task rows shown inside a dashboard widget before "More". */
-const WIDGET_TASK_PREVIEW_LIMIT = 4;
+const WIDGET_TASK_PREVIEW_LIMIT = 5;
 
 function taskDemandStatusLabel(
   pill: PillVisual,
@@ -1786,12 +1786,15 @@ function WidgetTasksMoreFooter({
   t,
   className,
   expanded,
+  hiddenCount,
 }: {
   visible: boolean;
   onClick: (e: React.MouseEvent) => void;
   t: (key: string, options?: Record<string, string | number> | string) => string;
   className?: string;
   expanded?: boolean;
+  /** Rows not shown yet; rendered as "+N" next to "More" while collapsed. */
+  hiddenCount?: number;
 }) {
   if (!visible) return null;
   const label = expanded ? t("dashboard.category_tasks.less") : t("dashboard.category_tasks.more");
@@ -1809,8 +1812,57 @@ function WidgetTasksMoreFooter({
       aria-expanded={expanded === undefined ? undefined : expanded}
     >
       {label}
+      {!expanded && hiddenCount && hiddenCount > 0 ? (
+        <span className="tabular-nums text-muted-foreground">+{hiddenCount}</span>
+      ) : null}
       <Chevron className="h-3.5 w-3.5" aria-hidden />
     </button>
+  );
+}
+
+type WidgetTasksTabDef = { id: string; label: string; count: number };
+
+/** Shared Pending / In progress / Completed switcher for task widgets. */
+function WidgetTasksTabBar({
+  tabs,
+  activeId,
+  onSelect,
+}: {
+  tabs: WidgetTasksTabDef[];
+  activeId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 p-0.5 mb-3">
+      {tabs.map((tb) => {
+        const active = activeId === tb.id;
+        return (
+          <button
+            key={tb.id}
+            type="button"
+            onClick={() => onSelect(tb.id)}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors",
+              active
+                ? "bg-card text-slate-900 dark:text-white shadow-sm"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+            )}
+          >
+            <span className="truncate">{tb.label}</span>
+            <span
+              className={cn(
+                "inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums",
+                active
+                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
+                  : "bg-slate-200/70 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300",
+              )}
+            >
+              {tb.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1837,7 +1889,9 @@ function TasksDemandsCard({
       queryKey: expanded
         ? ["dashboard", "tasks-demands", 5, "expanded"]
         : ["dashboard", "tasks-demands", 5],
-      queryFn: () => api.getDashboardTasksDemands(expanded ? WIDGET_TASK_EXPANDED_LIMIT : 5),
+      queryFn: () => api.getDashboardTasksDemands(
+          expanded ? WIDGET_TASK_EXPANDED_LIMIT : WIDGET_TASK_PREVIEW_LIMIT,
+        ),
       placeholderData: (previous) => previous,
       // Dashboard widget - bounded cost. 60 s refetch matches the other
       // operational cards, with staleTime so tab switches don't re-fetch.
@@ -2036,37 +2090,11 @@ function TasksDemandsCard({
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
-        {/* Tabs */}
-        <div className="flex items-center gap-1 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 p-0.5 mb-3">
-          {tabs.map((tb) => {
-            const active = tab === tb.id;
-            return (
-              <button
-                key={tb.id}
-                type="button"
-                onClick={() => setTab(tb.id)}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors",
-                  active
-                    ? "bg-card text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                )}
-              >
-                <span className="truncate">{t(tb.labelKey)}</span>
-                <span
-                  className={cn(
-                    "inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums",
-                    active
-                      ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
-                      : "bg-slate-200/70 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300",
-                  )}
-                >
-                  {tb.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <WidgetTasksTabBar
+          activeId={tab}
+          onSelect={(id) => setTab(id as TasksDemandsTab)}
+          tabs={tabs.map((tb) => ({ id: tb.id, count: tb.count, label: t(tb.labelKey) }))}
+        />
 
         {/* Rows */}
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
@@ -2113,8 +2141,15 @@ function TasksDemandsCard({
                 // actionable context; WA / Email / system rows still show
                 // their provenance because that's where triage matters.
                 const showSource =
-                  row.source !== "SYSTEM" && Boolean(row.source_label?.trim() || sourcePrefix(row.source));
-                const srcLabel = row.source_label?.trim() || sourcePrefix(row.source);
+                  Boolean(row.created_by?.name) ||
+                  (row.source !== "SYSTEM" &&
+                    Boolean(row.source_label?.trim() || sourcePrefix(row.source)));
+                const srcLabel = [
+                  row.created_by?.name,
+                  row.source_label?.trim() || sourcePrefix(row.source),
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 const rowDraggable = isDashboardTaskDraggable(row);
                 const dragHandlers = bindTaskRowDragHandlers({
                   item: row,
@@ -2312,6 +2347,7 @@ function TasksDemandsCard({
             visible
             t={t}
             expanded={expanded}
+            hiddenCount={Math.max(0, activeTabCount - previewRows.length)}
             className="mt-2 self-start w-auto px-2"
             onClick={(e) => {
               e.stopPropagation();
@@ -5084,6 +5120,7 @@ function CategoryTasksCard({
           <WidgetTasksMoreFooter
             visible
             t={t}
+            hiddenCount={Math.max(0, activeTotal - previewItems.length)}
             onClick={(e) => {
               e.stopPropagation();
               goMore();
@@ -5819,7 +5856,10 @@ export function CustomWidgetTasksCard({
   const { data, isLoading, isError, error, refetch, isFetching } =
     useQuery<CustomWidgetTasksResponse>({
       queryKey: fetchKey,
-      queryFn: () => api.getCustomWidgetTasks(def.id, expanded ? WIDGET_TASK_EXPANDED_LIMIT : 5),
+      queryFn: () => api.getCustomWidgetTasks(
+          def.id,
+          expanded ? WIDGET_TASK_EXPANDED_LIMIT : WIDGET_TASK_PREVIEW_LIMIT,
+        ),
       placeholderData: (previous) => previous,
       // Edits on the dashboard invalidate this right away; the poll only picks up changes made on WhatsApp / by
       // Miya. 30s keeps cards live without every card hitting the API four times a minute.
@@ -5990,36 +6030,11 @@ export function CustomWidgetTasksCard({
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col px-5 pb-4 pt-0">
-        <div className="flex items-center gap-1 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 p-0.5 mb-3">
-          {tabs.map((tb) => {
-            const active = tab === tb.id;
-            return (
-              <button
-                key={tb.id}
-                type="button"
-                onClick={() => setTab(tb.id)}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors",
-                  active
-                    ? "bg-card text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                )}
-              >
-                <span className="truncate">{t(tb.labelKey)}</span>
-                <span
-                  className={cn(
-                    "inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums",
-                    active
-                      ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
-                      : "bg-slate-200/70 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300",
-                  )}
-                >
-                  {tb.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <WidgetTasksTabBar
+          activeId={tab}
+          onSelect={(id) => setTab(id as TasksDemandsTab)}
+          tabs={tabs.map((tb) => ({ id: tb.id, count: tb.count, label: t(tb.labelKey) }))}
+        />
 
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {isLoading ? (
@@ -6057,9 +6072,15 @@ export function CustomWidgetTasksCard({
                 const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);
                 const showSource =
-                  row.source !== "SYSTEM" &&
-                  Boolean(row.source_label?.trim() || sourcePrefix(row.source));
-                const srcLabel = row.source_label?.trim() || sourcePrefix(row.source);
+                  Boolean(row.created_by?.name) ||
+                  (row.source !== "SYSTEM" &&
+                    Boolean(row.source_label?.trim() || sourcePrefix(row.source)));
+                const srcLabel = [
+                  row.created_by?.name,
+                  row.source_label?.trim() || sourcePrefix(row.source),
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 const rowDraggable = isDashboardTaskDraggable(row);
                 const dragHandlers = bindTaskRowDragHandlers({
                   item: row,
@@ -6230,6 +6251,7 @@ export function CustomWidgetTasksCard({
             visible
             t={t}
             expanded={expanded}
+            hiddenCount={Math.max(0, activeTabCount - previewRows.length)}
             onClick={(e) => {
               e.stopPropagation();
               setExpanded((v) => !v);
