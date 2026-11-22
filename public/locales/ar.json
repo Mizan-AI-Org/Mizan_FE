@@ -3032,7 +3032,7 @@
   "nav.work.approvals": "الموافقات",
   "nav.work.incidents": "الحوادث",
   "nav.work.staff_checklists": "قوائم تحقق الموظفين",
-  "nav.work.requests": "الطلبات",
+  "nav.work.requests": "طلبات الموظفين",
   "nav.people.staff": "الموظفون",
   "nav.people.scheduling": "الجدولة",
   "nav.business.analytics": "التحليلات",
@@ -6963,8 +6963,6 @@
   "cursorUi.resp.defaults_cta": "عيّن لي المناطق الفارغة",
   "cursorUi.cmd.tiles.aria": "اختصارات",
   "cursorUi.cmd.tiles.operations": "العمليات",
-  "cursorUi.cmd.tiles.accountability": "المساءلة",
-  "cursorUi.cmd.tiles.progress": "التقدم",
   "cursorUi.cmd.tiles.performance": "أداء الموظفين",
   "cursorUi.cmd.tiles.calendar": "تقويم Google",
   "cursorUi.cmd.tiles.orders": "الطلبات",
@@ -6973,7 +6971,6 @@
   "cursorUi.cmd.tiles.open": "فتح",
   "cursorUi.cmd.tiles.open_count": "{{count}} مفتوح",
   "cursorUi.cmd.tiles.incident_count": "{{count}} حوادث",
-  "cursorUi.ops.nav.overview": "نظرة عامة على العمليات",
   "cursorUi.ops.tab.work": "العمل",
   "cursorUi.ops.tab.compliance": "الامتثال",
   "cursorUi.ops.subtitle": "كل ما يحتاج إلى شخص اليوم.",
@@ -7039,5 +7036,11 @@
   "cursorUi.ops.layout_board": "لوحة",
   "cursorUi.ops.load_failed": "تعذر تحميل العمليات.",
   "cursorUi.ops.module_off": "{{name}} متوقف لنشاطك.",
-  "cursorUi.ops.module_settings": "فتح إعدادات الفوترة"
+  "cursorUi.ops.module_settings": "فتح إعدادات الفوترة",
+  "operations_live.subtitle_compliance": "الشهادات والتأمين وتتبع تواريخ الانتهاء لموقعك.",
+  "operations_live.subtitle_requests": "طلبات الموظفين والطلبات التشغيلية بانتظار قرار.",
+  "operations_live.tab.staff_requests": "طلبات الموظفين",
+  "operations_live.tab.compliance": "الامتثال",
+  "nav.work.compliance": "الامتثال",
+  "settings.tabs.approval_rules": "قواعد الموافقة"
 }

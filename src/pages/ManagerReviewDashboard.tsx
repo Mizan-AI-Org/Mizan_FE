@@ -1649,13 +1649,6 @@ const ManagerReviewDashboard: React.FC = () => {
             </Collapsible>
           ) : null}
 
-          <p className="text-sm text-muted-foreground">
-            {t("ops.review.accountability_link_hint", "Who delivers on time, per person:")}{" "}
-            <Link to="/dashboard/operations/accountability" className="font-medium text-primary underline-offset-4 hover:underline">
-              {t("nav.work.accountability", "Accountability")}
-            </Link>
-          </p>
-
           {(liveItems.length > 0 || liveProgressLoading) ? (
             <Card>
               <CardHeader className="pb-2">

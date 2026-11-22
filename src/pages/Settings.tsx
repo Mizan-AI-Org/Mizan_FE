@@ -132,7 +132,7 @@ function resolveComplianceApprovalsSection(params: URLSearchParams): ComplianceA
   const legacyTab = (params.get("tab") || "").toLowerCase();
   if (legacyTab === "compliance") return "compliance";
   if (legacyTab === "approvals" || legacyTab === "payguard") return "approvals";
-  return "compliance";
+  return "approvals";
 }
 
 function resolveGeneralSettingsSection(params: URLSearchParams): GeneralSettingsSection {
@@ -307,20 +307,29 @@ function Settings() {
 
   useEffect(() => {
     const legacyTab = (searchParams.get("tab") || "").toLowerCase();
-    if (legacyTab !== "compliance" && legacyTab !== "approvals" && legacyTab !== "payguard") return;
+    const section = (searchParams.get("section") || "").toLowerCase();
+    // Compliance lives in Operations (Live operations > Compliance), not in Settings.
+    if (
+      legacyTab === "compliance" ||
+      section === "compliance" ||
+      (legacyTab === "compliance-approvals" && section === "compliance")
+    ) {
+      navigate("/dashboard/operations/live?view=compliance", { replace: true });
+      return;
+    }
+    const legacyApprovals = legacyTab === "approvals" || legacyTab === "payguard";
+    const bareHub = legacyTab === "compliance-approvals" && section !== "approvals";
+    if (!legacyApprovals && !bareHub) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.set("tab", "compliance-approvals");
-        next.set(
-          "section",
-          legacyTab === "compliance" ? "compliance" : "approvals",
-        );
+        next.set("section", "approvals");
         return next;
       },
       { replace: true },
     );
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, navigate]);
 
   useEffect(() => {
     if (activeTab !== "general-settings") return;
@@ -420,10 +429,7 @@ function Settings() {
           n.set("section", "pos");
         }
         if (next === "compliance-approvals") {
-          const sec = (n.get("section") || "").toLowerCase();
-          if (sec !== "compliance" && sec !== "approvals") {
-            n.set("section", "compliance");
-          }
+          n.set("section", "approvals");
         }
         return n;
       },
@@ -1471,50 +1477,9 @@ function Settings() {
 
         {!isStaff && (
           <TabsContent value="compliance-approvals" className="mt-0 space-y-4 focus-visible:outline-none">
-            <Tabs
-              value={complianceApprovalsSection}
-              onValueChange={onComplianceApprovalsSectionChange}
-              className="w-full space-y-4"
-            >
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
-                <TabsTrigger
-                  value="compliance"
-                  className={cn(
-                    HUB_TABS_TRIGGER,
-                    "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]",
-                  )}
-                >
-                  <FileWarning className="h-4 w-4 shrink-0" />
-                  {t("settings.tabs.compliance")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="approvals"
-                  className={cn(
-                    HUB_TABS_TRIGGER,
-                    "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]",
-                  )}
-                >
-                  <Shield className="h-4 w-4 shrink-0" />
-                  {t("settings.tabs.payguard")}
-                </TabsTrigger>
-              </TabsList>
-
-              {complianceApprovalsSection === "compliance" ? (
-              <TabsContent value="compliance" className="mt-0 focus-visible:outline-none">
-                <Suspense fallback={<FormSectionSkeleton />}>
-                  <ComplianceDocumentsSettings />
-                </Suspense>
-              </TabsContent>
-              ) : null}
-
-              {complianceApprovalsSection === "approvals" ? (
-              <TabsContent value="approvals" className="mt-0 focus-visible:outline-none">
-                <Suspense fallback={<FormSectionSkeleton />}>
-                  <ApprovalRulesSettings />
-                </Suspense>
-              </TabsContent>
-              ) : null}
-            </Tabs>
+            <Suspense fallback={<FormSectionSkeleton />}>
+              <ApprovalRulesSettings />
+            </Suspense>
           </TabsContent>
         )}
           </div>

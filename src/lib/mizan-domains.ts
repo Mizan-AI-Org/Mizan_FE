@@ -24,25 +24,22 @@ export type DomainNavLeaf = DomainSection & {
 
 export const DOMAIN_SECTIONS: Record<DomainId, DomainNavLeaf[]> = {
   operations: [
-    // One Operations page (Cursor's unified list); Accountability, Progress and Compliance are its sub-views.
     {
-      labelKey: "cursorUi.ops.nav.overview",
-      href: "/dashboard/operations",
+      labelKey: "nav.work.live_operations",
+      href: "/dashboard/operations/live",
       exact: true,
       exactInactiveIfSearchHas: ["view"],
     },
-    { labelKey: "nav.work.live_operations", href: "/dashboard/operations/live" },
-    { labelKey: "nav.work.accountability", href: "/dashboard/operations?view=accountability", moduleId: "accountability" },
-    { labelKey: "nav.work.progress", href: "/dashboard/operations?view=progress" },
-    { labelKey: "cursorUi.ops.tab.compliance", href: "/dashboard/operations?view=compliance" },
-    { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
+    { labelKey: "nav.work.requests", href: "/dashboard/operations/live?view=requests" },
+    { labelKey: "nav.work.compliance", href: "/dashboard/operations/live?view=compliance" },
     { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents", moduleId: "incidents" },
+    { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
     { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists", moduleId: "checklists" },
+    // Agency tenants only: restaurants never see this leaf.
     { labelKey: "nav.work.agency_jobs", href: "/dashboard/operations/agency-jobs", moduleId: "agency" },
   ],
   employees: [
     { labelKey: "nav.employees.people", href: "/dashboard/employees/people" },
-    { labelKey: "nav.employees.staff_requests", href: "/dashboard/staff-requests" },
     { labelKey: "nav.employees.shifts", href: "/dashboard/employees/shifts", moduleId: "scheduling" },
     { labelKey: "nav.employees.tasks", href: "/dashboard/employees/tasks", moduleId: "checklists" },
     { labelKey: "nav.employees.attendance", href: "/dashboard/employees/attendance", moduleId: "attendance" },
@@ -74,8 +71,8 @@ export const SETTINGS_SECTIONS: DomainNavLeaf[] = [
   { labelKey: "settings.tabs.integrations", href: "/dashboard/settings?tab=integrations" },
   { labelKey: "settings.tabs.billing", href: "/dashboard/settings?tab=billing" },
   {
-    labelKey: "settings.tabs.compliance_approvals",
-    href: "/dashboard/settings?tab=compliance-approvals",
+    labelKey: "settings.tabs.approval_rules",
+    href: "/dashboard/settings?tab=compliance-approvals&section=approvals",
   },
   { labelKey: "nav.settings.role_permissions", href: "/dashboard/settings/permissions" },
 ];

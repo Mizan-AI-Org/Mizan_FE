@@ -37,6 +37,9 @@ export function useNavAttentionBadges(_navHrefs: string[]) {
   const badgeForHref = (href: string, isActive = false): number => {
     if (isActive) return 0;
     if (countsByHref[href]) return countsByHref[href];
+    // A leaf with its own query (Live Ops ?view=requests / ?view=compliance) only shows its own count:
+    // falling back to the bare path would repeat the live lane's number on every sub-view.
+    if (href.split("#")[0].includes("?")) return 0;
     return countsByHref[hrefBase(href)] || 0;
   };
 

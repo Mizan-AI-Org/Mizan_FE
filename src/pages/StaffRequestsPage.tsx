@@ -768,7 +768,44 @@ function DashboardTaskDetailPanel({
   );
 }
 
-const StaffRequestsPage: React.FC = () => {
+/** Embedded inside Live operations (?view=requests) the list/detail URLs stay on that page. */
+function staffRequestsNavigate(
+  embedded: boolean,
+  navigate: ReturnType<typeof useNavigate>,
+  params: URLSearchParams,
+) {
+  const p = new URLSearchParams(params);
+  if (embedded) {
+    p.set("view", "requests");
+    navigate({ pathname: "/dashboard/operations/live", search: p.toString() });
+    return;
+  }
+  const search = p.toString();
+  navigate(search ? `/dashboard/staff-requests?${search}` : "/dashboard/staff-requests");
+}
+
+function staffRequestsDetailNavigate(
+  embedded: boolean,
+  navigate: ReturnType<typeof useNavigate>,
+  id: string,
+  params: URLSearchParams,
+) {
+  if (embedded) {
+    const p = new URLSearchParams(params);
+    p.set("view", "requests");
+    p.set("request", id);
+    p.delete("id");
+    navigate({ pathname: "/dashboard/operations/live", search: p.toString() });
+    return;
+  }
+  const qs = params.toString();
+  navigate(qs ? `/dashboard/staff-requests/${id}?${qs}` : `/dashboard/staff-requests/${id}`);
+}
+
+const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boolean }> = ({
+  embedded = false,
+  operationsChrome = false,
+}) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -776,7 +813,9 @@ const StaffRequestsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
-  const selectedId = params.id || searchParams.get("id") || null;
+  const selectedId = embedded
+    ? searchParams.get("request") || searchParams.get("id")
+    : params.id || searchParams.get("id") || null;
   const taskSheetId = (searchParams.get("task") || "").trim() || null;
 
   const inboxLanesQuery = useStaffInboxLanes();
@@ -909,9 +948,16 @@ const StaffRequestsPage: React.FC = () => {
       dl.kind ||
       dl.list
     ) {
-      setSearchParams(stripStaffRequestsDeepLink(searchParams), { replace: true });
+      setSearchParams(
+        (prev) => {
+          const next = stripStaffRequestsDeepLink(prev);
+          if (embedded) next.set("view", "requests");
+          return next;
+        },
+        { replace: true },
+      );
     }
-  }, [inboxLanes, inboxLanesQuery.isLoading, searchParams, setSearchParams]);
+  }, [inboxLanes, inboxLanesQuery.isLoading, searchParams, setSearchParams, embedded]);
   const [comment, setComment] = useState("");
   const [escalateModalOpen, setEscalateModalOpen] = useState(false);
   const [reassignModalOpen, setReassignModalOpen] = useState(false);
@@ -1231,8 +1277,7 @@ const StaffRequestsPage: React.FC = () => {
     const params = new URLSearchParams();
     if (activeLaneId) params.set("lane", activeLaneId);
     params.set("status", activeStatus);
-    const qs = params.toString();
-    navigate(`/dashboard/staff-requests/${id}?${qs}`);
+    staffRequestsDetailNavigate(embedded, navigate, id, params);
   };
 
   const onStatusTabChange = (next: StaffRequestStatus) => {
@@ -1243,8 +1288,8 @@ const StaffRequestsPage: React.FC = () => {
       const params = new URLSearchParams();
       if (activeLaneId) params.set("lane", activeLaneId);
       params.set("status", next);
-      const qs = params.toString();
-      navigate(`/dashboard/staff-requests?${qs}`);
+      if (embedded) params.delete("request");
+      staffRequestsNavigate(embedded, navigate, params);
     }
   };
 
@@ -1329,7 +1374,7 @@ const StaffRequestsPage: React.FC = () => {
   const openFinanceCategoryRow = (row: DashboardTaskDemandItem) => {
     const kind = row.kind || "dashboard";
     if (kind === "invoice") {
-      navigate(`/dashboard/staff-requests/${row.id}?kind=invoice`);
+      staffRequestsDetailNavigate(embedded, navigate, row.id, new URLSearchParams({ kind: "invoice" }));
       return;
     }
     if (kind === "staff_request") {
@@ -1489,7 +1534,7 @@ const StaffRequestsPage: React.FC = () => {
                   <button
                     key={inv.id}
                     type="button"
-                    onClick={() => navigate(`/dashboard/staff-requests/${inv.id}?kind=invoice`)}
+                    onClick={() => staffRequestsDetailNavigate(embedded, navigate, inv.id, new URLSearchParams({ kind: "invoice" }))}
                     className="w-full text-left rounded-xl border p-4 transition-all hover:border-primary/40 hover:bg-muted/30"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -1517,31 +1562,27 @@ const StaffRequestsPage: React.FC = () => {
     );
   }
 
-  return (
-    <MizanPageShell
-      eyebrow={t("staff.requests.eyebrow")}
-      title={pageTitle}
-      description={pageSubtitle || t("staff.requests.default_subtitle")}
-      hero
-      actions={
-        <Button
-          variant={assignedToMe ? "default" : "secondary"}
-          onClick={() => setAssignedToMe((v) => !v)}
-          className="shrink-0 gap-2"
-          title={t("staff.requests.assigned_to_me_title")}
-        >
-          <Inbox className="h-4 w-4" />
-          {t("staff.requests.assigned_to_me")}
-          {typeof myCountsQuery.data === "number" && myCountsQuery.data > 0 && (
-            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[11px] rounded-full">
-              {myCountsQuery.data}
-            </Badge>
-          )}
-        </Button>
-      }
+  const assignedToMeButton = (
+    <Button
+      variant={assignedToMe ? "default" : "secondary"}
+      onClick={() => setAssignedToMe((v) => !v)}
+      className="shrink-0 gap-2"
+      title={t("staff.requests.assigned_to_me_title")}
     >
+      <Inbox className="h-4 w-4" />
+      {t("staff.requests.assigned_to_me")}
+      {typeof myCountsQuery.data === "number" && myCountsQuery.data > 0 && (
+        <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[11px] rounded-full">
+          {myCountsQuery.data}
+        </Badge>
+      )}
+    </Button>
+  );
+
+  const body = (
+    <>
       <Tabs value={activeStatus} onValueChange={(v) => onStatusTabChange(v as StaffRequestStatus)}>
-        <div className={MIZAN_TOOLBAR}>
+        <div className={cn(MIZAN_TOOLBAR, operationsChrome && "gap-3 rounded-xl border border-border/60 bg-muted/20 p-3")}>
           <TabsList className={cn(HUB_TABS_LIST, "grid-cols-2 sm:grid-cols-4 lg:grid-cols-7")}>
             {STATUSES.map((s) => {
               const count = countsQuery.data?.counts?.[s.key];
@@ -1563,18 +1604,20 @@ const StaffRequestsPage: React.FC = () => {
               );
             })}
           </TabsList>
-          <div className="flex gap-2 w-full max-w-xl">
+          <div className={cn("flex gap-2 w-full", operationsChrome ? "max-w-none sm:max-w-xl" : "max-w-xl")}>
             <Input
               placeholder={t("staff.requests.search_placeholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-10 rounded-xl bg-background"
+              className={cn("h-10 rounded-xl bg-background", operationsChrome && "border-border/80")}
             />
             {search ? (
               <Button variant="outline" className="h-10 rounded-xl shrink-0" onClick={() => setSearch("")}>
                 {t("staff.requests.clear")}
               </Button>
             ) : null}
+            {/* Operations chrome hides the page header, so "Assigned to me" lives in the toolbar. */}
+            {embedded && operationsChrome ? assignedToMeButton : null}
           </div>
 
           <div className="border-t border-border/50 pt-4">
@@ -2277,6 +2320,37 @@ const StaffRequestsPage: React.FC = () => {
           );
         }}
       />
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        {!operationsChrome ? (
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">{pageTitle}</h2>
+              <p className="text-sm text-muted-foreground">
+                {pageSubtitle || t("staff.requests.default_subtitle")}
+              </p>
+            </div>
+            {assignedToMeButton}
+          </div>
+        ) : null}
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <MizanPageShell
+      eyebrow={t("staff.requests.eyebrow")}
+      title={pageTitle}
+      description={pageSubtitle || t("staff.requests.default_subtitle")}
+      hero
+      actions={assignedToMeButton}
+    >
+      {body}
     </MizanPageShell>
   );
 };

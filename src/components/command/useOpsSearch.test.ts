@@ -18,9 +18,9 @@ describe("toHits", () => {
 });
 
 describe("command tiles", () => {
-  it("falls back to all tiles for an empty or unknown choice", () => {
-    expect(sanitizeSelection(undefined)).toHaveLength(COMMAND_TILES.length);
-    expect(sanitizeSelection(["nope"])).toHaveLength(COMMAND_TILES.length);
+  it("falls back to the default three tiles for an empty or unknown choice", () => {
+    expect(sanitizeSelection(undefined)).toEqual(["operations", "performance", "incidents"]);
+    expect(sanitizeSelection(["nope"])).toEqual(["operations", "performance", "incidents"]);
     expect(sanitizeSelection(["orders", "nope"])).toEqual(["orders"]);
   });
 });
