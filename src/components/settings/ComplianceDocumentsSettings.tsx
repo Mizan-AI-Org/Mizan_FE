@@ -1,5 +1,5 @@
 import { shrinkPhoto } from "@/lib/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +11,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SettingsSection } from "@/components/settings/SettingsSection";
-import { api, API_BASE } from "@/lib/api";
+import { api, API_BASE, resolveMediaUrl } from "@/lib/api";
+import i18n from "@/i18n";
+import {
+  AttachmentViewerModal,
+  type AttachmentViewerState,
+} from "@/components/ui/attachment-preview";
 import { useLanguage } from "@/hooks/use-language";
 import { toast } from "sonner";
-import i18n from "@/i18n";
 import {
   AlertTriangle,
   Calendar,
@@ -28,15 +32,9 @@ import {
   Trash2,
   Upload,
   X,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
 type DocType = { id: string; label: string };
 
 type AttachmentInfo = {
@@ -92,9 +90,6 @@ function formatFileSize(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const IMAGE_RE = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i;
-const PDF_RE = /\.pdf(\?|$)/i;
-
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   try {
@@ -121,14 +116,6 @@ async function postFormData(path: string, formData: FormData): Promise<unknown> 
   return response.json();
 }
 
-function isImage(filename: string, mime?: string): boolean {
-  return IMAGE_RE.test(filename) || (mime || "").startsWith("image/");
-}
-
-function isPdf(filename: string, mime?: string): boolean {
-  return PDF_RE.test(filename) || mime === "application/pdf";
-}
-
 function dateInputValue(value?: string | null): string {
   if (!value) return "";
   const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
@@ -138,6 +125,15 @@ function dateInputValue(value?: string | null): string {
 function titleFromFilename(filename: string): string {
   const base = filename.replace(/\.[^.]+$/, "");
   return base.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function complianceAttachmentUrl(doc: ComplianceDoc): string {
+  const raw = (
+    doc.attachment?.resolved_url?.trim() ||
+    doc.file_url?.trim() ||
+    ""
+  );
+  return resolveMediaUrl(raw);
 }
 
 function typeLabel(doc: ComplianceDoc, types: DocType[]): string {
@@ -154,10 +150,16 @@ function typeLabel(doc: ComplianceDoc, types: DocType[]): string {
   return raw.replace(/[_-]+/g, " ");
 }
 
-export default function ComplianceDocumentsSettings() {
+export default function ComplianceDocumentsSettings({
+  surface = "settings",
+}: {
+  surface?: "settings" | "operations";
+}) {
   const { t } = useLanguage();
+  const isOperations = surface === "operations";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [addFormOpen, setAddFormOpen] = useState(!isOperations);
   const [docs, setDocs] = useState<ComplianceDoc[]>([]);
   const [types, setTypes] = useState<DocType[]>([]);
   const [title, setTitle] = useState("");
@@ -167,6 +169,9 @@ export default function ComplianceDocumentsSettings() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [viewerAttachment, setViewerAttachment] = useState<AttachmentViewerState | null>(
+    null,
+  );
   const [viewerDoc, setViewerDoc] = useState<ComplianceDoc | null>(null);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const attachFileRef = useRef<HTMLInputElement>(null);
@@ -189,6 +194,29 @@ export default function ComplianceDocumentsSettings() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (isOperations && !loading && docs.length === 0) {
+      setAddFormOpen(true);
+    }
+  }, [isOperations, loading, docs.length]);
+
+  const resetAddForm = useCallback(() => {
+    setTitle("");
+    setExpiresAt("");
+    setRemindDays("30");
+    setDocumentType("INSURANCE");
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const stats = useMemo(() => {
+    const tallies = { expired: 0, critical: 0, soon: 0, ok: 0, unset: 0 };
+    for (const doc of docs) {
+      tallies[doc.urgency] += 1;
+    }
+    return tallies;
+  }, [docs]);
+
   const seedStarters = async () => {
     setSaving(true);
     try {
@@ -200,15 +228,6 @@ export default function ComplianceDocumentsSettings() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const resetAddForm = () => {
-    setTitle("");
-    setExpiresAt("");
-    setRemindDays("30");
-    setDocumentType("INSURANCE");
-    setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const addDoc = async () => {
@@ -235,6 +254,7 @@ export default function ComplianceDocumentsSettings() {
         });
       }
       resetAddForm();
+      if (isOperations) setAddFormOpen(false);
       toast.success(t("settings.compliance.added"));
       await load();
     } catch (err) {
@@ -305,26 +325,68 @@ export default function ComplianceDocumentsSettings() {
     e.target.value = "";
   };
 
-  return (
-    <SettingsSection
-      icon={<FileWarning className="h-4 w-4" />}
-      iconClassName="bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300"
-      title={t("settings.compliance.title")}
-      description={t("settings.compliance.description")}
-      actions={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          disabled={saving || loading}
-          onClick={() => void seedStarters()}
-        >
-          {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileWarning className="h-4 w-4 mr-2" />}
-          {t("settings.compliance.seed_starters")}
-        </Button>
-      }
+  const seedButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="shrink-0"
+      disabled={saving || loading}
+      onClick={() => void seedStarters()}
     >
+      {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileWarning className="h-4 w-4 mr-2" />}
+      {t("settings.compliance.seed_starters")}
+    </Button>
+  );
+
+  const operationsHeader = isOperations ? (
+    <div className="min-w-0 space-y-1">
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">
+        {t("settings.compliance.title")}
+      </h2>
+      <p className="text-sm text-muted-foreground">{t("settings.compliance.description")}</p>
+    </div>
+  ) : null;
+
+  const statsStrip = isOperations && !loading ? (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {(
+        [
+          {
+            key: "expired",
+            count: stats.expired,
+            label: urgencyLabel("expired", t),
+            box: "border-rose-500/25 bg-rose-500/10",
+          },
+          {
+            key: "critical",
+            count: stats.critical,
+            label: urgencyLabel("critical", t),
+            box: "border-amber-500/25 bg-amber-500/10",
+          },
+          {
+            key: "soon",
+            count: stats.soon,
+            label: urgencyLabel("soon", t),
+            box: "border-orange-500/25 bg-orange-500/10",
+          },
+          {
+            key: "ok",
+            count: stats.ok + stats.unset,
+            label: t("operations_live.compliance.on_file"),
+            box: "border-emerald-500/25 bg-emerald-500/10",
+          },
+        ] as const
+      ).map((item) => (
+        <div key={item.key} className={cn("rounded-lg border px-3 py-2 text-center", item.box)}>
+          <p className="text-lg font-semibold tabular-nums text-foreground">{item.count}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{item.label}</p>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+  const body = (
       <div className="space-y-6">
         <input
           ref={attachFileRef}
@@ -334,11 +396,44 @@ export default function ComplianceDocumentsSettings() {
           onChange={handleAttachChange}
         />
 
+        {isOperations && !addFormOpen ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-foreground">
+              {t("operations_live.compliance.documents_on_file")}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setAddFormOpen(true)}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              {t("settings.compliance.new_document_btn")}
+            </Button>
+          </div>
+        ) : null}
+
         {/* Add a document form */}
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
-            {t("settings.compliance.add_title")}
-          </p>
+        {(addFormOpen || !isOperations) ? (
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground">{t("settings.compliance.add_title")}</p>
+            {isOperations ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 text-muted-foreground"
+                onClick={() => {
+                  resetAddForm();
+                  setAddFormOpen(false);
+                }}
+              >
+                {t("operations_live.compliance.hide_form")}
+              </Button>
+            ) : null}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2 space-y-1.5">
               <Label htmlFor="comp-title">{t("settings.compliance.field_title")}</Label>
@@ -386,19 +481,20 @@ export default function ComplianceDocumentsSettings() {
 
           {/* File upload */}
           <div className="space-y-1.5">
-            <Label>{t("settings.compliance.document")}</Label>
-            <div className="flex items-center gap-3">
+            <Label htmlFor="comp-file">{t("settings.compliance.field_file")}</Label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="gap-1.5"
+                className="gap-1.5 w-fit"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="h-4 w-4" />
                 {t("settings.compliance.choose_file")}
               </Button>
               <input
+                id="comp-file"
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
@@ -406,8 +502,10 @@ export default function ComplianceDocumentsSettings() {
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   setSelectedFile(file);
-                  // Pre-fill the name from the file so a drop-and-save is one step.
-                  if (file && !title.trim()) setTitle(titleFromFilename(file.name));
+                  if (file && !title.trim()) {
+                    setTitle(titleFromFilename(file.name));
+                  }
+                  if (file && isOperations) setAddFormOpen(true);
                 }}
               />
               {selectedFile ? (
@@ -433,16 +531,16 @@ export default function ComplianceDocumentsSettings() {
             </div>
           </div>
 
-          <div className="space-y-1.5 w-28">
-              <Label htmlFor="comp-remind">{t("settings.compliance.field_remind")}</Label>
-              <Input
-                id="comp-remind"
-                type="number"
-                min={1}
-                max={365}
-                value={remindDays}
-                onChange={(e) => setRemindDays(e.target.value)}
-              />
+          <div className="space-y-1.5 w-full sm:max-w-[10rem]">
+            <Label htmlFor="comp-remind">{t("settings.compliance.field_remind")}</Label>
+            <Input
+              id="comp-remind"
+              type="number"
+              min={1}
+              max={365}
+              value={remindDays}
+              onChange={(e) => setRemindDays(e.target.value)}
+            />
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -454,21 +552,34 @@ export default function ComplianceDocumentsSettings() {
                   : t("settings.compliance.save_ready_no_file")}
             </p>
             <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button type="button" variant="outline" disabled={saving} onClick={resetAddForm}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() => {
+                  resetAddForm();
+                  if (isOperations) setAddFormOpen(false);
+                }}
+              >
                 {t("generic.cancel")}
               </Button>
               <Button
                 type="button"
-                className="premium-button"
                 disabled={saving || !title.trim()}
+                className="gap-1.5 min-w-[9rem]"
                 onClick={() => void addDoc()}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                {t("settings.compliance.add_btn")}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Save className="h-4 w-4" aria-hidden />
+                )}
+                {t("settings.compliance.save_btn")}
               </Button>
             </div>
           </div>
         </div>
+        ) : null}
 
         {/* Document list */}
         {loading ? (
@@ -482,12 +593,49 @@ export default function ComplianceDocumentsSettings() {
             <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">
               {t("settings.compliance.empty_title")}
             </p>
-            <p className="max-w-md mx-auto">{t("settings.compliance.empty_desc")}</p>
+            <p className="max-w-md mx-auto mb-4">{t("settings.compliance.empty_desc")}</p>
+            {!addFormOpen ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={saving}
+                onClick={() => void seedStarters()}
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <FileWarning className="h-4 w-4" aria-hidden />
+                )}
+                {t("settings.compliance.seed_starters")}
+              </Button>
+            ) : null}
           </div>
         ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="space-y-3">
+            {isOperations ? (
+              <p className="text-sm font-medium text-foreground">
+                {t("operations_live.compliance.documents_on_file")}
+              </p>
+            ) : null}
+          <ul
+            className={cn(
+              isOperations
+                ? "grid gap-3 md:grid-cols-2"
+                : "divide-y divide-border rounded-xl border border-border overflow-hidden",
+            )}
+          >
             {docs.map((doc) => (
-              <li key={doc.id} className="px-4 py-3 bg-card space-y-2">
+              <li
+                key={doc.id}
+                className={cn(
+                  "space-y-2 bg-card",
+                  isOperations
+                    ? "rounded-xl border border-border/70 p-4 shadow-xs"
+                    : "px-4 py-3",
+                )}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -555,14 +703,26 @@ export default function ComplianceDocumentsSettings() {
                         variant="ghost"
                         size="sm"
                         className="h-7 gap-1 text-xs"
-                        onClick={() => setViewerDoc(doc)}
+                        onClick={() => {
+                          const url = complianceAttachmentUrl(doc);
+                          if (!url) {
+                            toast.error(t("settings.compliance.preview_unavailable"));
+                            return;
+                          }
+                          setViewerDoc(doc);
+                          setViewerAttachment({
+                            url,
+                            name: doc.attachment?.filename || doc.title,
+                            label: "document",
+                          });
+                        }}
                       >
                         <Eye className="h-3.5 w-3.5" />
                         {t("common.view")}
                       </Button>
-                      {doc.attachment.resolved_url ? (
+                      {complianceAttachmentUrl(doc) ? (
                         <a
-                          href={doc.attachment.resolved_url}
+                          href={complianceAttachmentUrl(doc)}
                           download={doc.attachment.filename}
                           target="_blank"
                           rel="noreferrer"
@@ -606,92 +766,77 @@ export default function ComplianceDocumentsSettings() {
               </li>
             ))}
           </ul>
+          </div>
         )}
       </div>
+  );
 
-      {/* Document Viewer Dialog */}
-      <Dialog open={!!viewerDoc} onOpenChange={(open) => !open && setViewerDoc(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="truncate">{viewerDoc?.title}</DialogTitle>
-          </DialogHeader>
-          {viewerDoc?.attachment ? (
-            <div className="flex-1 min-h-0 overflow-auto space-y-4">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                <div className="text-slate-500">{t("settings.compliance.document_type")}</div>
-                <div>{types.find((x) => x.id === viewerDoc.document_type)?.label || viewerDoc.document_type}</div>
-                <div className="text-slate-500">{t("common.expiry_date")}</div>
-                <div>{viewerDoc.expires_at || t("settings.compliance.not_set")}</div>
-                {viewerDoc.attachment.uploaded_at ? (
-                  <>
-                    <div className="text-slate-500">{t("settings.compliance.uploaded")}</div>
-                    <div>{new Date(viewerDoc.attachment.uploaded_at).toLocaleDateString()}</div>
-                  </>
-                ) : null}
-                <div className="text-slate-500">{t("settings.compliance.filename")}</div>
+  const viewer = (
+    <AttachmentViewerModal
+      open={!!viewerAttachment}
+      onOpenChange={(open) => {
+        if (!open) {
+          setViewerAttachment(null);
+          setViewerDoc(null);
+        }
+      }}
+      attachment={viewerAttachment}
+      details={
+        viewerDoc ? (
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            <div className="text-muted-foreground">{t("settings.compliance.document_type")}</div>
+            <div>{types.find((x) => x.id === viewerDoc.document_type)?.label || viewerDoc.document_type}</div>
+            {viewerDoc.expires_at ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.field_expires")}</div>
+                <div>{new Date(viewerDoc.expires_at).toLocaleDateString()}</div>
+              </>
+            ) : null}
+            {viewerDoc.attachment?.uploaded_at ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.uploaded")}</div>
+                <div>{new Date(viewerDoc.attachment.uploaded_at).toLocaleDateString()}</div>
+              </>
+            ) : null}
+            {viewerDoc.attachment?.filename ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.filename")}</div>
                 <div className="truncate">{viewerDoc.attachment.filename}</div>
-                {viewerDoc.attachment.size ? (
-                  <>
-                    <div className="text-slate-500">{t("settings.compliance.size")}</div>
-                    <div>{formatFileSize(viewerDoc.attachment.size)}</div>
-                  </>
-                ) : null}
-              </div>
+              </>
+            ) : null}
+            {viewerDoc.attachment?.size ? (
+              <>
+                <div className="text-muted-foreground">{t("settings.compliance.size")}</div>
+                <div>{formatFileSize(viewerDoc.attachment.size)}</div>
+              </>
+            ) : null}
+          </div>
+        ) : null
+      }
+    />
+  );
 
-              {viewerDoc.attachment.resolved_url ? (
-                <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-900">
-                  {isImage(viewerDoc.attachment.filename, viewerDoc.attachment.mime_type) ? (
-                    <img
-                      src={viewerDoc.attachment.resolved_url}
-                      alt={viewerDoc.title}
-                      className="max-h-[50vh] w-auto mx-auto object-contain"
-                    />
-                  ) : isPdf(viewerDoc.attachment.filename, viewerDoc.attachment.mime_type) ? (
-                    <iframe
-                      src={viewerDoc.attachment.resolved_url}
-                      title={viewerDoc.title}
-                      className="w-full h-[50vh] border-0"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12 gap-3 text-sm text-slate-500">
-                      <Paperclip className="h-8 w-8 text-slate-300" />
-                      <p>{t("attachment.preview_not_supported")}</p>
-                      <a
-                        href={viewerDoc.attachment.resolved_url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                          <Download className="h-4 w-4" />
-                          {t("settings.compliance.download_file")}
-                        </Button>
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : null}
+  if (isOperations) {
+    return (
+      <div className="space-y-5">
+        {operationsHeader}
+        {statsStrip}
+        {body}
+        {viewer}
+      </div>
+    );
+  }
 
-              {viewerDoc.attachment.resolved_url ? (
-                <div className="flex justify-end gap-2">
-                  <a
-                    href={viewerDoc.attachment.resolved_url}
-                    download={viewerDoc.attachment.filename}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Download className="h-4 w-4" />
-                      {t("common.download")}
-                    </Button>
-                  </a>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500 py-8 text-center">{t("settings.compliance.no_attachment")}</p>
-          )}
-        </DialogContent>
-      </Dialog>
+  return (
+    <SettingsSection
+      icon={<FileWarning className="h-4 w-4" />}
+      iconClassName="bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300"
+      title={t("settings.compliance.title")}
+      description={t("settings.compliance.description")}
+      actions={seedButton}
+    >
+      {body}
+      {viewer}
     </SettingsSection>
   );
 }

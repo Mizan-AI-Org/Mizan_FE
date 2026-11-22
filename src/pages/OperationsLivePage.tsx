@@ -720,12 +720,12 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
   const viewParam = searchParams.get("view");
   const opsView: OpsPageView = !embedded && viewParam === "progress" ? "progress" : "live";
 
-  // Accountability has its own page in the nav: old ?view=accountability links land there.
+  // Progress and Accountability are sub-views of the Operations page: old ?view=progress&tab=staff links land there.
   React.useEffect(() => {
-    if (!embedded && viewParam === "accountability") {
-      navigate("/dashboard/operations/accountability", { replace: true });
+    if (!embedded && (viewParam === "accountability" || viewParam === "progress")) {
+      navigate(`/dashboard/operations?${searchParams.toString()}`, { replace: true });
     }
-  }, [embedded, viewParam, navigate]);
+  }, [embedded, viewParam, navigate, searchParams]);
 
   const setOpsView = (next: OpsPageView) => {
     setSearchParams(

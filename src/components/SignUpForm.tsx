@@ -18,6 +18,8 @@ interface SignUpFormProps {
   onNavigateToLogin?: () => void;
 }
 
+const signupLabelClass = "text-sm font-semibold tracking-wider text-white";
+
 export const SignUpForm: React.FC<SignUpFormProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -87,7 +89,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
   };
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       {error && (
         <Alert
           variant="destructive"
@@ -97,16 +99,12 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
         </Alert>
       )}
 
-      <div className="mb-6 space-y-3">
-        <h2 className="text-2xl font-bold text-white">{t("auth.signup.title")}</h2>
-        <p className="text-sm text-[#B0BEC5]">{t("auth.signup.subtitle")}</p>
-        <p className="text-[11px] leading-snug text-[#78909C]">{t("auth.signup.sector_onboarding_hint")}</p>
-      </div>
+      <h2 className="text-xl font-bold text-white">{t("auth.signup.title")}</h2>
 
-      <form onSubmit={handleOwnerSignUp} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="businessName" className="text-sm text-white">
+      <form onSubmit={handleOwnerSignUp} className="space-y-3.5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="businessName" className={signupLabelClass}>
               {t("auth.signup.restaurant_name")}
             </Label>
             <div className="group relative">
@@ -116,13 +114,13 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 name="businessName"
                 placeholder={t("auth.signup.restaurant_placeholder")}
                 required
-                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+                className={`h-10 pl-9 text-sm ${authFieldClass}`}
               />
             </div>
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="fullName" className="text-sm text-white">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="fullName" className={signupLabelClass}>
               {t("auth.signup.owner_full_name")}
             </Label>
             <div className="group relative">
@@ -132,13 +130,13 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 name="fullName"
                 placeholder={t("auth.signup.name_placeholder")}
                 required
-                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+                className={`h-10 pl-9 text-sm ${authFieldClass}`}
               />
             </div>
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="signup-email" className="text-sm text-white">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="signup-email" className={signupLabelClass}>
               {t("auth.signup.email")}
             </Label>
             <div className="group relative">
@@ -149,40 +147,36 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 type="email"
                 placeholder={t("auth.signup.email_placeholder")}
                 required
-                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+                className={`h-10 pl-9 text-sm ${authFieldClass}`}
               />
             </div>
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
-            <div className="rounded-xl border border-[#00E676]/25 bg-gradient-to-br from-[#00E676]/[0.07] to-transparent p-4 shadow-[inset_0_1px_0_rgba(0,230,118,0.12)]">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Label htmlFor="signup-whatsapp" className="text-sm font-semibold text-white">
-                  {t("auth.signup.whatsapp")}
-                </Label>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#00E676]/30 bg-[#00E676]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#00E676]">
-                  <MessageCircle className="h-3 w-3" aria-hidden />
-                  WhatsApp
-                </span>
-              </div>
-              <p id="signup-whatsapp-hint" className="mb-3 text-[11px] leading-snug text-[#78909C]">
-                {t("auth.signup.whatsapp_hint")}
-              </p>
-              <div className="flex gap-2">
-                <select
-                  aria-label={t("auth.signup.whatsapp_country")}
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className={`h-11 shrink-0 rounded-md px-2 text-sm ${authFieldClass} border-[#00E676]/20`}
-                >
-                  {DIAL_COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code} className="bg-[#0A0D10] text-white">
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="signup-whatsapp" className={signupLabelClass}>
+                {t("auth.signup.whatsapp")}
+              </Label>
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#00E676]/25 bg-[#00E676]/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#00E676]">
+                <MessageCircle className="h-2.5 w-2.5" aria-hidden />
+                WA
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <select
+                aria-label={t("auth.signup.whatsapp_country")}
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className={`h-10 shrink-0 rounded-md px-2 text-sm ${authFieldClass}`}
+              >
+                {DIAL_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code} className="bg-[#0A0D10] text-white">
+                    {c.label}
+                  </option>
+                ))}
+              </select>
               <div className="group relative min-w-0 flex-1">
-                <MessageCircle className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#00E676]/70 transition-colors group-focus-within:text-[#00E676]" />
+                <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
                 <Input
                   id="signup-whatsapp"
                   name="whatsappPhone"
@@ -192,15 +186,17 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                   placeholder={t("auth.signup.whatsapp_placeholder")}
                   required
                   aria-describedby="signup-whatsapp-hint"
-                  className={`h-11 pl-10 text-sm ${authFieldClass} border-[#00E676]/20 focus-visible:ring-[#00E676]/40`}
+                  className={`h-10 pl-9 text-sm ${authFieldClass}`}
                 />
               </div>
-              </div>
             </div>
+            <p id="signup-whatsapp-hint" className="text-[10px] leading-snug text-[#78909C]">
+              {t("auth.signup.whatsapp_hint")}
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="signup-password" className="text-sm text-white">
+          <div className="space-y-1.5">
+            <Label htmlFor="signup-password" className={signupLabelClass}>
               {t("auth.signup.password")}
             </Label>
             <div className="group relative">
@@ -211,13 +207,13 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 type="password"
                 required
                 minLength={6}
-                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+                className={`h-10 pl-9 text-sm ${authFieldClass}`}
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="text-sm text-white">
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPassword" className={signupLabelClass}>
               {t("auth.signup.confirm_password")}
             </Label>
             <div className="group relative">
@@ -228,21 +224,21 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 type="password"
                 required
                 minLength={6}
-                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+                className={`h-10 pl-9 text-sm ${authFieldClass}`}
               />
             </div>
           </div>
         </div>
 
-        <div className="flex items-start space-x-3 py-2">
+        <div className="flex items-start gap-2.5 pt-0.5">
           <input
             type="checkbox"
             id="terms"
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
-            className="mt-1 h-4 w-4 cursor-pointer rounded border-white/20 bg-black/30 accent-[#00E676]"
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-white/20 bg-black/30 accent-[#00E676]"
           />
-          <label htmlFor="terms" className="cursor-pointer text-xs text-[#B0BEC5]">
+          <label htmlFor="terms" className="cursor-pointer text-[11px] leading-relaxed text-[#B0BEC5]">
             {t("auth.signup.terms")}{" "}
             <Link to="/legal/terms" target="_blank" rel="noopener" className="text-[#00E676] transition-colors hover:text-[#00F77B]">
               {t("auth.signup.terms_link")}
@@ -256,7 +252,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
 
         <Button
           type="submit"
-          className="mt-2 h-11 w-full rounded-lg border border-[#00E676]/30 bg-gradient-to-r from-[#00E676] to-[#00C853] font-semibold text-[#0A0D10] shadow-lg transition-all duration-300 hover:from-[#00F77B] hover:to-[#00D96B] hover:shadow-[0_0_25px_rgba(0,230,118,0.4)]"
+          className="h-10 w-full rounded-lg border border-[#00E676]/30 bg-gradient-to-r from-[#00E676] to-[#00C853] text-sm font-semibold text-[#0A0D10] shadow-lg transition-all duration-300 hover:from-[#00F77B] hover:to-[#00D96B] hover:shadow-[0_0_25px_rgba(0,230,118,0.4)]"
           disabled={!termsAccepted || isLoading}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

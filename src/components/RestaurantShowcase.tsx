@@ -75,9 +75,13 @@ export const RestaurantShowcase: React.FC = () => {
   const headline = t(`auth.showcase.slide${slideIdx}.headline`);
   const subheading = t(`auth.showcase.slide${slideIdx}.subheading`);
   const currentImage = images[slideIdx];
+  const sectorLabel = t(currentImage.labelKey);
+  const showSectorEyebrow =
+    sectorLabel.trim().length > 0 &&
+    sectorLabel.trim().toLowerCase() !== headline.trim().toLowerCase();
 
   return (
-    <div className="relative hidden min-w-0 flex-1 overflow-hidden bg-[#0A0D10] lg:flex">
+    <div className="relative hidden min-h-screen min-w-0 flex-1 overflow-hidden bg-[#0A0D10] lg:flex">
       <div className="absolute inset-0">
         <img
           src={withUnsplashParams(currentImage.url, 1600, 92)}
@@ -98,59 +102,73 @@ export const RestaurantShowcase: React.FC = () => {
           decoding="async"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0A0D10]/95 via-[#0A0D10]/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0D10]/90 via-transparent to-[#0A0D10]/30" />
-        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-gradient-to-l from-[#00E676]/10 to-transparent mix-blend-screen blur-3xl filter" />
+        <div className="absolute inset-0 bg-[#0A0D10]/45" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(10,13,16,0.55)_70%)]" />
+        <div className="absolute inset-0 bg-gradient-to-l from-[#0A0D10]/85 via-transparent to-[#0A0D10]/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0D10]/75 via-transparent to-[#0A0D10]/20" />
       </div>
 
-      <div className="relative z-10 flex h-screen flex-col justify-between p-8">
-        <div className="flex flex-1 items-center">
-          <div className="max-w-lg">
-            <h2 className="mb-6 text-4xl font-bold leading-tight text-white md:text-5xl">
+      <div className="relative z-10 flex min-h-screen w-full items-end justify-center px-5 pb-6 pt-24 sm:px-8 lg:px-10 lg:pb-8 xl:pb-10">
+        <div
+          key={slideIdx}
+          className="flex h-[14.75rem] w-full max-w-[34rem] flex-col animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 py-4 text-center shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-sm sm:h-[15rem] sm:max-w-xl sm:px-6 sm:py-5 lg:max-w-2xl"
+        >
+          <div className="flex h-4 shrink-0 items-center justify-center">
+            {showSectorEyebrow ? (
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00E676]">
+                {sectorLabel}
+              </p>
+            ) : (
+              <span className="invisible text-[9px]" aria-hidden>
+                —
+              </span>
+            )}
+          </div>
+          <h2
+            className="mt-1 line-clamp-2 min-h-[2.35rem] text-[1.2rem] font-bold leading-tight tracking-tight text-white sm:min-h-[2.5rem] sm:text-[1.35rem]"
+            title={headline}
+          >
               {headline}
             </h2>
-            <p className="text-lg leading-relaxed text-[#B0BEC5]">{subheading}</p>
-          </div>
-        </div>
+          <p
+            className="mx-auto mt-1.5 line-clamp-3 min-h-[3.15rem] max-w-[28rem] text-xs leading-snug text-[#B0BEC5] sm:min-h-[3.3rem] sm:text-[13px]"
+            title={subheading}
+          >
+            {subheading}
+          </p>
 
-        <div className="space-y-8">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="mt-auto grid h-[4.25rem] shrink-0 grid-cols-3 gap-2 border-t border-white/[0.05] pt-3">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
               return (
                 <div
                   key={index}
-                  className="group relative h-24 rounded-xl border border-white/[0.1] bg-white/[0.06] p-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-md transition-all hover:border-[#00E676]/40"
+                  className="flex flex-col items-center justify-center gap-1 px-1"
                 >
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[#00E676]/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-
-                  <div className="relative flex h-full flex-col justify-center space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Icon className="h-5 w-5 text-[#00E676]" />
-                      <span className="text-sm font-semibold text-[#00E676]">
+                  <Icon className="h-3.5 w-3.5 text-[#00E676]" aria-hidden />
+                  <span className="text-sm font-bold tabular-nums leading-none text-white">
                         {stat.number}
                       </span>
-                    </div>
-                    <p className="text-xs text-[#78909C]">{t(stat.labelKey)}</p>
-                  </div>
+                  <p className="line-clamp-2 text-[9px] font-medium leading-tight text-[#78909C]">
+                    {t(stat.labelKey)}
+                  </p>
                 </div>
               );
             })}
           </div>
 
-          <div className="text-center">
-            <p className="text-sm font-semibold text-[#00E676]">{t(currentImage.labelKey)}</p>
-          </div>
-
-          <div className="flex items-center justify-center space-x-2">
+          <div className="mt-2 flex h-4 shrink-0 items-center justify-center gap-2" role="tablist" aria-label={t("cursorUi.auth.slides_aria")}>
             {images.map((_, index) => (
               <button
                 key={index}
+                type="button"
+                role="tab"
+                aria-selected={currentSlide === index}
                 onClick={() => setCurrentSlide(index)}
                 className={`transition-all ${
                   currentSlide === index
-                    ? "h-2 w-8 rounded-full bg-[#00E676] shadow-[0_0_12px_rgba(0,230,118,0.5)]"
-                    : "h-2 w-2 rounded-full bg-white/30 hover:bg-[#00E676]/60"
+                    ? "h-2 w-7 rounded-full bg-[#00E676] shadow-[0_0_12px_rgba(0,230,118,0.4)]"
+                    : "h-2 w-2 rounded-full bg-white/35 hover:bg-[#00E676]/70"
                 }`}
                 aria-label={t("auth.showcase.aria_goto_slide", { n: index + 1 })}
               />

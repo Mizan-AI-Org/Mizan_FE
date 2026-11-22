@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Separator } from "@/components/ui/separator";
 import { ChevronDown } from "lucide-react";
 import {
   Card,
@@ -15,6 +16,37 @@ export const settingsFieldClassName =
 
 export const settingsSelectClassName =
   "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-background px-3 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors";
+
+/** Nested heading inside a settings card (contact, staff roles, etc.). */
+export function SettingsSubsection({
+  title,
+  description,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("space-y-4", className)}>
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-50">{title}</h3>
+        {description ? <p className="text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function SettingsSubsectionDivider() {
+  return <Separator className="bg-slate-200/80 dark:bg-slate-800" />;
+}
+
+/** Shared inset panel for paired settings blocks (custom titles, job mappings). */
+export const settingsInsetPanelClassName =
+  "space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/40";
 
 type SettingsSectionProps = {
   icon: ReactNode;

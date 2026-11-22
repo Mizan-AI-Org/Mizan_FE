@@ -960,6 +960,60 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/operations-live/${qs ? `?${qs}` : ""}`);
   }
 
+  /** Operations page: one merged list (tasks, processes, checklists, requests, incidents, agency) + the counters. */
+  async getOperationsOverview(params?: {
+    category?: string;
+    focus?: string;
+    staff?: string;
+    priority?: string;
+    q?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    item?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<import("@/pages/operations/contract").OperationsOverview> {
+    const search = new URLSearchParams();
+    const put = (key: string, value?: string | number) => {
+      const text = String(value ?? "").trim();
+      if (text) search.set(key, text);
+    };
+    put("category", params?.category);
+    put("focus", params?.focus);
+    put("staff", params?.staff);
+    put("priority", params?.priority);
+    put("q", params?.q);
+    put("date_from", params?.dateFrom);
+    put("date_to", params?.dateTo);
+    put("item", params?.item);
+    put("page", params?.page);
+    put("page_size", params?.pageSize);
+    const qs = search.toString();
+    return unwrapApiPayload(await this.fetchWithError(`/operations/overview/${qs ? `?${qs}` : ""}`));
+  }
+
+  /** "Je prends" from the web: the first tap wins; `won` is false when someone was faster. */
+  async claimOperationsItem(
+    kind: string,
+    id: string,
+  ): Promise<{ won: boolean; message: string; claimedBy: { id: string; name: string } | null }> {
+    return unwrapApiPayload(
+      await this.fetchWithError(`/operations/overview/claim/`, { method: "POST", body: JSON.stringify({ kind, id }) }),
+    );
+  }
+
+  /** Manager review of finished work: approve (validate) or send it back with a reason. */
+  async reviewDashboardTask(
+    taskId: string,
+    approve: boolean,
+    note = "",
+  ): Promise<{ success: boolean; validation_label?: string }> {
+    return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, {
+      method: "POST",
+      body: JSON.stringify({ approve, ...(note.trim() ? { note: note.trim() } : {}) }),
+    });
+  }
+
   async getDashboardMyTasks(status = "open", limit = 25): Promise<{ success: boolean; tasks: DashboardTaskDemandItem[]; count: number }> {
     const qs = `?status=${encodeURIComponent(status)}&limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/my-tasks/${qs}`);
@@ -986,6 +1040,28 @@ export class BackendService {
       method: "PUT",
       body: JSON.stringify({ owners }),
     });
+  }
+
+  /** Opt-in "follow this area": each person manages only their own list; levels are none | critical. */
+  async getMyWatches(): Promise<{ success?: boolean; watches: Array<{ id: string; slug: string; level: "none" | "critical"; branch_id: string | null }>; levels?: string[] }> {
+    return this.fetchWithError("/settings/watches/");
+  }
+
+  async setMyWatch(slug: string, level: "none" | "critical", branchId?: string | null): Promise<unknown> {
+    return this.fetchWithError("/settings/watches/", {
+      method: "POST",
+      body: JSON.stringify({ slug, level, branch_id: branchId || null }),
+    });
+  }
+
+  async removeMyWatch(slug: string, branchId?: string | null): Promise<unknown> {
+    const qs = `?slug=${encodeURIComponent(slug)}${branchId ? `&branch_id=${encodeURIComponent(branchId)}` : ""}`;
+    return this.fetchWithError(`/settings/watches/${qs}`, { method: "DELETE" });
+  }
+
+  /** Managers only (403 otherwise): who follows which area. Read-only. */
+  async getWatchesOverview(): Promise<{ success?: boolean; watches: Array<{ id: string; slug: string; level: "none" | "critical"; branch_id: string | null; user_id: string; user_name: string }> }> {
+    return this.fetchWithError("/settings/watches/overview/");
   }
 
   async getDashboardTaskDemand(taskId: string): Promise<DashboardTaskDemandItem> {

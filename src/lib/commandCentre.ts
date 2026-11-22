@@ -1,5 +1,22 @@
 /** Mizan Command Centre API types */
 
+/**
+ * Where command-centre tiles and review links point. One place so the integrator can retarget them
+ * if the unified Operations page (workstream C) lands on different paths.
+ */
+export const COMMAND_ROUTES = {
+  operations: "/dashboard/operations",
+  accountability: "/dashboard/operations?view=accountability",
+  progress: "/dashboard/operations?view=progress&tab=staff",
+  // Compliance stays in settings until the Operations page has a compliance view.
+  compliance: "/dashboard/operations?view=compliance",
+  incidents: "/dashboard/operations/incidents",
+  performance: "/dashboard/employees/performance",
+  attendance: "/dashboard/employees/attendance",
+  orders: "/dashboard/customers/reservations-orders?tab=orders",
+  calendar: "/dashboard/settings?tab=integrations&section=calendar",
+} as const;
+
 export type CommandSignal = {
   id: string;
   lane: "needs_me" | "today" | "handling" | "waiting" | "watching";
@@ -170,13 +187,13 @@ export function resolveCommandReviewRoute(signal: CommandSignal): string {
     return "/dashboard/suppliers/procurement?tab=needs";
   }
   if (category === "compliance") {
-    return "/dashboard/settings?tab=compliance-approvals";
+    return COMMAND_ROUTES.compliance;
   }
   if (category === "tasks" || category === "workload") {
     const id = String(signal.id || "").trim();
     return id
-      ? `/dashboard/operations?task=${encodeURIComponent(id)}`
-      : "/dashboard/operations/live";
+      ? `${COMMAND_ROUTES.operations}?task=${encodeURIComponent(id)}`
+      : COMMAND_ROUTES.operations;
   }
   if (category === "finance" || signal.kind === "invoice") {
     return "/dashboard/operations/approvals";
@@ -184,7 +201,7 @@ export function resolveCommandReviewRoute(signal: CommandSignal): string {
   if (category === "attendance") {
     return "/dashboard/employees/attendance";
   }
-  return "/dashboard/operations/live";
+  return COMMAND_ROUTES.operations;
 }
 
 export function signalsForFilter(
