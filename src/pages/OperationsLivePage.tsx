@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { publishUiContext } from "@/lib/uiContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -758,6 +759,22 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
   });
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeDrag, setActiveDrag] = useState<OperationsLiveItem | null>(null);
+
+  // Tell Miya which tab and filters are on screen ("these requests" = this lane).
+  useEffect(() => {
+    const filters: Record<string, string> = {};
+    if (debouncedSearch) filters.q = debouncedSearch;
+    if (staffFilter) filters.staff = staffFilter;
+    if (priorityFilter) filters.priority = priorityFilter;
+    if (dateFrom) filters.dateFrom = dateFrom;
+    if (dateTo) filters.dateTo = dateTo;
+    publishUiContext({
+      tab: activeLane,
+      category: categoryFilter || undefined,
+      view: "live",
+      filters: Object.keys(filters).length ? filters : undefined,
+    });
+  }, [activeLane, categoryFilter, debouncedSearch, staffFilter, priorityFilter, dateFrom, dateTo]);
   const [attachmentPreview, setAttachmentPreview] = useState<AttachmentViewerState | null>(
     null,
   );

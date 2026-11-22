@@ -6904,5 +6904,16 @@
   "process.schedule.month_day": "يوم الشهر",
   "process.schedule.month_day_help": "تُسند العملية في هذا اليوم من الشهر.",
   "process.audience.groups_title": "أو أسنده إلى مجموعة",
-  "process.audience.groups_help": "الأدوار أو المسميات الوظيفية أو الأقسام أو الجميع. الأشخاص المذكورون أعلاه يبقون كما هم."
+  "process.audience.groups_help": "الأدوار أو المسميات الوظيفية أو الأقسام أو الجميع. الأشخاص المذكورون أعلاه يبقون كما هم.",
+  "approvals.popup.title": "بانتظار قرارك",
+  "approvals.popup.to_validate": "للتأكيد",
+  "approvals.popup.untitled": "طلب موافقة",
+  "approvals.popup.approve": "موافقة",
+  "approvals.popup.reject": "رفض",
+  "approvals.popup.validate": "تأكيد",
+  "approvals.popup.later": "لاحقًا",
+  "firstrun.owners_set": "حدّد المسؤول عن كل مجال",
+  "firstrun.owners_set_cta": "من المسؤول عن ماذا",
+  "firstrun.owners_set_ask": "ساعدني في اختيار المسؤول عن كل مجال في مؤسستي.",
+  "firstrun.owners_gap_detail": "{{count}} مجالات بلا مسؤول، لذلك يذهب عملها إلى المديرين."
 }

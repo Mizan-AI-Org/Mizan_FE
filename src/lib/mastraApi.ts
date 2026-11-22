@@ -1,4 +1,5 @@
 import { shrinkPhoto } from "@/lib/image";
+import { currentUiContext } from "@/lib/uiContext";
 import { API_BASE } from "./api";
 
 /** A button under Miya's answer (e.g. "Switch to Zama Zama and send" when another business is named). */
@@ -380,6 +381,7 @@ export async function runMastraChat(body: {
       attachments: body.attachments && body.attachments.length ? body.attachments : undefined,
       inputMode: body.inputMode ?? "text",
       businessConfirmed: body.businessConfirmed || undefined,
+      uiContext: currentUiContext(),
     }),
   });
   if (!response) {
