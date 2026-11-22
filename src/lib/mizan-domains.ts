@@ -18,12 +18,23 @@ export type DomainNavLeaf = DomainSection & {
   appId?: string;
   roles?: string[];
   matchesBareRoute?: boolean;
+  /** Exact leaf is inactive when the URL search contains any of these keys (sub-views share one pathname). */
+  exactInactiveIfSearchHas?: string[];
 };
 
-export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
+export const DOMAIN_SECTIONS: Record<DomainId, DomainNavLeaf[]> = {
   operations: [
+    // One Operations page (Cursor's unified list); Accountability, Progress and Compliance are its sub-views.
+    {
+      labelKey: "cursorUi.ops.nav.overview",
+      href: "/dashboard/operations",
+      exact: true,
+      exactInactiveIfSearchHas: ["view"],
+    },
     { labelKey: "nav.work.live_operations", href: "/dashboard/operations/live" },
-    { labelKey: "nav.work.accountability", href: "/dashboard/operations/accountability", moduleId: "accountability" },
+    { labelKey: "nav.work.accountability", href: "/dashboard/operations?view=accountability", moduleId: "accountability" },
+    { labelKey: "nav.work.progress", href: "/dashboard/operations?view=progress" },
+    { labelKey: "cursorUi.ops.tab.compliance", href: "/dashboard/operations?view=compliance" },
     { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
     { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents", moduleId: "incidents" },
     { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists", moduleId: "checklists" },

@@ -86,7 +86,7 @@ import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
-import { CATEGORY_OWNER_GROUPS, mergeLegacyIncidentAssignees } from "@/lib/categoryOwners";
+import { mergeLegacyIncidentAssignees } from "@/lib/categoryOwners";
 import { ResponsibilitySettings } from "@/components/responsibilities/ResponsibilitySettings";
 import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
 import type { StaffPickerRow } from "@/lib/staffPicker";
