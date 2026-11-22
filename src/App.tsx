@@ -13,6 +13,7 @@ import React, { useEffect, useState } from "react";
 import OfflineWarning from "./components/OfflineWarning";
 import { ThemeSync } from "./components/ThemeSync";
 import { OPERATIONAL_COMMAND_ROLES, PRIVILEGED_ROLES } from "./lib/operationalCommandRoles";
+import { ToOperations } from "./pages/operations/ToOperations";
 import { PageLoadingSkeleton } from "./components/skeletons";
 // All route components are lazy-loaded below. Keep the top-level module graph
 // tiny so the initial JS chunk can paint the shell + skeleton immediately.
@@ -45,7 +46,8 @@ const DomainOverviewPage = React.lazy(() =>
   import("./components/layout/DomainWorld").then((m) => ({ default: m.DomainOverviewPage }))
 );
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
-const AttentionPage = React.lazy(() => import("./pages/os/AttentionPage"));
+const ProjectsPage = React.lazy(() => import("./pages/ProjectsPage"));
+const OperationsPage = React.lazy(() => import("./pages/operations/OperationsPage"));
 const AutomationHubPage = React.lazy(() => import("./pages/os/AutomationHubPage"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
@@ -150,9 +152,6 @@ const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
 const RedirectToStaffRequests = React.lazy(() => import("./pages/RedirectToStaffRequests"));
 const RedirectToOperationsLive = React.lazy(() => import("./pages/RedirectToOperationsLive"));
-const TaskManagementBoard = React.lazy(
-  () => import("./pages/TaskManagementBoard")
-);
 const OperationalIssuesPage = React.lazy(
   () => import("./pages/OperationalIssuesPage")
 );
@@ -349,17 +348,21 @@ const App = () => {
                 />
                 <Route
                   path="dashboard/attention"
+                  element={<Navigate to="/dashboard/projects" replace />}
+                />
+                <Route
+                  path="dashboard/projects"
                   element={
                     <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <AttentionPage />
+                      <ProjectsPage />
                     </RoleBasedRoute>
                   }
                 />
-                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations/live" replace />} />
+                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations" replace />} />
                 <Route path="dashboard/people" element={<Navigate to="/dashboard/employees" replace />} />
                 <Route path="dashboard/business" element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard/operations" element={<DomainLayout domain="operations" />}>
-                  <Route index element={<Navigate to="/dashboard/operations/live" replace />} />
+                  <Route index element={<OperationsPage />} />
                   <Route path="live" element={<OperationsLivePage />} />
                   <Route path="progress" element={<OperationsProgressPage />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
@@ -685,14 +688,7 @@ const App = () => {
                 />
                 <Route path="dashboard/profile" element={<ProfileSettings />} />
                 {/* Removed /dashboard/advanced-settings route per UI cleanup */}
-                <Route
-                  path="dashboard/tasks"
-                  element={
-                    <React.Suspense fallback={<PageLoadingSkeleton />}>
-                      <TaskManagementBoard />
-                    </React.Suspense>
-                  }
-                />
+                <Route path="dashboard/tasks" element={<ToOperations category="tasks" />} />
                 <Route
                   path="dashboard/operational-issues"
                   element={

@@ -66,7 +66,7 @@ const GROUPS: NavGroup[] = [
     id: "attention",
     labelKey: "nav.widget",
     icon: IconAttention,
-    href: "/dashboard/attention",
+    href: "/dashboard/projects",
     roles: [...OPERATIONAL_COMMAND_ROLES],
   },
   {
@@ -81,7 +81,7 @@ const GROUPS: NavGroup[] = [
     id: "operations",
     labelKey: "nav.operations",
     icon: IconWork,
-    href: "/dashboard/operations/live",
+    href: "/dashboard/operations",
     roles: [...OPERATIONAL_COMMAND_ROLES],
     children: domainLeaves("operations"),
   },
@@ -153,11 +153,21 @@ function groupOwnsPath(group: NavGroup, pathname: string, search: string) {
  * `/dashboard/settings?tab=billing`, which all share one pathname.
  */
 function leafMatches(pathname: string, search: string, leaf: NavLeaf) {
+  const current = new URLSearchParams(search);
   const [routePart, queryPart] = leaf.href.split("#")[0].split("?");
-  if (!queryPart) return pathMatches(pathname, routePart, leaf.exact);
+  if (!queryPart) {
+    if (!pathMatches(pathname, routePart, leaf.exact)) return false;
+    if (leaf.exact && leaf.exactInactiveIfSearchHas?.length) {
+      const suppressed = leaf.exactInactiveIfSearchHas.some((key) => {
+        const val = current.get(key);
+        return val != null && val !== "";
+      });
+      if (suppressed) return false;
+    }
+    return true;
+  }
   if (pathname !== routePart) return false;
 
-  const current = new URLSearchParams(search);
   const target = new URLSearchParams(queryPart);
   let sawAny = false;
   for (const [key, value] of target.entries()) {
@@ -480,7 +490,7 @@ export function MobileIntentDock() {
       { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.employees", href: "/dashboard/employees", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.sales", href: "/dashboard/products/sales", icon: IconProducts, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.operations", href: "/dashboard/operations/live", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.operations", href: "/dashboard/operations", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));
   }, [hasRole]);
