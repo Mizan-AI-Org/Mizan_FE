@@ -748,7 +748,7 @@ function DashboardTaskDetailPanel({
   widgetTitle,
 }: {
   task: DashboardTaskDemandItem;
-  onStatusChange: (status: DashboardTaskDemandItem["status"]) => void;
+  onStatusChange: (status: DashboardTaskDemandItem["status"] | "GOT_IT" | "NEED_HELP") => void;
   onAssigneeChange?: (assigneeId: string | null) => void;
   isUpdating: boolean;
   isAssigneeUpdating?: boolean;
@@ -1081,7 +1081,7 @@ const StaffRequestsPage: React.FC = () => {
   ]);
 
   const dashboardStatusMutation = useMutation({
-    mutationFn: (nextStatus: DashboardTaskDemandItem["status"]) => {
+    mutationFn: (nextStatus: DashboardTaskDemandItem["status"] | "GOT_IT" | "NEED_HELP") => {
       if (!selectedId) throw new Error("No task selected");
       return api.updateDashboardTaskStatus(selectedId, nextStatus);
     },

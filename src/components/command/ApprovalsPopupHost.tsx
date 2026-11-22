@@ -70,7 +70,15 @@ export function ApprovalsPopupHost() {
   });
   const decide = useMutation({
     mutationFn: async (input: { item: PopupItem; decision: "approve" | "reject" }) => {
-      if (input.item.kind === "task") await api.taskExecutionAction(input.item.id, "validate");
+      if (input.item.kind === "task") {
+        // The endpoint reads `approve` strictly (missing means send back), so always say which. A send-back
+        // needs a reason: the staff member is told "needs another look".
+        await api.taskExecutionAction(
+          input.item.id,
+          "validate",
+          input.decision === "approve" ? { approve: true } : { approve: false, note: t("approvals.popup.redo_note") },
+        );
+      }
       else await api.decideApproval(input.item.id, input.decision);
     },
     onSuccess: () => {
@@ -106,11 +114,9 @@ export function ApprovalsPopupHost() {
         <Button type="button" size="sm" disabled={decide.isPending} onClick={() => decide.mutate({ item: next, decision: "approve" })}>
           {next.kind === "task" ? t("approvals.popup.validate") : t("approvals.popup.approve")}
         </Button>
-        {next.kind === "approval" ? (
-          <Button type="button" size="sm" variant="outline" disabled={decide.isPending} onClick={() => decide.mutate({ item: next, decision: "reject" })}>
-            {t("approvals.popup.reject")}
-          </Button>
-        ) : null}
+        <Button type="button" size="sm" variant="outline" disabled={decide.isPending} onClick={() => decide.mutate({ item: next, decision: "reject" })}>
+          {next.kind === "task" ? t("approvals.popup.send_back") : t("approvals.popup.reject")}
+        </Button>
         <Button type="button" size="sm" variant="ghost" onClick={later}>
           {t("approvals.popup.later")}
         </Button>
