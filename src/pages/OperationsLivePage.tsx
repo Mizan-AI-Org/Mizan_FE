@@ -23,8 +23,8 @@ import {
   MoreHorizontal,
   RefreshCw,
   Search,
-  BarChart3,
-  LayoutGrid,
+  ShieldCheck,
+  Inbox,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,10 +68,12 @@ import {
   AttachmentViewerModal,
   type AttachmentViewerState,
 } from "@/components/ui/attachment-preview";
+import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
-import { OperationsProgressPanel } from "@/components/operations/OperationsProgressPanel";
-import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
+import ComplianceDocumentsSettings from "@/components/settings/ComplianceDocumentsSettings";
+import { OperationsSubviewShell } from "@/components/operations/OperationsSubviewShell";
+import StaffRequestsPage from "@/pages/StaffRequestsPage";
 
 type LaneKey = "pending" | "in_progress" | "completed";
 
@@ -709,7 +711,13 @@ function categoryFilterLabel(
   return key.replace(/_/g, " ");
 }
 
-type OpsPageView = "live" | "progress";
+type OpsLiveView = "board" | "compliance" | "requests";
+
+function opsViewFromSearch(view: string | null): OpsLiveView {
+  if (view === "compliance") return "compliance";
+  if (view === "requests" || view === "staff_requests") return "requests";
+  return "board";
+}
 
 export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean }) {
   const { t: translate } = useLanguage();
@@ -717,22 +725,40 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const viewParam = searchParams.get("view");
-  const opsView: OpsPageView = !embedded && viewParam === "progress" ? "progress" : "live";
+  const opsView: OpsLiveView = embedded ? "board" : opsViewFromSearch(searchParams.get("view"));
 
-  // Progress and Accountability are sub-views of the Operations page: old ?view=progress&tab=staff links land there.
   React.useEffect(() => {
-    if (!embedded && (viewParam === "accountability" || viewParam === "progress")) {
-      navigate(`/dashboard/operations?${searchParams.toString()}`, { replace: true });
-    }
-  }, [embedded, viewParam, navigate, searchParams]);
-
-  const setOpsView = (next: OpsPageView) => {
+    if (embedded) return;
+    const view = searchParams.get("view");
+    const tab = searchParams.get("tab");
+    const legacyView =
+      view === "progress" ||
+      view === "accountability" ||
+      view === "board" ||
+      view === "staff_requests";
+    const legacyTab = tab === "staff" || tab === "categories";
+    if (!legacyView && !legacyTab) return;
     setSearchParams(
       (prev) => {
         const p = new URLSearchParams(prev);
-        if (next === "live") {
+        if (view === "staff_requests") p.set("view", "requests");
+        else if (view === "progress" || view === "accountability" || view === "board") p.delete("view");
+        if (legacyTab) p.delete("tab");
+        return p;
+      },
+      { replace: true },
+    );
+  }, [embedded, searchParams, setSearchParams]);
+
+  const setOpsView = (next: OpsLiveView) => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next === "board") {
           p.delete("view");
+          p.delete("request");
+          p.delete("status");
+          p.delete("lane");
         } else {
           p.set("view", next);
         }
@@ -891,7 +917,9 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
   }, [data?.restaurant_name, user, t]);
 
   const categoryOptions = useMemo(() => {
-    return data?.filter_options?.categories ?? [];
+    return (data?.filter_options?.categories ?? []).filter(
+      (key) => key !== "staff_requests" && !key.startsWith("staff_request"),
+    );
   }, [data?.filter_options?.categories]);
 
   const staffOptions = useMemo(() => {
@@ -1008,39 +1036,67 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
             </Button>
           </div>
         ) : (
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
               <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">
                 {t("operations_live.title")}
               </h1>
-              <p className="sr-only">{t("operations_live.subtitle", { restaurant: restaurantLabel })}</p>
+              <p className="text-sm text-muted-foreground">
+                {opsView === "compliance"
+                  ? t("operations_live.subtitle_compliance")
+                  : opsView === "requests"
+                    ? t("operations_live.subtitle_requests")
+                    : t("operations_live.subtitle", { restaurant: restaurantLabel })}
+              </p>
             </div>
             <Tabs
-              value={opsView}
-              onValueChange={(value) => setOpsView(value as OpsPageView)}
-              className="w-full sm:w-[65%] sm:shrink-0"
+              value={opsView === "board" ? "board" : opsView}
+              onValueChange={(value) => {
+                if (value === "compliance" || value === "requests") {
+                  setOpsView(value);
+                }
+              }}
+              className="w-full sm:w-[min(100%,32rem)] sm:shrink-0"
             >
               <TabsList
                 className={cn(
-                  "grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1",
+                  "grid h-auto w-full min-w-[17rem] grid-cols-2 gap-1.5 rounded-lg border border-border/60 bg-muted/30 p-1.5 sm:min-w-[20rem]",
                 )}
               >
-                <TabsTrigger value="live" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  {t("operations_live.tab.board")}
+                <TabsTrigger
+                  value="requests"
+                  className={cn(HUB_TABS_TRIGGER, "min-w-0 justify-center gap-1.5 px-4 py-2.5 text-sm")}
+                >
+                  <Inbox className="h-3.5 w-3.5" aria-hidden />
+                  {t("operations_live.tab.staff_requests")}
                 </TabsTrigger>
-                <TabsTrigger value="progress" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  {t("operations_live.tab.progress")}
+                <TabsTrigger
+                  value="compliance"
+                  className={cn(HUB_TABS_TRIGGER, "min-w-0 justify-center gap-1.5 px-4 py-2.5 text-sm")}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                  {t("operations_live.tab.compliance")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
           </header>
         )}
 
-        {!embedded && opsView === "progress" ? <OperationsProgressPanel /> : null}
+        {!embedded && opsView === "compliance" ? (
+          <OperationsSubviewShell>
+            <ComplianceDocumentsSettings surface="operations" />
+          </OperationsSubviewShell>
+        ) : null}
 
-        {!embedded && opsView !== "live" ? null : !embedded ? (
+        {!embedded && opsView === "requests" ? (
+          <OperationsSubviewShell className="overflow-hidden p-0 sm:p-0 lg:p-0">
+            <div className="p-4 sm:p-5 lg:p-6">
+              <StaffRequestsPage embedded operationsChrome />
+            </div>
+          </OperationsSubviewShell>
+        ) : null}
+
+        {!embedded && opsView === "board" ? (
           <div
             className="overflow-x-auto rounded-xl border border-border/70 bg-card/80 p-2 shadow-sm"
             role="toolbar"
@@ -1166,7 +1222,7 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
           </div>
         ) : null}
 
-        {!embedded && opsView !== "live" ? null : isLoading ? (
+        {!embedded && opsView !== "board" ? null : isLoading ? (
           <div className="flex items-center justify-center py-24 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t("operations_live.loading")}

@@ -3080,7 +3080,7 @@
   "nav.work.approvals": "Approvals",
   "nav.work.incidents": "Incidents",
   "nav.work.staff_checklists": "Staff Checklists",
-  "nav.work.requests": "Requests",
+  "nav.work.requests": "Staff Requests",
   "nav.people.staff": "Staff",
   "nav.people.scheduling": "Scheduling",
   "nav.business.analytics": "Analytics",
@@ -6963,8 +6963,6 @@
   "cursorUi.resp.defaults_cta": "Assign empty areas to me",
   "cursorUi.cmd.tiles.aria": "Shortcuts",
   "cursorUi.cmd.tiles.operations": "Operations",
-  "cursorUi.cmd.tiles.accountability": "Accountability",
-  "cursorUi.cmd.tiles.progress": "Progress",
   "cursorUi.cmd.tiles.performance": "Staff performance",
   "cursorUi.cmd.tiles.calendar": "Google Calendar",
   "cursorUi.cmd.tiles.orders": "Orders",
@@ -6973,7 +6971,6 @@
   "cursorUi.cmd.tiles.open": "Open",
   "cursorUi.cmd.tiles.open_count": "{{count}} open",
   "cursorUi.cmd.tiles.incident_count": "{{count}} incidents",
-  "cursorUi.ops.nav.overview": "Operations overview",
   "cursorUi.ops.tab.work": "Work",
   "cursorUi.ops.tab.compliance": "Compliance",
   "cursorUi.ops.subtitle": "Everything that needs a person today.",
@@ -7039,5 +7036,11 @@
   "cursorUi.ops.layout_board": "Board",
   "cursorUi.ops.load_failed": "Operations could not be loaded.",
   "cursorUi.ops.module_off": "{{name}} is turned off for your business.",
-  "cursorUi.ops.module_settings": "Open billing settings"
+  "cursorUi.ops.module_settings": "Open billing settings",
+  "operations_live.subtitle_compliance": "Certificates, insurance, and expiry tracking for your site.",
+  "operations_live.subtitle_requests": "Staff and operational requests waiting on a decision.",
+  "operations_live.tab.staff_requests": "Staff Requests",
+  "operations_live.tab.compliance": "Compliance",
+  "nav.work.compliance": "Compliance",
+  "settings.tabs.approval_rules": "Approval rules"
 }

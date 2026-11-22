@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
 import { useModules } from "@/hooks/use-modules";
@@ -9,11 +11,11 @@ import { cn } from "@/lib/utils";
 
 type TileDef = { id: string; href: string; moduleId?: ModuleKey; count?: "active_work" | "open_incidents" };
 
+/** Cursor's six shortcuts. Nothing Accountability- or Progress-like belongs here. */
+
 /** Shortcut tiles. Routes live in COMMAND_ROUTES; billable modules hide their tile when switched off. */
 export const COMMAND_TILES: TileDef[] = [
   { id: "operations", href: COMMAND_ROUTES.operations, count: "active_work" },
-  { id: "accountability", href: COMMAND_ROUTES.accountability, moduleId: "accountability" },
-  { id: "progress", href: COMMAND_ROUTES.progress },
   { id: "performance", href: COMMAND_ROUTES.performance },
   { id: "calendar", href: COMMAND_ROUTES.calendar },
   { id: "orders", href: COMMAND_ROUTES.orders },
@@ -21,21 +23,24 @@ export const COMMAND_TILES: TileDef[] = [
   { id: "attendance", href: COMMAND_ROUTES.attendance, moduleId: "attendance" },
 ];
 
+/** Selected until the user changes it (and whenever a stored choice is empty or invalid). */
+export const DEFAULT_TILE_IDS: string[] = ["operations", "performance", "incidents"];
+
 const TILE_IDS = new Set(COMMAND_TILES.map((tile) => tile.id));
 const STORAGE = "mizan.commandTiles";
 
 const storageKey = (userId: string | undefined) => (userId ? `${STORAGE}.${userId}` : STORAGE);
 
-/** Pure: keep only known tile ids; an empty or missing choice means all tiles. */
-export function sanitizeSelection(raw: string[] | undefined): string[] {
-  const ids = (raw ?? []).filter((id) => TILE_IDS.has(id));
-  return ids.length > 0 ? ids : COMMAND_TILES.map((tile) => tile.id);
+/** Pure: keep only known tile ids; an empty, missing or invalid choice means the default three. */
+export function sanitizeSelection(raw: unknown): string[] {
+  const ids = Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string" && TILE_IDS.has(id)) : [];
+  return ids.length > 0 ? ids : [...DEFAULT_TILE_IDS];
 }
 
-function readSelection(key: string): string[] | undefined {
+function readSelection(key: string): unknown {
   try {
     const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as string[]) : undefined;
+    return raw ? (JSON.parse(raw) as unknown) : undefined;
   } catch {
     return undefined;
   }
@@ -50,6 +55,15 @@ export function CommandCenterTiles({
   const { user } = useAuth();
   const { isEnabled } = useModules();
   const key = storageKey(user?.id);
+  const overview = useQuery({
+    queryKey: ["operations-overview", "tiles"],
+    queryFn: () => api.getOperationsOverview({ pageSize: 1 }),
+    staleTime: 30_000,
+  });
+  const counts = {
+    active_work: overview.data?.summary?.open ?? metrics?.active_work,
+    open_incidents: overview.data?.counts?.incidents ?? metrics?.open_incidents,
+  };
   const [selected, setSelected] = useState<string[]>(() => sanitizeSelection(readSelection(storageKey(undefined))));
 
   useEffect(() => {
@@ -91,7 +105,7 @@ export function CommandCenterTiles({
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {shown.map((tile) => {
-          const n = tile.count && metrics ? metrics[tile.count] : undefined;
+          const n = tile.count ? counts[tile.count] : undefined;
           return (
             <Link
               key={tile.id}

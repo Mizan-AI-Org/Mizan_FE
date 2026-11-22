@@ -5,11 +5,8 @@
  * if the unified Operations page (workstream C) lands on different paths.
  */
 export const COMMAND_ROUTES = {
-  operations: "/dashboard/operations",
-  accountability: "/dashboard/operations?view=accountability",
-  progress: "/dashboard/operations?view=progress&tab=staff",
-  // Compliance stays in settings until the Operations page has a compliance view.
-  compliance: "/dashboard/operations?view=compliance",
+  operations: "/dashboard/operations/live",
+  compliance: "/dashboard/operations/live?view=compliance",
   incidents: "/dashboard/operations/incidents",
   performance: "/dashboard/employees/performance",
   attendance: "/dashboard/employees/attendance",

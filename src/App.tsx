@@ -13,7 +13,7 @@ import React, { useEffect, useState } from "react";
 import OfflineWarning from "./components/OfflineWarning";
 import { ThemeSync } from "./components/ThemeSync";
 import { OPERATIONAL_COMMAND_ROLES, PRIVILEGED_ROLES } from "./lib/operationalCommandRoles";
-import { ToOperations } from "./pages/operations/ToOperations";
+import { StaffRequestToOperations, ToOperations } from "./pages/operations/ToOperations";
 import { PageLoadingSkeleton } from "./components/skeletons";
 // All route components are lazy-loaded below. Keep the top-level module graph
 // tiny so the initial JS chunk can paint the shell + skeleton immediately.
@@ -23,7 +23,6 @@ const PurchasingPage = React.lazy(() => import("./pages/PurchasingPage"));
 const BillingInvoicePage = React.lazy(() => import("./pages/BillingInvoicePage"));
 const VerifySignaturePage = React.lazy(() => import("./pages/VerifySignaturePage"));
 const AgencyJobsPage = React.lazy(() => import("./pages/AgencyJobsPage"));
-const AccountabilityPage = React.lazy(() => import("./pages/AccountabilityPage"));
 const ProcurementHubPage = React.lazy(() => import("./pages/ProcurementHubPage"));
 const ApprovalsPage = React.lazy(() => import("./pages/ApprovalsPage"));
 const PurchaseOrdersPage = React.lazy(() => import("./pages/inventory/PurchaseOrdersPage"));
@@ -47,16 +46,12 @@ const DomainOverviewPage = React.lazy(() =>
 );
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const ProjectsPage = React.lazy(() => import("./pages/ProjectsPage"));
-const OperationsPage = React.lazy(() => import("./pages/operations/OperationsPage"));
 const AutomationHubPage = React.lazy(() => import("./pages/os/AutomationHubPage"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
 );
 const OperationsLivePage = React.lazy(
   () => import("./pages/OperationsLivePage")
-);
-const OperationsProgressPage = React.lazy(
-  () => import("./pages/OperationsProgressPage")
 );
 const BranchDetailPage = React.lazy(
   () => import("./pages/BranchDetailPage")
@@ -149,7 +144,6 @@ const AdminEmergencyAvailability = React.lazy(() => import("./pages/AdminEmergen
 const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
 const RolePermissionsPage = React.lazy(() => import("./pages/settings/RolePermissionsPage"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
-const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
 const RedirectToStaffRequests = React.lazy(() => import("./pages/RedirectToStaffRequests"));
 const RedirectToOperationsLive = React.lazy(() => import("./pages/RedirectToOperationsLive"));
 const OperationalIssuesPage = React.lazy(
@@ -358,20 +352,20 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
-                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations" replace />} />
+                <Route path="dashboard/work" element={<ToOperations />} />
                 <Route path="dashboard/people" element={<Navigate to="/dashboard/employees" replace />} />
                 <Route path="dashboard/business" element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard/operations" element={<DomainLayout domain="operations" />}>
-                  <Route index element={<OperationsPage />} />
+                  <Route index element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="live" element={<OperationsLivePage />} />
-                  <Route path="progress" element={<OperationsProgressPage />} />
+                  <Route path="progress" element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
                   <Route path="tasks" element={<Navigate to="/dashboard/operations/approvals" replace />} />
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
                   <Route path="checklists" element={<ManagerReviewDashboard />} />
                   <Route path="agency-jobs" element={<AgencyJobsPage />} />
                   <Route path="archived" element={<Navigate to="/dashboard/operations/live" replace />} />
-                  <Route path="accountability" element={<AccountabilityPage />} />
+                  <Route path="accountability" element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="requests" element={<RedirectToOperationsLive />} />
                   <Route path="requests/:id" element={<RedirectToOperationsLive />} />
                 </Route>
@@ -843,19 +837,11 @@ const App = () => {
                 />
                 <Route
                   path="dashboard/staff-requests"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <StaffRequestsPage />
-                    </RoleBasedRoute>
-                  }
+                  element={<StaffRequestToOperations />}
                 />
                 <Route
                   path="dashboard/staff-requests/:id"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <StaffRequestsPage />
-                    </RoleBasedRoute>
-                  }
+                  element={<StaffRequestToOperations />}
                 />
                 <Route
                   path="dashboard/table-management"
