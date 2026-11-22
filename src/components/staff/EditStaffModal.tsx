@@ -16,6 +16,7 @@ import { API_BASE } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
+import { StaffResponsibilities } from "@/components/responsibilities/StaffResponsibilities";
 import type { StaffTag } from "@/lib/staff-tags";
 import { normalizeStaffTags } from "@/lib/staff-tags";
 
@@ -419,6 +420,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                             )}
                         </>
                     )}
+                    {staffMember?.user?.id ? <StaffResponsibilities staffId={staffMember.user.id} /> : null}
                     <DialogFooter>
                         <Button type="submit" disabled={updateStaffMutation.isPending}>
                             {updateStaffMutation.isPending ? t('profile.saving_changes') : t('profile.save_changes')}

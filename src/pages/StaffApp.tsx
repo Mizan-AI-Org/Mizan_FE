@@ -86,6 +86,7 @@ import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation"
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
 import StaffHRFile from "@/components/staff/StaffHRFile";
+import { StaffResponsibilities } from "@/components/responsibilities/StaffResponsibilities";
 import { StaffMemberAvatar } from "@/components/staff/StaffMemberAvatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
@@ -931,6 +932,9 @@ const TeamTab: React.FC = () => {
                             </div>
                         </div>
 
+                        <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
+                            <StaffResponsibilities staffId={selectedMember.id} />
+                        </div>
                         <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                             <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("hr.file_title")}</h4>
                             <StaffHRFile staffId={selectedMember.id} />

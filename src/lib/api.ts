@@ -988,6 +988,28 @@ export class BackendService {
     });
   }
 
+  /** Opt-in "follow this area": each person manages only their own list; levels are none | critical. */
+  async getMyWatches(): Promise<{ success?: boolean; watches: Array<{ id: string; slug: string; level: "none" | "critical"; branch_id: string | null }>; levels?: string[] }> {
+    return this.fetchWithError("/settings/watches/");
+  }
+
+  async setMyWatch(slug: string, level: "none" | "critical", branchId?: string | null): Promise<unknown> {
+    return this.fetchWithError("/settings/watches/", {
+      method: "POST",
+      body: JSON.stringify({ slug, level, branch_id: branchId || null }),
+    });
+  }
+
+  async removeMyWatch(slug: string, branchId?: string | null): Promise<unknown> {
+    const qs = `?slug=${encodeURIComponent(slug)}${branchId ? `&branch_id=${encodeURIComponent(branchId)}` : ""}`;
+    return this.fetchWithError(`/settings/watches/${qs}`, { method: "DELETE" });
+  }
+
+  /** Managers only (403 otherwise): who follows which area. Read-only. */
+  async getWatchesOverview(): Promise<{ success?: boolean; watches: Array<{ id: string; slug: string; level: "none" | "critical"; branch_id: string | null; user_id: string; user_name: string }> }> {
+    return this.fetchWithError("/settings/watches/overview/");
+  }
+
   async getDashboardTaskDemand(taskId: string): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(`/dashboard/tasks-demands/${taskId}/`);
   }

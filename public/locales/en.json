@@ -6943,5 +6943,26 @@
     "auth": {
       "slides_aria": "Showcase slides"
     }
-  }
+  },
+  "cursorUi.resp.title": "Who owns what",
+  "cursorUi.resp.loading": "Loading responsibilities…",
+  "cursorUi.resp.load_error": "Could not load responsibilities.",
+  "cursorUi.resp.save_failed": "Could not save. Try again.",
+  "cursorUi.resp.owners_hint": "Several people can own an area. They are the only ones told about new work there, and the first to take it wins.",
+  "cursorUi.resp.watch_me": "Follow this area",
+  "cursorUi.resp.watch_level_none": "Not following",
+  "cursorUi.resp.watch_level_critical": "Urgent incidents only",
+  "cursorUi.resp.watch_private": "Private area: it cannot be followed.",
+  "cursorUi.resp.watched_by": "Followed by {{names}}",
+  "cursorUi.resp.watch_hint": "Following is each person's own choice. Followers are never notified about tasks or requests, only about urgent incidents if they ask for it.",
+  "cursorUi.resp.assign_dialog_title": "Assign responsibilities",
+  "cursorUi.resp.assign_cta": "Assign",
+  "cursorUi.resp.gaps_intro": "These areas have nobody in charge, so their work goes to the managers.",
+  "cursorUi.resp.gaps_more": "+{{count}} more",
+  "cursorUi.resp.staff_title": "Responsibilities",
+  "cursorUi.resp.staff_hint": "Tick the areas this person owns. Their work in those areas is routed to them.",
+  "cursorUi.resp.staff_follows": "Follows",
+  "cursorUi.resp.requested_by": "Requested by",
+  "cursorUi.resp.defaults_hint": "Not sure yet? Put yourself on every empty area and hand them over later.",
+  "cursorUi.resp.defaults_cta": "Assign empty areas to me"
 }
