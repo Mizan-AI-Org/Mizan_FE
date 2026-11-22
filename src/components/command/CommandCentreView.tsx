@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
+import { ApprovalsPopupHost } from "@/components/command/ApprovalsPopupHost";
+import { CommandCenterTiles } from "@/components/command/CommandCenterTiles";
 import { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
 import { OperationsLiveFeed } from "@/pages/OperationsLivePage";
 import { AttentionCard } from "@/components/os/AttentionCard";
@@ -231,7 +233,7 @@ export function CommandCentreView({ className }: { className?: string }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { askAgent } = useAgentPanel();
-  const { data, isLoading, isError, refetch, isFetching } = useCommandCentre();
+  const { data, isLoading, isError, refetch } = useCommandCentre();
   const [filter, setFilter] = useState<CommandFilterKey>("needs_me");
 
   const filtered = useMemo(() => signalsForFilter(data, filter), [data, filter]);
@@ -319,27 +321,18 @@ export function CommandCentreView({ className }: { className?: string }) {
         <div className="flex shrink-0 items-center gap-2">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="gap-1.5 text-muted-foreground"
+            className="gap-1.5"
             onClick={() => askAgent(t("attention.brief_prompt"))}
           >
             {t("attention.brief_me")}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            aria-label={t("command.refresh_aria")}
-          >
-            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} aria-hidden />
-            {t("common.refresh", { defaultValue: "Refresh" })}
-          </Button>
         </div>
       </header>
+
+      <ApprovalsPopupHost />
+      <CommandCenterTiles />
 
       <section
         aria-label={t("command.glance")}

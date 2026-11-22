@@ -15,6 +15,7 @@ import { AuthContextType } from '../../contexts/AuthContext.types';
 import { API_BASE } from "@/lib/api";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
+import { StaffResponsibilities } from "@/components/responsibilities/StaffResponsibilities";
 import type { StaffTag } from "@/lib/staff-tags";
 import { normalizeStaffTags } from "@/lib/staff-tags";
 
@@ -417,6 +418,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                             )}
                         </>
                     )}
+                    {staffMember?.user.id ? <StaffResponsibilities staffId={staffMember.user.id} /> : null}
                     <DialogFooter>
                         <Button type="submit" disabled={updateStaffMutation.isPending}>
                             {updateStaffMutation.isPending ? 'Saving Changes...' : 'Save Changes'}

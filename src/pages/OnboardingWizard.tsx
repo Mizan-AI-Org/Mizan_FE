@@ -1937,6 +1937,16 @@ const OwnersStep: React.FC<{
         () => normalise(status.config.category_owners),
     );
     const [saving, setSaving] = useState(false);
+    const defaultsApplied = useRef(false);
+
+    useEffect(() => {
+        if (defaultsApplied.current) return;
+        const current = normalise(status.config.category_owners);
+        const hasOwners = Object.values(current).some((ids) => ids.length > 0);
+        if (hasOwners) return;
+        defaultsApplied.current = true;
+        void api.applyResponsibilityDefaults().catch(() => undefined);
+    }, [status.config.category_owners]);
 
     const ownersMetaQuery = useQuery({
         queryKey: ["onboarding-category-owners-meta"],

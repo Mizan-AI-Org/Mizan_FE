@@ -3,6 +3,9 @@ import { Calendar, FileText, Plus, Search, Sparkles } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAgentPanel } from "@/context/AgentPanelContext";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { CommandSearchResults } from "./CommandSearchResults";
+import { useOpsSearch, type OpsSearchHit } from "./useOpsSearch";
 
 const RECENT_KEY = "mizan.command.recent";
 const MAX_RECENT = 4;
@@ -37,6 +40,19 @@ export function CommandSearchBar({ className }: { className?: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<string[]>(() => loadRecent());
+  const [typed, setTyped] = useState("");
+  const navigate = useNavigate();
+  const { hits, loading } = useOpsSearch(typed);
+
+  const openHit = useCallback(
+    (hit: OpsSearchHit) => {
+      setOpen(false);
+      setTyped("");
+      if (inputRef.current) inputRef.current.value = "";
+      navigate(hit.href);
+    },
+    [navigate],
+  );
 
   const suggested = [
     t("ai.suggest.attention"),
@@ -86,6 +102,7 @@ export function CommandSearchBar({ className }: { className?: string }) {
       setRecent(loadRecent());
       setOpen(false);
       if (inputRef.current) inputRef.current.value = "";
+      setTyped("");
       askAgent(q);
     },
     [askAgent],
@@ -138,6 +155,7 @@ export function CommandSearchBar({ className }: { className?: string }) {
           aria-expanded={open}
           aria-haspopup="listbox"
           onFocus={() => setOpen(true)}
+          onChange={(e) => setTyped(e.target.value)}
         />
         <kbd className="pointer-events-none absolute end-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
           ⌘ K
@@ -149,6 +167,8 @@ export function CommandSearchBar({ className }: { className?: string }) {
           role="listbox"
           className="absolute start-0 end-0 top-[calc(100%+0.5rem)] z-[3000] overflow-hidden rounded-panel border border-border/80 bg-card shadow-strong"
         >
+          <CommandSearchResults hits={hits} loading={loading} onPick={openHit} />
+
           {recent.length > 0 ? (
             <div className="border-b border-border/60 px-3 py-2">
               <p className="px-1 pb-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">

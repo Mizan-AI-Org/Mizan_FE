@@ -18,22 +18,31 @@ export type DomainNavLeaf = DomainSection & {
   appId?: string;
   roles?: string[];
   matchesBareRoute?: boolean;
+  /** Exact leaf is inactive when the URL search contains any of these keys. */
+  exactInactiveIfSearchHas?: string[];
 };
 
-export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
+export const DOMAIN_SECTIONS: Record<DomainId, DomainNavLeaf[]> = {
   operations: [
-    { labelKey: "nav.work.live_operations", href: "/dashboard/operations/live" },
-    { labelKey: "nav.work.accountability", href: "/dashboard/operations/accountability", moduleId: "accountability" },
-    { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
+    {
+      labelKey: "nav.work.live_operations",
+      href: "/dashboard/operations/live",
+      exact: true,
+      exactInactiveIfSearchHas: ["view"],
+    },
+    { labelKey: "nav.work.requests", href: "/dashboard/operations/live?view=requests" },
+    { labelKey: "nav.work.compliance", href: "/dashboard/operations/live?view=compliance" },
     { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents", moduleId: "incidents" },
-    { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists", moduleId: "checklists" },
-    { labelKey: "nav.work.agency_jobs", href: "/dashboard/operations/agency-jobs", moduleId: "agency" },
+    { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
+    {
+      labelKey: "nav.work.staff_checklists",
+      href: "/dashboard/operations/checklists",
+      moduleId: "checklists",
+    },
   ],
   employees: [
     { labelKey: "nav.employees.people", href: "/dashboard/employees/people" },
-    { labelKey: "nav.employees.staff_requests", href: "/dashboard/staff-requests" },
     { labelKey: "nav.employees.shifts", href: "/dashboard/employees/shifts", moduleId: "scheduling" },
-    { labelKey: "nav.employees.tasks", href: "/dashboard/employees/tasks", moduleId: "checklists" },
     { labelKey: "nav.employees.attendance", href: "/dashboard/employees/attendance", moduleId: "attendance" },
     { labelKey: "nav.employees.performance", href: "/dashboard/employees/performance", moduleId: "scheduling" },
   ],
@@ -63,8 +72,8 @@ export const SETTINGS_SECTIONS: DomainNavLeaf[] = [
   { labelKey: "settings.tabs.integrations", href: "/dashboard/settings?tab=integrations" },
   { labelKey: "settings.tabs.billing", href: "/dashboard/settings?tab=billing" },
   {
-    labelKey: "settings.tabs.compliance_approvals",
-    href: "/dashboard/settings?tab=compliance-approvals",
+    labelKey: "settings.tabs.approval_rules",
+    href: "/dashboard/settings?tab=compliance-approvals&section=approvals",
   },
   { labelKey: "nav.settings.role_permissions", href: "/dashboard/settings/permissions" },
 ];

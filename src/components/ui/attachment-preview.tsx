@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { safeUrl } from "@/lib/safeUrl";
+import { resolveMediaUrl } from "@/lib/api";
 
 /**
  * Loose attachment shape - every back-end serializer that surfaces a file
@@ -549,13 +550,53 @@ export function AttachmentViewerModal({
   attachment: AttachmentViewerState | null;
 }) {
   const [imgError, setImgError] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
   const url = attachment?.url?.trim() || "";
+  const resolvedUrl = resolveMediaUrl(url) || url;
   const name = attachment?.name?.trim() || "Attachment";
   const kind = attachment ? viewerKind(attachment) : "other";
 
   useEffect(() => {
     if (open) setImgError(false);
   }, [open, url]);
+
+  useEffect(() => {
+    if (!open || kind !== "pdf" || !resolvedUrl) {
+      setPdfBlobUrl(null);
+      setPdfLoadError(false);
+      setPdfLoading(false);
+      return;
+    }
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setPdfLoading(true);
+    setPdfLoadError(false);
+
+    void (async () => {
+      try {
+        const response = await fetch(resolvedUrl, { credentials: "include" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const blob = await response.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(objectUrl);
+      } catch {
+        if (!cancelled) setPdfLoadError(true);
+      } finally {
+        if (!cancelled) setPdfLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setPdfBlobUrl(null);
+    };
+  }, [open, kind, resolvedUrl]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -577,23 +618,31 @@ export function AttachmentViewerModal({
               <p className="text-sm text-muted-foreground">Preview unavailable.</p>
             ) : (
               <img
-                src={safeUrl(url)}
+                src={safeUrl(resolvedUrl)}
                 alt={name}
                 onError={() => setImgError(true)}
                 className="mx-auto max-h-[70vh] w-full object-contain"
               />
             )
           ) : kind === "pdf" ? (
-            <iframe
-              title={name}
-              src={safeUrl(url)}
-              className="h-[70vh] w-full rounded-md border border-border bg-background"
-            />
+            pdfLoading ? (
+              <p className="text-sm text-muted-foreground">Loading preview…</p>
+            ) : pdfLoadError || !pdfBlobUrl ? (
+              <p className="text-sm text-muted-foreground">
+                Preview unavailable. Try Download or Open in new tab.
+              </p>
+            ) : (
+              <iframe
+                title={name}
+                src={pdfBlobUrl}
+                className="h-[70vh] w-full rounded-md border border-border bg-background"
+              />
+            )
           ) : kind === "video" ? (
             <video
               controls
               preload="metadata"
-              src={safeUrl(url)}
+              src={safeUrl(resolvedUrl)}
               className="mx-auto max-h-[70vh] w-full rounded-md bg-black"
             >
               <track kind="captions" />
@@ -601,7 +650,7 @@ export function AttachmentViewerModal({
           ) : kind === "audio" ? (
             <div className="rounded-lg border border-border bg-background p-4">
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <audio controls preload="metadata" src={safeUrl(url)} className="w-full" />
+              <audio controls preload="metadata" src={safeUrl(resolvedUrl)} className="w-full" />
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4 py-8 text-center">
@@ -615,13 +664,13 @@ export function AttachmentViewerModal({
         {url ? (
           <DialogFooter className="border-t border-border px-5 py-3 sm:justify-between">
             <Button type="button" variant="outline" size="sm" asChild>
-              <a href={safeUrl(url)} download={name}>
+              <a href={safeUrl(resolvedUrl)} download={name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Download
               </a>
             </Button>
             <Button type="button" variant="secondary" size="sm" asChild>
-              <a href={safeUrl(url)} target="_blank" rel="noopener noreferrer">
+              <a href={safeUrl(resolvedUrl)} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Open in new tab
               </a>

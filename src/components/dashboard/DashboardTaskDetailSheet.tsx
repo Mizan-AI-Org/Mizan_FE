@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { archiveWithUndo } from "@/lib/archiveApi";
 
 function tasksDemandsDetailHref(taskId: string): string {
-  return `/dashboard/operations/live?task=${taskId}`;
+  return `/dashboard/operations?task=${taskId}`;
 }
 
 export function DashboardTaskDetailSheet({
@@ -64,7 +64,7 @@ export function DashboardTaskDetailSheet({
   };
 
   const statusMutation = useMutation({
-    mutationFn: (nextStatus: DashboardTaskDemandItem["status"]) => {
+    mutationFn: (nextStatus: DashboardTaskDemandItem["status"] | "GOT_IT" | "NEED_HELP") => {
       if (!taskId) throw new Error("No task selected");
       return api.updateDashboardTaskStatus(taskId, nextStatus);
     },

@@ -14,10 +14,10 @@ import { RestaurantShowcase } from "../components/RestaurantShowcase";
 import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
 import {
   AuthAmbientBackground,
-  authFieldClass,
   authGlassCardClass,
   authGlassTabsClass,
 } from "@/components/AuthAmbientBackground";
+import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 
 /** Auth is always dark — isolated from dashboard light/dark preference. */
@@ -71,13 +71,14 @@ const Auth = () => {
 
           <div className="relative z-10 flex flex-1 flex-col overflow-y-auto px-5 pb-8 lg:px-10 lg:pb-10">
             <div
-              className={
+              className={cn(
+                "mx-auto flex w-full flex-1 flex-col",
                 isSignup
-                  ? "mx-auto w-full max-w-xl flex-1"
-                  : "mx-auto flex w-full max-w-md flex-1 flex-col justify-center"
-              }
+                  ? "max-w-lg justify-start py-2 lg:max-w-md lg:justify-center lg:py-0"
+                  : "max-w-md justify-center",
+              )}
             >
-              <div className={authGlassTabsClass}>
+              <div className={cn(authGlassTabsClass, isSignup && "mb-4")}>
                 <button
                   type="button"
                   onClick={() => setCurrentPage("login")}
@@ -102,7 +103,7 @@ const Auth = () => {
                 </button>
               </div>
 
-              <div className={authGlassCardClass}>
+              <div className={cn(authGlassCardClass, isSignup && "p-5 sm:p-6")}>
                 {isSignup ? <SignUpForm /> : <AuthForm embedded />}
               </div>
 

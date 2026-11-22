@@ -29,8 +29,9 @@ import {
   ExternalLink,
   Languages,
   Route,
-  FileWarning,
   Shield,
+  Plus,
+  UserCog,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense, memo } from "react";
@@ -51,9 +52,6 @@ const BillingSettings = lazy(() => import("@/components/settings/BillingSettings
 const ModulesSettings = lazy(() => import("@/components/settings/ModulesSettings"));
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
-const ComplianceDocumentsSettings = lazy(
-  () => import("@/components/settings/ComplianceDocumentsSettings"),
-);
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const ApprovalRulesSettings = lazy(() => import("@/components/settings/ApprovalRulesSettings"));
@@ -68,8 +66,10 @@ import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 import {
   SettingsSection,
+  SettingsSubsection,
   SettingsStickyActions,
   settingsFieldClassName,
+  settingsInsetPanelClassName,
   settingsSelectClassName,
 } from "@/components/settings/SettingsSection";
 import { JobTitlesSettings } from "@/components/staff/JobTitlesPanel";
@@ -79,9 +79,7 @@ import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
-import { CATEGORY_OWNER_GROUPS, mergeLegacyIncidentAssignees } from "@/lib/categoryOwners";
-import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
-import type { StaffPickerRow } from "@/lib/staffPicker";
+import { ResponsibilitySettings } from "@/components/responsibilities/ResponsibilitySettings";
 import {
   ALL_BUSINESS_VERTICALS,
   parseBusinessVertical,
@@ -105,8 +103,6 @@ interface AISettings {
 
 type GeneralSettingsSection = "profile" | "general" | "location" | "modules";
 type IntegrationSection = "pos" | "reservations" | "calendar";
-type ComplianceApprovalsSection = "compliance" | "approvals";
-
 function normalizeSettingsTab(raw: string): string {
   const tab = (raw || "").toLowerCase();
   if (tab === "approvals" || tab === "payguard" || tab === "compliance") {
@@ -116,15 +112,6 @@ function normalizeSettingsTab(raw: string): string {
     return "general-settings";
   }
   return tab;
-}
-
-function resolveComplianceApprovalsSection(params: URLSearchParams): ComplianceApprovalsSection {
-  const section = (params.get("section") || "").toLowerCase();
-  if (section === "compliance" || section === "approvals") return section;
-  const legacyTab = (params.get("tab") || "").toLowerCase();
-  if (legacyTab === "compliance") return "compliance";
-  if (legacyTab === "approvals" || legacyTab === "payguard") return "approvals";
-  return "compliance";
 }
 
 function resolveGeneralSettingsSection(params: URLSearchParams): GeneralSettingsSection {
@@ -191,10 +178,6 @@ function Settings() {
   });
   const [automaticClockOut, setAutomaticClockOut] = useState(false);
   const [allowChecklistWithoutClockIn, setAllowChecklistWithoutClockIn] = useState(false);
-  const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
-  const [categoryOwnerDirectory, setCategoryOwnerDirectory] = useState<
-    Record<string, StaffPickerRow>
-  >({});
   const [businessVertical, setBusinessVertical] = useState<BusinessVertical>("RESTAURANT");
   const [customStaffRoles, setCustomStaffRoles] = useState<{ id: string; name: string }[]>([]);
   const [breakDuration, setBreakDuration] = useState(30);
@@ -255,9 +238,6 @@ function Settings() {
   const [integrationSection, setIntegrationSection] = useState<IntegrationSection>(() =>
     resolveIntegrationSection(searchParams),
   );
-  const [complianceApprovalsSection, setComplianceApprovalsSection] =
-    useState<ComplianceApprovalsSection>(() => resolveComplianceApprovalsSection(searchParams));
-
   // Deep links from other screens can change ?tab= while this page stays mounted.
   useEffect(() => {
     const fromUrl = normalizeSettingsTab(searchParams.get("tab") || "");
@@ -288,20 +268,26 @@ function Settings() {
 
   useEffect(() => {
     const legacyTab = (searchParams.get("tab") || "").toLowerCase();
-    if (legacyTab !== "compliance" && legacyTab !== "approvals" && legacyTab !== "payguard") return;
+    const section = (searchParams.get("section") || "").toLowerCase();
+    if (
+      legacyTab === "compliance" ||
+      section === "compliance" ||
+      (legacyTab === "compliance-approvals" && section === "compliance")
+    ) {
+      navigate("/dashboard/operations/live?view=compliance", { replace: true });
+      return;
+    }
+    if (legacyTab !== "approvals" && legacyTab !== "payguard") return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.set("tab", "compliance-approvals");
-        next.set(
-          "section",
-          legacyTab === "compliance" ? "compliance" : "approvals",
-        );
+        next.set("section", "approvals");
         return next;
       },
       { replace: true },
     );
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, navigate]);
 
   useEffect(() => {
     if (activeTab !== "general-settings") return;
@@ -371,26 +357,6 @@ function Settings() {
     );
   };
 
-  useEffect(() => {
-    if (activeTab !== "compliance-approvals") return;
-    const section = resolveComplianceApprovalsSection(searchParams);
-    setComplianceApprovalsSection((current) => (current === section ? current : section));
-  }, [searchParams, activeTab]);
-
-  const onComplianceApprovalsSectionChange = (next: string) => {
-    const section = next as ComplianceApprovalsSection;
-    setComplianceApprovalsSection(section);
-    setSearchParams(
-      (prev) => {
-        const n = new URLSearchParams(prev);
-        n.set("tab", "compliance-approvals");
-        n.set("section", section);
-        return n;
-      },
-      { replace: true },
-    );
-  };
-
   const onSettingsTabChange = (next: string) => {
     setActiveTab(next);
     setSearchParams(
@@ -401,10 +367,7 @@ function Settings() {
           n.set("section", "pos");
         }
         if (next === "compliance-approvals") {
-          const sec = (n.get("section") || "").toLowerCase();
-          if (sec !== "compliance" && sec !== "approvals") {
-            n.set("section", "compliance");
-          }
+          n.set("section", "approvals");
         }
         return n;
       },
@@ -608,37 +571,6 @@ function Settings() {
           : (typeof data.settingsVersion === "number" ? data.settingsVersion : 0)
       );
 
-      const rawAssignees = data.incident_category_assignees;
-      const legacyAssignees =
-        rawAssignees && typeof rawAssignees === "object" && !Array.isArray(rawAssignees)
-          ? (rawAssignees as Record<string, string>)
-          : {};
-
-      try {
-        const ownersRes = await api.getCategoryOwners();
-        const raw = ownersRes?.owners || {};
-        const normalized: Record<string, string[]> = {};
-        for (const [k, v] of Object.entries(raw)) {
-          normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
-        }
-        setCategoryOwners(mergeLegacyIncidentAssignees(normalized, legacyAssignees));
-        const directory: Record<string, StaffPickerRow> = {};
-        for (const [id, row] of Object.entries(ownersRes?.staff_directory || {})) {
-          if (!row || typeof row !== "object") continue;
-          directory[id] = {
-            id: String(row.id || id),
-            first_name: String(row.first_name || ""),
-            last_name: String(row.last_name || ""),
-            email: String(row.email || ""),
-            role: row.role ? String(row.role) : undefined,
-          };
-        }
-        setCategoryOwnerDirectory(directory);
-      } catch {
-        setCategoryOwners(mergeLegacyIncidentAssignees({}, legacyAssignees));
-        setCategoryOwnerDirectory({});
-      }
-
       setGcalConnected(data.google_calendar_connected || false);
       setGcalEmail(data.google_calendar_email || "");
 
@@ -734,7 +666,6 @@ function Settings() {
         // Include the version for optimistic locking
         settings_schema_version: settingsSchemaVersion,
       });
-      await api.saveCategoryOwners(categoryOwners);
       if (response.status === 200) {
         const ver =
           typeof response.data?.settings_schema_version === "number"
@@ -936,62 +867,75 @@ function Settings() {
               title={t("settings.general.restaurant_info.title")}
               description={t("settings.general.restaurant_info.description")}
               collapsible
-              defaultOpen={false}
+              defaultOpen
+              contentClassName="pt-0"
             >
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="restaurant-name">{t("settings.general.fields.name")}</Label>
-                    <Input
-                      id="restaurant-name"
-                      value={restaurantName}
-                      onChange={(e) => setRestaurantName(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.name_placeholder")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">{t("settings.general.fields.address")}</Label>
-                    <Input
-                      id="address"
-                      value={restaurantAddress}
-                      onChange={(e) => setRestaurantAddress(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.address_placeholder")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">{t("settings.general.fields.phone")}</Label>
-                    <Input
-                      id="phone"
-                      value={restaurantPhone}
-                      onChange={(e) => setRestaurantPhone(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.phone_placeholder")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">{t("settings.general.fields.email")}</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={restaurantEmail}
-                      onChange={(e) => setRestaurantEmail(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.email_placeholder")}
-                    />
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8 lg:items-start">
+                <div className="space-y-6 min-w-0">
+                  <SettingsSubsection
+                    title={t("settings.general.contact_section_title")}
+                    description={t("settings.general.contact_section_desc")}
+                  >
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="restaurant-name">{t("settings.general.fields.name")}</Label>
+                        <Input
+                          id="restaurant-name"
+                          value={restaurantName}
+                          onChange={(e) => setRestaurantName(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.name_placeholder")}
+                          autoComplete="organization"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="address">{t("settings.general.fields.address")}</Label>
+                        <Input
+                          id="address"
+                          value={restaurantAddress}
+                          onChange={(e) => setRestaurantAddress(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.address_placeholder")}
+                          autoComplete="street-address"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">{t("settings.general.fields.phone")}</Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={restaurantPhone}
+                          onChange={(e) => setRestaurantPhone(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.phone_placeholder")}
+                          autoComplete="tel"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">{t("settings.general.fields.email")}</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={restaurantEmail}
+                          onChange={(e) => setRestaurantEmail(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.email_placeholder")}
+                          autoComplete="email"
+                        />
+                      </div>
+                    </div>
+                  </SettingsSubsection>
 
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
-                  <div className="space-y-2">
-                    <Label htmlFor="business-vertical">
-                      {t("settings.general.business_vertical")}
-                    </Label>
+                  <SettingsSubsection
+                    title={t("settings.general.business_vertical")}
+                    description={t("settings.general.business_vertical_hint")}
+                  >
                     <select
                       id="business-vertical"
                       value={businessVertical}
                       onChange={(e) => setBusinessVertical(e.target.value as BusinessVertical)}
                       className={settingsSelectClassName}
+                      aria-describedby="business-vertical-hint"
                     >
                       {ALL_BUSINESS_VERTICALS.map((v) => (
                         <option key={v} value={v}>
@@ -999,65 +943,90 @@ function Settings() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <p id="business-vertical-hint" className="sr-only">
                       {t("settings.general.business_vertical_hint")}
                     </p>
-                  </div>
+                  </SettingsSubsection>
+                </div>
 
-                  <div className="space-y-3 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
-                    <div>
-                      <Label className="text-sm font-medium">
-                        {t("settings.general.custom_staff_roles_title")}
-                      </Label>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        {t("settings.general.custom_staff_roles_desc")}
-                      </p>
-                    </div>
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                      {customStaffRoles.map((row, idx) => (
-                        <div key={row.id} className="flex gap-2 items-center">
-                          <Input
-                            value={row.name}
-                            onChange={(e) => {
-                              const next = [...customStaffRoles];
-                              next[idx] = { ...row, name: e.target.value };
-                              setCustomStaffRoles(next);
-                            }}
-                            placeholder={t("settings.general.custom_staff_roles_placeholder")}
-                            className={cn(settingsFieldClassName, "h-10")}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={() =>
-                              setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
-                            }
-                          >
-                            {t("settings.general.custom_staff_roles_remove")}
-                          </Button>
+                <div className="min-w-0 lg:border-l lg:border-slate-200/90 lg:pl-8 dark:lg:border-slate-800">
+                  <SettingsSubsection
+                    title={t("settings.general.staff_roles_section_title")}
+                    description={t("settings.general.staff_roles_section_desc")}
+                  >
+                    <div className="flex flex-col gap-4">
+                  <div className={settingsInsetPanelClassName}>
+                    <div className="flex items-start gap-2">
+                      <UserCog className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                            {t("settings.general.custom_staff_roles_title")}
+                          </span>
+                          {customStaffRoles.length > 0 ? (
+                            <Badge variant="secondary" className="text-[10px] font-normal">
+                              {customStaffRoles.filter((r) => r.name.trim()).length}
+                            </Badge>
+                          ) : null}
                         </div>
-                      ))}
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {t("settings.general.custom_staff_roles_desc")}
+                        </p>
+                      </div>
                     </div>
+                    {customStaffRoles.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        {t("settings.general.custom_staff_roles_empty")}
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-[min(280px,40vh)] overflow-y-auto pr-0.5">
+                        {customStaffRoles.map((row, idx) => (
+                          <div key={row.id} className="flex gap-2 items-center">
+                            <Input
+                              value={row.name}
+                              onChange={(e) => {
+                                const next = [...customStaffRoles];
+                                next[idx] = { ...row, name: e.target.value };
+                                setCustomStaffRoles(next);
+                              }}
+                              placeholder={t("settings.general.custom_staff_roles_placeholder")}
+                              className={cn(settingsFieldClassName, "h-10")}
+                              aria-label={t("settings.general.custom_staff_roles_placeholder")}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() =>
+                                setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
+                              }
+                            >
+                              {t("settings.general.custom_staff_roles_remove")}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
-                      className="w-full sm:w-auto"
+                      className="gap-1.5"
                       onClick={() =>
-                        setCustomStaffRoles((prev) => [
-                          ...prev,
-                          { id: crypto.randomUUID(), name: "" },
-                        ])
+                        setCustomStaffRoles((prev) => [...prev, { id: crypto.randomUUID(), name: "" }])
                       }
                     >
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
                       {t("settings.general.custom_staff_roles_add")}
                     </Button>
                   </div>
 
-                  <JobTitlesSettings />
+                      <JobTitlesSettings embedded />
+                    </div>
+                  </SettingsSubsection>
                 </div>
+              </div>
             </SettingsSection>
 
             <SettingsSection
@@ -1124,40 +1093,12 @@ function Settings() {
               icon={<Route className="h-5 w-5" />}
               iconClassName="bg-violet-50 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
               title={t("onboarding.owners.title", "Who owns what?")}
-              description={t(
-                "onboarding.owners.subtitle",
-                "Pick one or more people for each category - incidents, requests, and tasks are routed to them automatically.",
-              )}
+              description={t("onboarding.owners.subtitle")}
+              collapsible
+              defaultOpen
+              contentClassName="pt-0"
             >
-              <div className="space-y-6">
-                {CATEGORY_OWNER_GROUPS.map((group) => (
-                  <div key={group.groupKey} className="space-y-3">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t(group.groupKey)}
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {group.items.map((cat) => (
-                        <div key={cat.key} className="space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-3 min-w-0">
-                          <Label className="text-sm font-medium">{t(cat.labelKey)}</Label>
-                          <CategoryOwnerPicker
-                            selectedIds={categoryOwners[cat.key] || []}
-                            staffDirectory={categoryOwnerDirectory}
-                            onChange={(ids) => {
-                              setCategoryOwners((prev) => {
-                                if (ids.length === 0) {
-                                  const { [cat.key]: _, ...rest } = prev;
-                                  return rest;
-                                }
-                                return { ...prev, [cat.key]: ids };
-                              });
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ResponsibilitySettings />
             </SettingsSection>
 
             <SettingsStickyActions hint={t("settings.save_hint")}>
@@ -1387,50 +1328,9 @@ function Settings() {
 
         {!isStaff && (
           <TabsContent value="compliance-approvals" className="mt-0 space-y-4 focus-visible:outline-none">
-            <Tabs
-              value={complianceApprovalsSection}
-              onValueChange={onComplianceApprovalsSectionChange}
-              className="w-full space-y-4"
-            >
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
-                <TabsTrigger
-                  value="compliance"
-                  className={cn(
-                    HUB_TABS_TRIGGER,
-                    "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]",
-                  )}
-                >
-                  <FileWarning className="h-4 w-4 shrink-0" />
-                  {t("settings.tabs.compliance")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="approvals"
-                  className={cn(
-                    HUB_TABS_TRIGGER,
-                    "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]",
-                  )}
-                >
-                  <Shield className="h-4 w-4 shrink-0" />
-                  {t("settings.tabs.payguard")}
-                </TabsTrigger>
-              </TabsList>
-
-              {complianceApprovalsSection === "compliance" ? (
-              <TabsContent value="compliance" className="mt-0 focus-visible:outline-none">
-                <Suspense fallback={<FormSectionSkeleton />}>
-                  <ComplianceDocumentsSettings />
-                </Suspense>
-              </TabsContent>
-              ) : null}
-
-              {complianceApprovalsSection === "approvals" ? (
-              <TabsContent value="approvals" className="mt-0 focus-visible:outline-none">
-                <Suspense fallback={<FormSectionSkeleton />}>
-                  <ApprovalRulesSettings />
-                </Suspense>
-              </TabsContent>
-              ) : null}
-            </Tabs>
+            <Suspense fallback={<FormSectionSkeleton />}>
+              <ApprovalRulesSettings />
+            </Suspense>
           </TabsContent>
         )}
           </div>

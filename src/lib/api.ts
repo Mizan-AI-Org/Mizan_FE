@@ -2,8 +2,6 @@
 import { shrinkPhoto } from "@/lib/image";
 import {
   User,
-  AccountabilityScorecard,
-  NeedsAttentionItem,
   InventorySummary,
   StockCountReport,
   ReorderSuggestions,
@@ -122,10 +120,28 @@ const explicitBackend = import.meta.env.VITE_BACKEND_URL;
 export const BACKEND_URL =
   explicitBackend ?? (import.meta.env.PROD ? "https://api.heymizan.ai" : "");
 
+/** In dev, Django may emit http://127.0.0.1:8000/media/...; route via Vite /media proxy on the app port. */
+function devProxiedMediaPath(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/i.test(u.protocol)) return null;
+    const host = u.hostname.toLowerCase();
+    const isLocal =
+      host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
+    if (!isLocal || !u.pathname.startsWith("/media/")) return null;
+    if (BACKEND_URL) return null;
+    return `${u.pathname}${u.search}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve a stored media path or presigned URL for display/download. */
 export function resolveMediaUrl(path: string | null | undefined): string {
-  const raw = (path || "").trim();
+  let raw = (path || "").trim();
   if (!raw) return "";
+  const proxied = devProxiedMediaPath(raw);
+  if (proxied) raw = proxied;
   const base = BACKEND_URL || "";
   // Short-lived S3 presigns expire; rewrite to durable /media/{key} on the API host.
   if (/^https?:\/\//i.test(raw) && (/\.s3[.-]/i.test(raw) || /s3\.amazonaws\.com/i.test(raw))) {
@@ -862,6 +878,70 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/operations-live/${qs ? `?${qs}` : ""}`);
   }
 
+  async getOperationsOverview(params?: {
+    category?: string;
+    focus?: string;
+    staff?: string;
+    priority?: string;
+    q?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    item?: string;
+  }): Promise<import("@/pages/operations/contract").OperationsOverview> {
+    const search = new URLSearchParams();
+    if (params?.category && params.category !== "all") search.set("category", params.category);
+    if (params?.focus) search.set("focus", params.focus);
+    if (params?.staff) search.set("staff", params.staff);
+    if (params?.priority) search.set("priority", params.priority);
+    if (params?.q) search.set("q", params.q);
+    if (params?.dateFrom) search.set("date_from", params.dateFrom);
+    if (params?.dateTo) search.set("date_to", params.dateTo);
+    if (params?.item) search.set("item", params.item);
+    const qs = search.toString();
+    return unwrapApiPayload(await this.fetchWithError(`/operations/overview/${qs ? `?${qs}` : ""}`));
+  }
+
+  async getResponsibilities(): Promise<{ areas: import("@/components/responsibilities/types").ResponsibilityArea[] }> {
+    return unwrapApiPayload(await this.fetchWithError("/responsibilities/"));
+  }
+
+  async updateResponsibilityArea(areaId: string, body: { venue_description?: string; is_enabled?: boolean }) {
+    return unwrapApiPayload(await this.fetchWithError(`/responsibilities/areas/${areaId}/`, { method: "PATCH", body: JSON.stringify(body) }));
+  }
+
+  async setResponsibilityAssignments(
+    itemId: string,
+    body: { executor: string | null; read_only: string[]; is_enabled?: boolean },
+  ) {
+    return unwrapApiPayload(
+      await this.fetchWithError(`/responsibilities/items/${itemId}/assignments/`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    );
+  }
+
+  async getResponsibilityGaps(): Promise<{ gaps: { item_id: string; key: string; label: string; area: string }[]; count: number }> {
+    return unwrapApiPayload(await this.fetchWithError("/responsibilities/diagnostics/"));
+  }
+
+  async applyResponsibilityDefaults() {
+    return unwrapApiPayload(await this.fetchWithError("/responsibilities/apply-defaults/", { method: "POST", body: "{}" }));
+  }
+
+  async getStaffResponsibilities(staffId: string): Promise<{ staff_id: string; items: { item_id: string; label: string; area: string; role: string | null; is_enabled: boolean }[] }> {
+    return unwrapApiPayload(await this.fetchWithError(`/staff/${staffId}/responsibilities/`));
+  }
+
+  async saveStaffResponsibilities(staffId: string, assignments: { item_id: string; role: string | null }[]) {
+    return unwrapApiPayload(
+      await this.fetchWithError(`/staff/${staffId}/responsibilities/`, {
+        method: "PUT",
+        body: JSON.stringify({ assignments }),
+      }),
+    );
+  }
+
   async getDashboardMyTasks(status = "open", limit = 25): Promise<{ success: boolean; tasks: DashboardTaskDemandItem[]; count: number }> {
     const qs = `?status=${encodeURIComponent(status)}&limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/my-tasks/${qs}`);
@@ -910,7 +990,9 @@ export class BackendService {
       | "IN_PROGRESS"
       | "COMPLETED"
       | "UNABLE_TO_COMPLETE"
-      | "CANCELLED",
+      | "CANCELLED"
+      | "GOT_IT"
+      | "NEED_HELP",
   ): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(
       `/dashboard/tasks-demands/${taskId}/status/`,
@@ -1169,80 +1251,17 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/staff-daily-progress/history/?days=${days}`);
   }
 
-  async getOperationsProgressSummary(opts: { date?: string; days?: number } = {}): Promise<{
-    date: string;
-    startDate: string;
-    days: number;
-    taskCompletionPct: number;
-    tasksCompleted: number;
-    tasksOpen: number;
-    tasksOverdueOpen: number;
-    checklistCompletionPct: number;
-    checklistStepsDone: number;
-    checklistStepsTotal: number;
-    attentionNeeded: number;
-    generatedAt: string;
-    definitions?: Record<string, string>;
-  }> {
-    const params = new URLSearchParams();
-    if (opts.date) params.set("date", opts.date);
-    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
-    const qs = params.toString() ? `?${params.toString()}` : "";
-    return this.fetchWithError(`/operations/progress/summary/${qs}`);
-  }
-
-  async getOperationsProgressByStaff(opts: { date?: string; days?: number } = {}): Promise<{
-    staff: Array<{
-      staffId: string;
-      name: string;
-      role: string;
-      tasks: {
-        total: number;
-        completed: number;
-        open: number;
-        overdueOpen: number;
-        completionPct: number | null;
-        onTimePct: number | null;
-        avgCompletionMinutes: number | null;
-      };
-      checklists: {
-        total: number;
-        done: number;
-        open: number;
-        completionPct: number | null;
-        avgCompletionMinutes: number | null;
-      };
-    }>;
-  }> {
-    const params = new URLSearchParams();
-    if (opts.date) params.set("date", opts.date);
-    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
-    const qs = params.toString() ? `?${params.toString()}` : "";
-    return this.fetchWithError(`/operations/progress/by-staff/${qs}`);
-  }
-
-  async getOperationsProgressByCategory(opts: { date?: string; days?: number } = {}): Promise<{
-    categories: Array<{
-      bucket: string;
-      labelKey: string;
-      total: number;
-      completed: number;
-      open: number;
-      completionPct: number;
-      onTimePct: number | null;
-      avgCompletionMinutes: number | null;
-      overdueOpen: number;
-    }>;
-  }> {
-    const params = new URLSearchParams();
-    if (opts.date) params.set("date", opts.date);
-    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
-    const qs = params.toString() ? `?${params.toString()}` : "";
-    return this.fetchWithError(`/operations/progress/by-category/${qs}`);
-  }
-
-  async validateDashboardTask(taskId: string): Promise<{ success: boolean; validation_label?: string }> {
-    return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, { method: "POST", body: "{}" });
+  async validateDashboardTask(
+    taskId: string,
+    decision: "approve" | "reject" = "approve",
+  ): Promise<{ success: boolean; validation_label?: string }> {
+    return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, {
+      method: "POST",
+      body: JSON.stringify({
+        approve: decision === "approve",
+        note: decision === "reject" ? "Needs another look" : "",
+      }),
+    });
   }
 
   /** Send WhatsApp follow-up to assignee ("Update now"). */
@@ -2318,12 +2337,6 @@ export class BackendService {
     });
   }
 
-  // ── Accountability (operations execution loop) ─────────────────────────
-
-  async getAccountability(days = 30): Promise<AccountabilityScorecard> {
-    return this.peopleRequest(localStorage.getItem("access_token") || "", `/operations/accountability/?days=${days}`);
-  }
-
   async getModuleCatalog(vertical: string): Promise<ModuleCatalogResponse> {
     const res = await fetch(`${API_BASE}/modules/catalog/?vertical=${encodeURIComponent(vertical)}`);
     if (!res.ok) throw new Error("Request failed");
@@ -2404,21 +2417,6 @@ export class BackendService {
     return this.peopleRequest(localStorage.getItem("access_token") || "", "/approvals/rules/", {
       method: "PUT",
       body: JSON.stringify({ rules }),
-    });
-  }
-
-  async getNeedsAttention(): Promise<{ items: NeedsAttentionItem[] }> {
-    return this.peopleRequest(localStorage.getItem("access_token") || "", "/operations/needs-attention/");
-  }
-
-  async taskExecutionAction(
-    taskId: string,
-    action: "reassign" | "extend" | "validate" | "block",
-    body: Record<string, unknown> = {},
-  ): Promise<unknown> {
-    return this.peopleRequest(localStorage.getItem("access_token") || "", `/operations/tasks/${taskId}/${action}/`, {
-      method: "POST",
-      body: JSON.stringify(body),
     });
   }
 
