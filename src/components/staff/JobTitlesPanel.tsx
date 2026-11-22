@@ -156,7 +156,7 @@ export function UnmatchedTitlesPanel({
 }
 
 /** Settings: the titles the business already answered, and the ones still waiting for a role. Managers only. */
-export function JobTitlesSettings() {
+export function JobTitlesSettings({ embedded = false }: { embedded?: boolean }) {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { data: settings } = useBusinessVertical();
@@ -170,12 +170,17 @@ export function JobTitlesSettings() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["staff", "title-mappings"] });
   const remembered = data?.remembered ?? [];
   const unmatched = data?.unmatchedTitles ?? [];
+  const panelClass = embedded
+    ? "space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/40"
+    : "space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/30";
+
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/30"
-      data-testid="job-titles-settings">
-      <div>
-        <div className="text-sm font-medium">{t("staff.job_titles.settings_title")}</div>
-        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{t("staff.job_titles.settings_desc")}</p>
+    <div className={panelClass} data-testid="job-titles-settings">
+      <div className="space-y-1">
+        <div className="text-sm font-medium text-slate-900 dark:text-slate-50">
+          {t("staff.job_titles.settings_title")}
+        </div>
+        <p className="text-xs leading-relaxed text-muted-foreground">{t("staff.job_titles.settings_desc")}</p>
       </div>
       {isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
