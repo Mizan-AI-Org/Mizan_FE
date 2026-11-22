@@ -42,7 +42,6 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainNavLeaf[]> = {
     { labelKey: "nav.employees.people", href: "/dashboard/employees/people" },
     { labelKey: "nav.employees.shifts", href: "/dashboard/employees/shifts", moduleId: "scheduling" },
     { labelKey: "nav.employees.tasks", href: "/dashboard/employees/tasks", moduleId: "checklists" },
-    { labelKey: "nav.employees.attendance", href: "/dashboard/employees/attendance", moduleId: "attendance" },
     { labelKey: "nav.employees.performance", href: "/dashboard/employees/performance", moduleId: "scheduling" },
   ],
   products: [{ labelKey: "nav.sales", href: "/dashboard/products/sales" }],
