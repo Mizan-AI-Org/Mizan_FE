@@ -30,6 +30,8 @@ import {
   Languages,
   Route,
   FileWarning,
+  Plus,
+  UserCog,
   Shield,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
@@ -71,6 +73,8 @@ import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 import {
   SettingsSection,
+  SettingsSubsection,
+  settingsInsetPanelClassName,
   SettingsStickyActions,
   settingsFieldClassName,
   settingsSelectClassName,
@@ -161,6 +165,50 @@ function resolveIntegrationSection(params: URLSearchParams): IntegrationSection 
   const hash = typeof window !== "undefined" ? (window.location.hash || "").replace("#", "") : "";
   if (hash === "pos-integration") return "pos";
   return "pos";
+}
+
+/** Main's category-owners picker, kept as the Responsibilities slot until workstream D lands. */
+function CategoryOwnersSlot({
+  owners: categoryOwners,
+  directory: categoryOwnerDirectory,
+  setOwners: setCategoryOwners,
+}: {
+  owners: Record<string, string[]>;
+  directory: Record<string, StaffPickerRow>;
+  setOwners: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div className="space-y-6">
+      {CATEGORY_OWNER_GROUPS.map((group) => (
+        <div key={group.groupKey} className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t(group.groupKey)}
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {group.items.map((cat) => (
+              <div key={cat.key} className="space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-3 min-w-0">
+                <Label className="text-sm font-medium">{t(cat.labelKey)}</Label>
+                <CategoryOwnerPicker
+                  selectedIds={categoryOwners[cat.key] || []}
+                  staffDirectory={categoryOwnerDirectory}
+                  onChange={(ids) => {
+                    setCategoryOwners((prev) => {
+                      if (ids.length === 0) {
+                        const { [cat.key]: _, ...rest } = prev;
+                        return rest;
+                      }
+                      return { ...prev, [cat.key]: ids };
+                    });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Settings() {
@@ -957,93 +1005,111 @@ function Settings() {
               title={t("settings.general.restaurant_info.title")}
               description={t("settings.general.restaurant_info.description")}
               collapsible
-              defaultOpen={false}
+              defaultOpen
+              contentClassName="pt-0"
             >
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="restaurant-name">{t("settings.general.fields.name")}</Label>
-                    <Input
-                      id="restaurant-name"
-                      value={restaurantName}
-                      onChange={(e) => setRestaurantName(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.name_placeholder")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">{t("settings.general.fields.address")}</Label>
-                    <Input
-                      id="address"
-                      value={restaurantAddress}
-                      onChange={(e) => setRestaurantAddress(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.address_placeholder")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">{t("settings.general.fields.phone")}</Label>
-                    <Input
-                      id="phone"
-                      value={restaurantPhone}
-                      onChange={(e) => setRestaurantPhone(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.phone_placeholder")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">{t("settings.general.fields.email")}</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={restaurantEmail}
-                      onChange={(e) => setRestaurantEmail(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder={t("settings.general.fields.email_placeholder")}
-                    />
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8 lg:items-start">
+                <div className="space-y-6 min-w-0">
+                  <SettingsSubsection
+                    title={t("settings.general.contact_section_title")}
+                    description={t("settings.general.contact_section_desc")}
+                  >
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="restaurant-name">{t("settings.general.fields.name")}</Label>
+                        <Input
+                          id="restaurant-name"
+                          value={restaurantName}
+                          onChange={(e) => setRestaurantName(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.name_placeholder")}
+                          autoComplete="organization"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="address">{t("settings.general.fields.address")}</Label>
+                        <Input
+                          id="address"
+                          value={restaurantAddress}
+                          onChange={(e) => setRestaurantAddress(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.address_placeholder")}
+                          autoComplete="street-address"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">{t("settings.general.fields.phone")}</Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={restaurantPhone}
+                          onChange={(e) => setRestaurantPhone(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.phone_placeholder")}
+                          autoComplete="tel"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">{t("settings.general.fields.email")}</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={restaurantEmail}
+                          onChange={(e) => setRestaurantEmail(e.target.value)}
+                          className={settingsFieldClassName}
+                          placeholder={t("settings.general.fields.email_placeholder")}
+                          autoComplete="email"
+                        />
+                      </div>
+                    </div>
+                  </SettingsSubsection>
 
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">{t("settings.general.timezone")}</Label>
-                    <select id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} className={settingsSelectClassName}>
-                      {withCurrent(TIMEZONES, timezone).map((tz) => (
-                        <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
-                      ))}
-                    </select>
+                  <SettingsSubsection
+                    title={t("cursorUi.settings.regional_title")}
+                    description={t("cursorUi.settings.regional_desc")}
+                  >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="timezone">{t("settings.general.timezone")}</Label>
+                      <select id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} className={settingsSelectClassName}>
+                        {withCurrent(TIMEZONES, timezone).map((tz) => (
+                          <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">{t("settings.general.currency")}</Label>
+                      <select id="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={settingsSelectClassName}>
+                        {withCurrent(CURRENCY_CODES, currency).map((code) => (
+                          <option key={code} value={code}>{code}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="business-whatsapp">{t("settings.general.business_whatsapp")}</Label>
+                      <Input
+                        id="business-whatsapp"
+                        type="tel"
+                        value={businessWhatsapp}
+                        onChange={(e) => setBusinessWhatsapp(e.target.value)}
+                        className={settingsFieldClassName}
+                        placeholder="+212 6 00 00 00 00"
+                      />
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("settings.general.business_whatsapp_hint")}</p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="currency">{t("settings.general.currency")}</Label>
-                    <select id="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={settingsSelectClassName}>
-                      {withCurrent(CURRENCY_CODES, currency).map((code) => (
-                        <option key={code} value={code}>{code}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="business-whatsapp">{t("settings.general.business_whatsapp")}</Label>
-                    <Input
-                      id="business-whatsapp"
-                      type="tel"
-                      value={businessWhatsapp}
-                      onChange={(e) => setBusinessWhatsapp(e.target.value)}
-                      className={settingsFieldClassName}
-                      placeholder="+212 6 00 00 00 00"
-                    />
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("settings.general.business_whatsapp_hint")}</p>
-                  </div>
-                </div>
+                  </SettingsSubsection>
 
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
-                  <div className="space-y-2">
-                    <Label htmlFor="business-vertical">
-                      {t("settings.general.business_vertical")}
-                    </Label>
+                  <SettingsSubsection
+                    title={t("settings.general.business_vertical")}
+                    description={t("settings.general.business_vertical_hint")}
+                  >
                     <select
                       id="business-vertical"
                       value={businessVertical}
                       onChange={(e) => setBusinessVertical(e.target.value as BusinessVertical)}
                       className={settingsSelectClassName}
+                      aria-describedby="business-vertical-hint"
                     >
                       {ALL_BUSINESS_VERTICALS.map((v) => (
                         <option key={v} value={v}>
@@ -1051,65 +1117,90 @@ function Settings() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <p id="business-vertical-hint" className="sr-only">
                       {t("settings.general.business_vertical_hint")}
                     </p>
-                  </div>
+                  </SettingsSubsection>
+                </div>
 
-                  <div className="space-y-3 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
-                    <div>
-                      <Label className="text-sm font-medium">
-                        {t("settings.general.custom_staff_roles_title")}
-                      </Label>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        {t("settings.general.custom_staff_roles_desc")}
-                      </p>
-                    </div>
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                      {customStaffRoles.map((row, idx) => (
-                        <div key={row.id} className="flex gap-2 items-center">
-                          <Input
-                            value={row.name}
-                            onChange={(e) => {
-                              const next = [...customStaffRoles];
-                              next[idx] = { ...row, name: e.target.value };
-                              setCustomStaffRoles(next);
-                            }}
-                            placeholder={t("settings.general.custom_staff_roles_placeholder")}
-                            className={cn(settingsFieldClassName, "h-10")}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={() =>
-                              setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
-                            }
-                          >
-                            {t("settings.general.custom_staff_roles_remove")}
-                          </Button>
+                <div className="min-w-0 lg:border-l lg:border-slate-200/90 lg:pl-8 dark:lg:border-slate-800">
+                  <SettingsSubsection
+                    title={t("settings.general.staff_roles_section_title")}
+                    description={t("settings.general.staff_roles_section_desc")}
+                  >
+                    <div className="flex flex-col gap-4">
+                  <div className={settingsInsetPanelClassName}>
+                    <div className="flex items-start gap-2">
+                      <UserCog className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                            {t("settings.general.custom_staff_roles_title")}
+                          </span>
+                          {customStaffRoles.length > 0 ? (
+                            <Badge variant="secondary" className="text-[10px] font-normal">
+                              {customStaffRoles.filter((r) => r.name.trim()).length}
+                            </Badge>
+                          ) : null}
                         </div>
-                      ))}
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {t("settings.general.custom_staff_roles_desc")}
+                        </p>
+                      </div>
                     </div>
+                    {customStaffRoles.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        {t("settings.general.custom_staff_roles_empty")}
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-[min(280px,40vh)] overflow-y-auto pr-0.5">
+                        {customStaffRoles.map((row, idx) => (
+                          <div key={row.id} className="flex gap-2 items-center">
+                            <Input
+                              value={row.name}
+                              onChange={(e) => {
+                                const next = [...customStaffRoles];
+                                next[idx] = { ...row, name: e.target.value };
+                                setCustomStaffRoles(next);
+                              }}
+                              placeholder={t("settings.general.custom_staff_roles_placeholder")}
+                              className={cn(settingsFieldClassName, "h-10")}
+                              aria-label={t("settings.general.custom_staff_roles_placeholder")}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() =>
+                                setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
+                              }
+                            >
+                              {t("settings.general.custom_staff_roles_remove")}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
-                      className="w-full sm:w-auto"
+                      className="gap-1.5"
                       onClick={() =>
-                        setCustomStaffRoles((prev) => [
-                          ...prev,
-                          { id: crypto.randomUUID(), name: "" },
-                        ])
+                        setCustomStaffRoles((prev) => [...prev, { id: crypto.randomUUID(), name: "" }])
                       }
                     >
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
                       {t("settings.general.custom_staff_roles_add")}
                     </Button>
                   </div>
 
-                  <JobTitlesSettings />
+                      <JobTitlesSettings embedded />
+                    </div>
+                  </SettingsSubsection>
                 </div>
+              </div>
             </SettingsSection>
 
             <SettingsSection
@@ -1185,36 +1276,17 @@ function Settings() {
                 "onboarding.owners.subtitle",
                 "Pick one or more people for each category - incidents, requests, and tasks are routed to them automatically.",
               )}
+              collapsible
+              defaultOpen
+              contentClassName="pt-0"
             >
-              <div className="space-y-6">
-                {CATEGORY_OWNER_GROUPS.map((group) => (
-                  <div key={group.groupKey} className="space-y-3">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t(group.groupKey)}
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {group.items.map((cat) => (
-                        <div key={cat.key} className="space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-3 min-w-0">
-                          <Label className="text-sm font-medium">{t(cat.labelKey)}</Label>
-                          <CategoryOwnerPicker
-                            selectedIds={categoryOwners[cat.key] || []}
-                            staffDirectory={categoryOwnerDirectory}
-                            onChange={(ids) => {
-                              setCategoryOwners((prev) => {
-                                if (ids.length === 0) {
-                                  const { [cat.key]: _, ...rest } = prev;
-                                  return rest;
-                                }
-                                return { ...prev, [cat.key]: ids };
-                              });
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {/* RESPONSIBILITIES SLOT (workstream D): the integrator swaps this single
+                  component for <ResponsibilitySettings /> from components/responsibilities. */}
+              <CategoryOwnersSlot
+                owners={categoryOwners}
+                directory={categoryOwnerDirectory}
+                setOwners={setCategoryOwners}
+              />
             </SettingsSection>
 
             <SettingsStickyActions hint={t("settings.save_hint")}>
