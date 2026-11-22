@@ -6964,5 +6964,17 @@
   "cursorUi.resp.staff_follows": "Suit",
   "cursorUi.resp.requested_by": "Demandé par",
   "cursorUi.resp.defaults_hint": "Pas encore sûr ? Mets-toi sur chaque zone vide et passe la main plus tard.",
-  "cursorUi.resp.defaults_cta": "M'attribuer les zones vides"
+  "cursorUi.resp.defaults_cta": "M'attribuer les zones vides",
+  "cursorUi.cmd.tiles.aria": "Raccourcis",
+  "cursorUi.cmd.tiles.operations": "Opérations",
+  "cursorUi.cmd.tiles.accountability": "Responsabilisation",
+  "cursorUi.cmd.tiles.progress": "Avancement",
+  "cursorUi.cmd.tiles.performance": "Performance de l'équipe",
+  "cursorUi.cmd.tiles.calendar": "Google Agenda",
+  "cursorUi.cmd.tiles.orders": "Commandes",
+  "cursorUi.cmd.tiles.incidents": "Incidents",
+  "cursorUi.cmd.tiles.attendance": "Présence",
+  "cursorUi.cmd.tiles.open": "Ouvrir",
+  "cursorUi.cmd.tiles.open_count": "{{count}} en cours",
+  "cursorUi.cmd.tiles.incident_count": "{{count}} incidents"
 }

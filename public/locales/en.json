@@ -6964,5 +6964,17 @@
   "cursorUi.resp.staff_follows": "Follows",
   "cursorUi.resp.requested_by": "Requested by",
   "cursorUi.resp.defaults_hint": "Not sure yet? Put yourself on every empty area and hand them over later.",
-  "cursorUi.resp.defaults_cta": "Assign empty areas to me"
+  "cursorUi.resp.defaults_cta": "Assign empty areas to me",
+  "cursorUi.cmd.tiles.aria": "Shortcuts",
+  "cursorUi.cmd.tiles.operations": "Operations",
+  "cursorUi.cmd.tiles.accountability": "Accountability",
+  "cursorUi.cmd.tiles.progress": "Progress",
+  "cursorUi.cmd.tiles.performance": "Staff performance",
+  "cursorUi.cmd.tiles.calendar": "Google Calendar",
+  "cursorUi.cmd.tiles.orders": "Orders",
+  "cursorUi.cmd.tiles.incidents": "Incidents",
+  "cursorUi.cmd.tiles.attendance": "Attendance",
+  "cursorUi.cmd.tiles.open": "Open",
+  "cursorUi.cmd.tiles.open_count": "{{count}} open",
+  "cursorUi.cmd.tiles.incident_count": "{{count}} incidents"
 }
