@@ -1979,6 +1979,7 @@ const OwnersStep: React.FC<{
     onSaved: (owners: Record<string, string[]>) => Promise<void> | void;
 }> = ({ status, onSaved }) => {
     const { t } = useTranslation();
+    const { user: currentUser } = useAuth();
 
     const normalise = (raw: Record<string, string | string[]> | undefined): Record<string, string[]> => {
         const out: Record<string, string[]> = {};
@@ -2069,6 +2070,32 @@ const OwnersStep: React.FC<{
                 </div>
             ) : (
                 <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-1">
+                    {currentUser?.id ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-slate-300 p-2.5 dark:border-slate-700">
+                            <p className="text-xs text-muted-foreground">
+                                {t("cursorUi.resp.defaults_hint", "Not sure yet? Put yourself on every empty area and hand them over later.")}
+                            </p>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                data-testid="owners-apply-defaults"
+                                onClick={() =>
+                                    setOwners((prev) => {
+                                        const next = { ...prev };
+                                        for (const group of CATEGORY_GROUPS) {
+                                            for (const cat of group.items) {
+                                                if (!(next[cat.key] || []).length) next[cat.key] = [String(currentUser.id)];
+                                            }
+                                        }
+                                        return next;
+                                    })
+                                }
+                            >
+                                {t("cursorUi.resp.defaults_cta", "Assign empty areas to me")}
+                            </Button>
+                        </div>
+                    ) : null}
                     {CATEGORY_GROUPS.map((group) => (
                         <div key={group.groupKey} className="space-y-2">
                             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
