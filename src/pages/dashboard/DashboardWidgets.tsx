@@ -184,6 +184,19 @@ export const DASHBOARD_WIDGET_IDS = [
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
+/** Hidden from dashboard grid and customize picker (replaced by Command Centre lanes). */
+export const RETIRED_DASHBOARD_WIDGET_IDS = [
+  "meetings_reminders",
+  "clock_ins",
+  "take_orders",
+  "live_attendance",
+] as const satisfies readonly DashboardWidgetId[];
+
+export function stripRetiredDashboardWidgets(order: DashboardWidgetSlotId[]): DashboardWidgetSlotId[] {
+  const retired = new Set<string>(RETIRED_DASHBOARD_WIDGET_IDS);
+  return order.filter((id) => !retired.has(id));
+}
+
 /** Icons for the Add widget dialog (one per dashboard widget id). */
 export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   insights: Sparkles,
@@ -325,11 +338,9 @@ export function getWidgetCategory(id: DashboardWidgetId): DashboardWidgetCategor
  * explicitly dismissed them via the × control).
  */
 export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
-  "clock_ins",
   "staff_daily_progress",
   "urgent_top",
   "human_resources",
-  "meetings_reminders",
   "finance",
   "maintenance",
   "operations_tasks",
@@ -754,7 +765,8 @@ export function parseStoredWidgetOrder(raw: string | null): DashboardWidgetSlotI
     }
     // Do not merge DEFAULT_DASHBOARD_WIDGET_ORDER here: the saved list is the user's
     // explicit layout (including removed core cards). Re-adding defaults broke removals.
-    return out.length ? out : [...DEFAULT_DASHBOARD_WIDGET_ORDER];
+    const order = out.length ? out : [...DEFAULT_DASHBOARD_WIDGET_ORDER];
+    return stripRetiredDashboardWidgets(order);
   } catch {
     return null;
   }

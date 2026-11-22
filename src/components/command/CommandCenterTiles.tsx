@@ -7,10 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 const TILES = [
   { id: "operations", label: "Operations", href: "/dashboard/operations/live" },
   { id: "performance", label: "Staff performance", href: "/dashboard/employees/performance" },
-  { id: "calendar", label: "Google Calendar", href: "/dashboard/settings?tab=integrations&section=calendar" },
-  { id: "orders", label: "Orders", href: "/dashboard/customers/reservations-orders?tab=orders" },
   { id: "incidents", label: "Incidents", href: "/dashboard/operations/incidents" },
-  { id: "attendance", label: "Attendance", href: "/dashboard/employees/attendance" },
 ] as const;
 
 const TILE_IDS = new Set(TILES.map((tile) => tile.id));
