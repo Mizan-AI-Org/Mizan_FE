@@ -192,28 +192,28 @@ function setRailWidthVar(collapsed: boolean) {
 
 function navItemClass(active: boolean, collapsed: boolean) {
   return cn(
-    "group relative flex min-h-11 items-center gap-3 rounded-md px-2.5 py-2.5 text-body transition-all duration-os",
+    "group relative flex min-h-11 items-center gap-3 rounded-md px-2.5 py-2.5 text-body font-semibold transition-all duration-os",
     collapsed && "justify-center px-0",
     active
       ? [
-          "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
-          "[&>svg:first-of-type]:text-primary",
-          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-6 before:w-[3px]",
-          "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
-        ]
+        "bg-primary/[0.11] font-bold text-foreground ring-1 ring-inset ring-primary/20",
+        "[&>svg:first-of-type]:text-primary",
+        "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-6 before:w-[3px]",
+        "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
+      ]
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
   );
 }
 
 function navChildItemClass(active: boolean) {
   return cn(
-    "relative flex min-h-10 w-full items-center gap-2 rounded-md px-2.5 py-2 text-start text-body transition-all duration-os",
+    "relative flex min-h-10 w-full items-center gap-2 rounded-md px-2.5 py-2 text-start text-body font-normal transition-all duration-os",
     active
       ? [
-          "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
-          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-5 before:w-[3px]",
-          "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
-        ]
+        "bg-primary/[0.11] font-medium text-foreground ring-1 ring-inset ring-primary/20",
+        "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-5 before:w-[3px]",
+        "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
+      ]
       : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
   );
 }
@@ -555,7 +555,7 @@ export function MobileIntentDock() {
                 )}
               >
                 <Icon className="h-6 w-6" />
-                <span className="truncate text-caption font-medium">{t(item.labelKey)}</span>
+                <span className="truncate text-caption font-semibold">{t(item.labelKey)}</span>
               </button>
             );
           })}
@@ -565,7 +565,7 @@ export function MobileIntentDock() {
             className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5 text-muted-foreground"
           >
             <Menu className="h-6 w-6" />
-            <span className="truncate text-caption font-medium">{t("nav.more")}</span>
+            <span className="truncate text-caption font-semibold">{t("nav.more")}</span>
           </button>
         </div>
       </nav>

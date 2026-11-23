@@ -27,15 +27,27 @@ export function filterStaffPickerOptions(
   return options.filter((row) => staffOptionMatchesQuery(row, q));
 }
 
+export const STAFF_PICKER_UNASSIGNED_LABEL = "—";
+const UNASSIGNED_BUCKET = "__unassigned__";
+
 export function groupStaffPickerByDepartment(
   options: StaffPickerOption[],
 ): [string, StaffPickerOption[]][] {
   const map = new Map<string, StaffPickerOption[]>();
   for (const row of options) {
-    const key = (row.department || row.role || "General").trim() || "General";
+    const dept = (row.department || "").trim();
+    const key = dept || UNASSIGNED_BUCKET;
     const list = map.get(key) ?? [];
     list.push(row);
     map.set(key, list);
   }
-  return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Array.from(map.entries()).sort(([a], [b]) => {
+    if (a === UNASSIGNED_BUCKET) return 1;
+    if (b === UNASSIGNED_BUCKET) return -1;
+    return a.localeCompare(b);
+  });
+  return entries.map(([key, rows]) => [
+    key === UNASSIGNED_BUCKET ? STAFF_PICKER_UNASSIGNED_LABEL : key,
+    rows.sort((a, b) => a.name.localeCompare(b.name)),
+  ]);
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Banknote,
@@ -17,6 +18,7 @@ import {
   Plus,
   Receipt,
   Repeat,
+  Settings2,
   ShoppingCart,
   X,
   type LucideIcon,
@@ -32,6 +34,9 @@ import SignDialog from "@/components/signatures/SignDialog";
 import SignaturesPanel from "@/components/signatures/SignaturesPanel";
 import { cn } from "@/lib/utils";
 import type { ApprovalKind, ApprovalRow } from "@/lib/types";
+import { CURRENCY_CODES, DEFAULT_CURRENCY } from "@/lib/regional";
+
+const APPROVAL_RULES_HREF = "/dashboard/settings?tab=compliance-approvals&section=approvals";
 
 type Scope = "mine" | "pending" | "requested" | "decided";
 
@@ -275,36 +280,45 @@ function currentUserName() {
 
 const MANAGER_ROLES = ["SUPER_ADMIN", "OWNER", "ADMIN", "MANAGER"];
 
-function NewRequest({ onCreated }: { onCreated: () => void }) {
+function NewRequestForm({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
   const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<ApprovalKind>("purchase");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [notes, setNotes] = useState("");
   const create = useMutation({
-    mutationFn: () => api.createApproval({ kind, title, amount: MONEY.includes(kind) ? amount : "", notes }),
+    mutationFn: () =>
+      api.createApproval({
+        kind,
+        title,
+        amount: MONEY.includes(kind) ? amount : "",
+        currency: MONEY.includes(kind) ? currency : undefined,
+        notes,
+      }),
     onSuccess: (row) => {
       toast.success(row.status === "approved" ? t("approvals.toast_auto") : t("approvals.toast_sent", { name: row.assignedTo || "—" }));
-      setOpen(false);
+      onOpenChange(false);
       setTitle("");
       setAmount("");
       setNotes("");
+      setCurrency(DEFAULT_CURRENCY);
       onCreated();
     },
     onError: (e) => toast.error((e as Error).message),
   });
-  if (!open) {
-    return (
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="me-1.5 h-4 w-4" aria-hidden />
-        {t("approvals.new")}
-      </Button>
-    );
-  }
+  if (!open) return null;
   return (
     <form
-      className="w-full space-y-3 rounded-xl border border-border bg-card p-4"
+      className="space-y-3 rounded-xl border border-border bg-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (title.trim()) create.mutate();
@@ -332,16 +346,44 @@ function NewRequest({ onCreated }: { onCreated: () => void }) {
         })}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("approvals.placeholder_title")}
-               className="min-w-[220px] flex-1" aria-label={t("approvals.placeholder_title")} />
+        <Input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={t("approvals.placeholder_title")}
+          className="min-w-[220px] flex-1"
+          aria-label={t("approvals.placeholder_title")}
+        />
         {MONEY.includes(kind) ? (
-          <Input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder={t("approvals.placeholder_amount")}
-                 className="w-36" aria-label={t("approvals.placeholder_amount")} />
+          <>
+            <Input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              inputMode="decimal"
+              placeholder={t("approvals.placeholder_amount")}
+              className="w-32"
+              aria-label={t("approvals.placeholder_amount")}
+            />
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="h-10 w-24 rounded-md border border-input bg-background px-2 text-sm font-medium"
+              aria-label={t("approvals.currency")}
+            >
+              {CURRENCY_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </>
         ) : null}
       </div>
       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("approvals.placeholder_reason")} rows={2} />
       <div className="flex items-center justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t("approvals.back")}</Button>
+        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          {t("approvals.back")}
+        </Button>
         <Button type="submit" disabled={!title.trim() || create.isPending}>
           {create.isPending ? <Loader2 className="me-1.5 h-4 w-4 animate-spin" /> : null}
           {t("approvals.submit")}
@@ -359,6 +401,7 @@ export default function ApprovalsPage() {
   const [view, setView] = useState<"approvals" | "signatures">(() =>
     new URLSearchParams(window.location.search).get("view") === "signatures" ? "signatures" : "approvals",
   );
+  const [newRequestOpen, setNewRequestOpen] = useState(false);
   const canManage = MANAGER_ROLES.includes(String(currentUser().role || "").toUpperCase());
   const query = useQuery({
     queryKey: ["approvals", scope],
@@ -381,31 +424,57 @@ export default function ApprovalsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold text-foreground sm:text-2xl">{t("approvals.title")}</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">{t("approvals.subtitle")}</p>
-        </div>
-        {view === "approvals" ? <NewRequest onCreated={refresh} /> : null}
+      <header className="space-y-1">
+        <h1 className="text-xl font-bold text-foreground sm:text-2xl">{t("approvals.title")}</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">{t("approvals.subtitle_short")}</p>
       </header>
 
-      <div className="inline-flex rounded-xl border border-border bg-muted/30 p-1" role="tablist" aria-label={t("approvals.view")}>
-        {(["approvals", "signatures"] as const).map((v) => (
-          <button key={v} type="button" role="tab" aria-selected={view === v}
-                  onClick={() => {
-                    setView(v);
-                    const url = new URL(window.location.href);
-                    if (v === "signatures") url.searchParams.set("view", v);
-                    else url.searchParams.delete("view");
-                    window.history.replaceState({}, "", url.toString());
-                  }}
-                  className={cn("inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-semibold",
-                    view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-            {v === "signatures" ? <FileSignature className="h-4 w-4" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
-            {t(`approvals.view_${v}`)}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex rounded-xl border border-border bg-muted/30 p-1" role="tablist" aria-label={t("approvals.view")}>
+          {(["approvals", "signatures"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => {
+                setView(v);
+                setNewRequestOpen(false);
+                const url = new URL(window.location.href);
+                if (v === "signatures") url.searchParams.set("view", v);
+                else url.searchParams.delete("view");
+                window.history.replaceState({}, "", url.toString());
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-semibold",
+                view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {v === "signatures" ? <FileSignature className="h-4 w-4" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
+              {t(`approvals.view_${v}`)}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="gap-1.5 rounded-lg">
+            <Link to={APPROVAL_RULES_HREF}>
+              <Settings2 className="h-4 w-4" aria-hidden />
+              {t("approvals.rules_button")}
+            </Link>
+          </Button>
+          {view === "approvals" ? (
+            <Button size="sm" className="gap-1.5 rounded-lg" onClick={() => setNewRequestOpen((v) => !v)}>
+              <Plus className="h-4 w-4" aria-hidden />
+              {t("approvals.new")}
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      {view === "approvals" ? (
+        <NewRequestForm open={newRequestOpen} onOpenChange={setNewRequestOpen} onCreated={refresh} />
+      ) : null}
 
       {view === "signatures" ? <SignaturesPanel canManage={canManage} /> : (
       <>

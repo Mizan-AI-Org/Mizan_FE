@@ -14,9 +14,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SettingsSection, settingsFieldClassName } from "@/components/settings/SettingsSection";
+import {
+  SettingsSection,
+  settingsFieldClassName,
+  settingsInsetPanelClassName,
+} from "@/components/settings/SettingsSection";
 import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { PosProviderLogo } from "@/components/settings/PosProviderLogo";
 
 type PosKey = "square" | "clover" | "lightspeed" | "toast" | "custom";
 
@@ -35,6 +41,14 @@ export interface PosProviderState {
   keyPrefix?: string | null;
   endpoint?: string;
 }
+
+const PROVIDER_RING: Record<PosKey, string> = {
+  square: "hover:ring-neutral-400/30",
+  clover: "hover:ring-emerald-500/25",
+  lightspeed: "hover:ring-rose-500/25",
+  toast: "hover:ring-orange-500/25",
+  custom: "hover:ring-slate-500/25",
+};
 
 async function posRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -77,7 +91,6 @@ export default function PosIntegrations({ onChange }: { onChange?: () => void })
     onChange?.();
   };
 
-  // Back from a POS sign-in page: ?pos_connected=true&provider=x or ?pos_error=reason&provider=x
   useEffect(() => {
     const url = new URL(window.location.href);
     const connected = url.searchParams.get("pos_connected");
@@ -157,141 +170,63 @@ export default function PosIntegrations({ onChange }: { onChange?: () => void })
   const providers = query.data?.providers || [];
   const canManage = query.data?.canManage ?? false;
   const anyConnected = providers.some((p) => p.connected);
+  const connectedCount = providers.filter((p) => p.connected).length;
 
   return (
     <SettingsSection
       id="pos-integration"
       icon={<Plug className="h-5 w-5" />}
-      iconClassName="bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+      iconClassName="bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
       title={t("pos.title")}
       description={t("pos.hub.description")}
+      contentClassName="space-y-4"
       actions={
         <Badge
           variant="outline"
-          className={
+          className={cn(
+            "shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
             anyConnected
-              ? "shrink-0 border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-              : "shrink-0 border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
-          }
+              ? "border-emerald-400/80 bg-emerald-500/10 text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300"
+              : "border-border bg-muted/50 text-muted-foreground",
+          )}
         >
-          {anyConnected ? t("integrations.status.fully_connected") : t("integrations.status.pos_not_configured")}
+          {anyConnected
+            ? t("integrations.status.fully_connected")
+            : t("integrations.status.pos_not_configured")}
         </Badge>
       }
     >
+      {anyConnected ? (
+        <p className="text-xs text-muted-foreground">
+          {t("pos.hub.summary_connected", { count: String(connectedCount) })}
+        </p>
+      ) : null}
+
       {query.isLoading ? (
-        <div className="flex justify-center py-8 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="flex justify-center py-12 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         </div>
       ) : query.isError ? (
-        <p className="text-sm text-destructive">{t("pos.hub.load_error")}</p>
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {t("pos.hub.load_error")}
+        </p>
       ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid gap-4 md:grid-cols-2">
           {providers.map((p) => (
-            <li
+            <PosProviderCard
               key={p.provider}
-              className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-background p-4 dark:border-slate-700"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-foreground">{p.provider === "custom" ? t("pos.custom_api") : p.label}</p>
-                  <p className="text-xs text-muted-foreground">{t(`pos.hub.blurb.${p.provider}`)}</p>
-                </div>
-                <StatusBadge p={p} />
-              </div>
-
-              {p.connected || p.status === "error" ? (
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  {p.account ? <p className="truncate">{t("pos.hub.account", { account: p.account })}</p> : null}
-                  {p.lastSyncAt ? (
-                    <p>
-                      {t("pos.hub.last_sync", {
-                        when: fmtWhen(p.lastSyncAt),
-                        count: String(p.lastSyncImported ?? 0),
-                      })}
-                    </p>
-                  ) : p.auth !== "push" ? (
-                    <p>{t("pos.hub.first_sync")}</p>
-                  ) : null}
-                  {p.lastError ? <p className="text-destructive">{p.lastError}</p> : null}
-                </div>
-              ) : null}
-
-              {p.provider === "custom" && p.connected ? (
-                <div className="space-y-2 rounded-lg bg-muted/50 p-3 text-xs">
-                  <p className="font-medium text-foreground">{t("pos.hub.custom.endpoint")}</p>
-                  <code className="block break-all font-mono">POST {p.endpoint}</code>
-                  <p className="text-muted-foreground">
-                    {t("pos.hub.custom.auth", { prefix: `${p.keyPrefix || "mzn_pos_"}…` })}
-                  </p>
-                  <pre className="overflow-x-auto whitespace-pre rounded bg-background p-2 font-mono text-[11px] leading-relaxed">
-{`{"sales": [{"id": "ticket-1042-1", "item": "Tajine",
-  "quantity": 2, "revenue": 240,
-  "sold_at": "2026-10-27T13:05:00+01:00"}]}`}
-                  </pre>
-                  <p className="text-muted-foreground">{t("pos.hub.custom.rules")}</p>
-                </div>
-              ) : null}
-
-              {revealedKey && p.provider === "custom" ? <RevealedKey value={revealedKey} /> : null}
-
-              {canManage ? (
-                <div className="mt-auto flex flex-wrap items-center gap-2">
-                  {!p.available ? (
-                    <p className="text-xs text-muted-foreground">{t("pos.hub.pending_hint", { name: p.label })}</p>
-                  ) : p.connected ? (
-                    <>
-                      {p.auth !== "push" ? (
-                        <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void sync(p)} className="gap-1.5">
-                          {busy === `sync-${p.provider}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                          {t("pos.hub.sync_now")}
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void issueKey()} className="gap-1.5">
-                          <KeyRound className="h-3.5 w-3.5" />
-                          {t("pos.hub.custom.rotate")}
-                        </Button>
-                      )}
-                      <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => setConfirmDisconnect(p)} className="gap-1.5 text-destructive hover:text-destructive">
-                        <Unplug className="h-3.5 w-3.5" />
-                        {t("pos.hub.disconnect")}
-                      </Button>
-                    </>
-                  ) : p.auth === "oauth" ? (
-                    <Button size="sm" disabled={!!busy} onClick={() => void connectOauth(p)} className="gap-1.5">
-                      {busy === `connect-${p.provider}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plug className="h-3.5 w-3.5" />}
-                      {p.status === "error" ? t("pos.hub.reconnect") : t("pos.hub.connect_with", { name: p.label.split(" ")[0] })}
-                    </Button>
-                  ) : p.auth === "toast" ? (
-                    <form
-                      className="flex w-full flex-col gap-2 sm:flex-row"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void connectToast();
-                      }}
-                    >
-                      <Input
-                        value={toastGuid}
-                        onChange={(e) => setToastGuid(e.target.value)}
-                        placeholder={t("pos.toast.guid_label_short")}
-                        aria-label={t("pos.toast.guid_label_short")}
-                        className={`${settingsFieldClassName} h-9 font-mono text-xs`}
-                      />
-                      <Button size="sm" type="submit" disabled={!!busy || !toastGuid.trim()} className="shrink-0">
-                        {busy === "connect-toast" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("pos.toast.connect")}
-                      </Button>
-                    </form>
-                  ) : (
-                    <Button size="sm" disabled={!!busy} onClick={() => void issueKey()} className="gap-1.5">
-                      {busy === "key" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
-                      {t("pos.hub.custom.create")}
-                    </Button>
-                  )}
-                </div>
-              ) : null}
-              {p.provider === "toast" && canManage && p.available && !p.connected ? (
-                <p className="text-xs text-muted-foreground">{t("pos.toast.guid_hint")}</p>
-              ) : null}
-            </li>
+              provider={p}
+              canManage={canManage}
+              busy={busy}
+              toastGuid={toastGuid}
+              revealedKey={revealedKey}
+              onToastGuidChange={setToastGuid}
+              onConnectOauth={() => void connectOauth(p)}
+              onConnectToast={() => void connectToast()}
+              onSync={() => void sync(p)}
+              onDisconnect={() => setConfirmDisconnect(p)}
+              onIssueKey={() => void issueKey()}
+            />
           ))}
         </ul>
       )}
@@ -321,17 +256,179 @@ export default function PosIntegrations({ onChange }: { onChange?: () => void })
   );
 }
 
+type PosProviderCardProps = {
+  provider: PosProviderState;
+  canManage: boolean;
+  busy: string;
+  toastGuid: string;
+  revealedKey: string;
+  onToastGuidChange: (v: string) => void;
+  onConnectOauth: () => void;
+  onConnectToast: () => void;
+  onSync: () => void;
+  onDisconnect: () => void;
+  onIssueKey: () => void;
+};
+
+function PosProviderCard({
+  provider: p,
+  canManage,
+  busy,
+  toastGuid,
+  revealedKey,
+  onToastGuidChange,
+  onConnectOauth,
+  onConnectToast,
+  onSync,
+  onDisconnect,
+  onIssueKey,
+}: PosProviderCardProps) {
+  const { t } = useLanguage();
+  const displayName = p.provider === "custom" ? t("pos.custom_api") : p.label;
+  const pending = !p.available;
+  const busyConnect = busy === `connect-${p.provider}` || busy === "connect-toast";
+  const busySync = busy === `sync-${p.provider}`;
+  const busyKey = busy === "key";
+
+  return (
+    <li
+      className={cn(
+        "flex min-h-[11.5rem] flex-col rounded-2xl border bg-card p-0 shadow-sm ring-1 ring-transparent transition-shadow",
+        pending ? "border-dashed border-border/80 bg-muted/20 opacity-90" : "border-border/70",
+        p.connected
+          ? "ring-emerald-500/20 dark:ring-emerald-500/25"
+          : p.status === "error"
+            ? "ring-destructive/25"
+            : PROVIDER_RING[p.provider],
+        p.provider === "custom" && "md:col-span-2",
+      )}
+    >
+      <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <PosProviderLogo provider={p.provider} />
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold tracking-tight text-foreground">{displayName}</h3>
+              <StatusBadge p={p} />
+            </div>
+            <p className="text-xs leading-relaxed text-muted-foreground">{t(`pos.hub.blurb.${p.provider}`)}</p>
+          </div>
+        </div>
+
+        {pending ? (
+          <p className="text-xs italic leading-relaxed text-muted-foreground/90">{t("pos.hub.pending_hint", { name: p.label })}</p>
+        ) : null}
+
+        {(p.connected || p.status === "error") && !pending ? (
+          <div className={cn(settingsInsetPanelClassName, "space-y-1 text-xs")}>
+            {p.account ? <p className="truncate font-medium text-foreground">{t("pos.hub.account", { account: p.account })}</p> : null}
+            {p.lastSyncAt ? (
+              <p className="text-muted-foreground">
+                {t("pos.hub.last_sync", {
+                  when: fmtWhen(p.lastSyncAt),
+                  count: String(p.lastSyncImported ?? 0),
+                })}
+              </p>
+            ) : p.auth !== "push" ? (
+              <p className="text-muted-foreground">{t("pos.hub.first_sync")}</p>
+            ) : null}
+            {p.lastError ? <p className="text-destructive">{p.lastError}</p> : null}
+          </div>
+        ) : null}
+
+        {p.provider === "custom" && p.connected ? (
+          <div className={cn(settingsInsetPanelClassName, "space-y-2 text-xs")}>
+            <p className="font-medium text-foreground">{t("pos.hub.custom.endpoint")}</p>
+            <code className="block break-all rounded-lg bg-background px-2.5 py-2 font-mono text-[11px]">POST {p.endpoint}</code>
+            <p className="text-muted-foreground">{t("pos.hub.custom.auth", { prefix: `${p.keyPrefix || "mzn_pos_"}…` })}</p>
+            <pre className="overflow-x-auto whitespace-pre rounded-lg bg-background p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
+              {`{"sales": [{"id": "ticket-1042-1", "item": "Tajine",
+  "quantity": 2, "revenue": 240,
+  "sold_at": "2026-10-27T13:05:00+01:00"}]}`}
+            </pre>
+            <p className="text-muted-foreground">{t("pos.hub.custom.rules")}</p>
+          </div>
+        ) : null}
+
+        {revealedKey && p.provider === "custom" ? <RevealedKey value={revealedKey} /> : null}
+      </div>
+
+      {canManage && p.available ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-5">
+          {p.connected ? (
+            <>
+              {p.auth !== "push" ? (
+                <Button size="sm" variant="secondary" disabled={!!busy} onClick={onSync} className="gap-1.5 rounded-lg">
+                  {busySync ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  {t("pos.hub.sync_now")}
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" disabled={!!busy} onClick={onIssueKey} className="gap-1.5 rounded-lg">
+                  <KeyRound className="h-3.5 w-3.5" />
+                  {t("pos.hub.custom.rotate")}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!!busy}
+                onClick={onDisconnect}
+                className="ms-auto gap-1.5 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Unplug className="h-3.5 w-3.5" />
+                {t("pos.hub.disconnect")}
+              </Button>
+            </>
+          ) : p.auth === "oauth" ? (
+            <Button size="sm" disabled={!!busy} onClick={onConnectOauth} className="gap-1.5 rounded-lg">
+              {busyConnect ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plug className="h-3.5 w-3.5" />}
+              {p.status === "error" ? t("pos.hub.reconnect") : t("pos.hub.connect_with", { name: p.label.split(" ")[0] })}
+            </Button>
+          ) : p.auth === "toast" ? (
+            <div className="w-full space-y-2">
+              <p className="text-[11px] text-muted-foreground">{t("pos.toast.guid_hint")}</p>
+              <form
+                className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onConnectToast();
+                }}
+              >
+                <Input
+                  value={toastGuid}
+                  onChange={(e) => onToastGuidChange(e.target.value)}
+                  placeholder={t("pos.toast.guid_label_short")}
+                  aria-label={t("pos.toast.guid_label_short")}
+                  className={cn(settingsFieldClassName, "h-9 flex-1 font-mono text-xs")}
+                />
+                <Button size="sm" type="submit" disabled={!!busy || !toastGuid.trim()} className="shrink-0 rounded-lg">
+                  {busy === "connect-toast" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("pos.toast.connect")}
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <Button size="sm" disabled={!!busy} onClick={onIssueKey} className="gap-1.5 rounded-lg">
+              {busyKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
+              {t("pos.hub.custom.create")}
+            </Button>
+          )}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 function StatusBadge({ p }: { p: PosProviderState }) {
   const { t } = useLanguage();
   const [label, cls] = p.connected
-    ? [t("pos.hub.state.connected"), "border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"]
+    ? [t("pos.hub.state.connected"), "border-emerald-400/60 bg-emerald-500/10 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"]
     : p.status === "error"
-      ? [t("pos.hub.state.error"), "border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"]
+      ? [t("pos.hub.state.error"), "border-red-300/80 bg-red-500/10 text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"]
       : !p.available
-        ? [t("pos.hub.state.pending"), "border-slate-300 text-slate-500 dark:border-slate-600 dark:text-slate-400"]
-        : [t("pos.hub.state.ready"), "border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300"];
+        ? [t("pos.hub.state.pending"), "border-border bg-muted/40 text-muted-foreground"]
+        : [t("pos.hub.state.ready"), "border-border bg-background text-muted-foreground"];
   return (
-    <Badge variant="outline" className={`shrink-0 ${cls}`}>
+    <Badge variant="outline" className={cn("rounded-full px-2 py-0 text-[10px] font-semibold uppercase tracking-wide", cls)}>
       {label}
     </Badge>
   );
@@ -341,13 +438,14 @@ function RevealedKey({ value }: { value: string }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   return (
-    <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs dark:border-amber-700 dark:bg-amber-950/30">
-      <p className="font-medium text-amber-900 dark:text-amber-200">{t("pos.hub.custom.copy_now")}</p>
+    <div className="space-y-2 rounded-xl border border-amber-400/40 bg-amber-500/5 p-3 text-xs dark:border-amber-700/50 dark:bg-amber-950/20">
+      <p className="font-medium text-amber-950 dark:text-amber-100">{t("pos.hub.custom.copy_now")}</p>
       <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 break-all rounded bg-background px-2 py-1.5 font-mono">{value}</code>
+        <code className="min-w-0 flex-1 break-all rounded-lg bg-background px-2.5 py-2 font-mono text-[11px]">{value}</code>
         <Button
           size="sm"
           variant="outline"
+          className="shrink-0 rounded-lg"
           aria-label={t("pos.hub.custom.copy")}
           onClick={() => {
             void navigator.clipboard?.writeText(value).then(() => setCopied(true));

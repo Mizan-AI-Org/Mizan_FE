@@ -373,7 +373,14 @@ const App = () => {
                   <Route index element={<Navigate to="/dashboard/employees/people" replace />} />
                   <Route path="people" element={<StaffApp />} />
                   <Route path="shifts" element={<StaffSchedulingPage />} />
-                  <Route path="tasks" element={<ProcessesTasksApp />} />
+                  <Route
+                    path="tasks"
+                    element={
+                      <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
+                        <ProcessesTasksApp />
+                      </RoleBasedRoute>
+                    }
+                  />
                   <Route path="attendance" element={<ManagerAttendancePage />} />
                   <Route path="performance" element={<SchedulingAnalytics />} />
                   <Route path="requests" element={<RedirectToStaffRequests />} />

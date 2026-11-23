@@ -15,12 +15,19 @@ const locales = Object.fromEntries(
 
 const enKeys = new Set(Object.keys(locales.en));
 
-const staticKeyRe = /t\(\s*["']([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)["']/gi;
+/** i18n `t("key")` — exclude createElement("a"), split("T"), etc. */
+const staticKeyRe = /(?:^|[^a-zA-Z0-9_])t\s*\(\s*["']([a-zA-Z][a-zA-Z0-9_.]*)["']/gm;
 const templatePrefixes = [
   "category.",
   "nav.",
   "operations_live.category.",
   "dashboard.category_tasks.pill_",
+  "cursorUi.cmd.tiles.",
+  "command.search.group_",
+  "attention.filter.",
+  "attention.empty.",
+  "command.ops_health.",
+  "firstrun.",
 ];
 
 function walk(dir, acc = []) {
@@ -51,7 +58,11 @@ const CRITICAL_PREFIXES = [
   "nav.",
   "widgets.",
   "command.",
+  "cursorUi.",
   "attention.",
+  "manager_review.",
+  "guest_requests.",
+  "workflows.builder.",
   "dashboard.category_tasks.",
   "ai.",
   "financials.",

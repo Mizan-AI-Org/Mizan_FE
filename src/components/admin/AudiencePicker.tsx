@@ -50,6 +50,8 @@ type Props = {
   onChange: (next: AudienceSpec) => void;
   /** Hide the named-people picker (process templates keep people in standing_assignees). */
   hidePeople?: boolean;
+  /** When departments are chosen elsewhere (e.g. process template header). */
+  hideDepartments?: boolean;
   /** Day used to work out who is on shift (YYYY-MM-DD). */
   date?: string;
   disabled?: boolean;
@@ -88,7 +90,14 @@ function toggle(list: string[], v: string): string[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
-export function AudiencePicker({ value, onChange, hidePeople = false, date, disabled = false }: Props) {
+export function AudiencePicker({
+  value,
+  onChange,
+  hidePeople = false,
+  hideDepartments = false,
+  date,
+  disabled = false,
+}: Props) {
   const { t } = useLanguage();
   const optionsQ = useQuery({
     queryKey: ["audience-options"],
@@ -206,7 +215,7 @@ export function AudiencePicker({ value, onChange, hidePeople = false, date, disa
               </div>
             </div>
           )}
-          {!!options?.departments.length && (
+          {!hideDepartments && !!options?.departments.length && (
             <div className="space-y-1.5">
               <Label>{t("audience.departments")}</Label>
               <div className="flex flex-wrap gap-1.5">

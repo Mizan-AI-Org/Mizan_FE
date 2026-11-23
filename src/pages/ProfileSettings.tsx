@@ -20,6 +20,7 @@ import { API_BASE } from "@/lib/api";
 import { unwrapUser } from "@/lib/envelope";
 import { roleDisplayName } from "@/lib/roleDisplayName";
 import type { User } from "@/contexts/AuthContext.types";
+import { cn } from "@/lib/utils";
 
 const ProfileSettings: React.FC = () => {
   const { user, updateUser } = useAuth() as AuthContextType;
@@ -55,11 +56,7 @@ const ProfileSettings: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const emailChanged = email.trim().toLowerCase() !== (user?.email || "").trim().toLowerCase();
-      if (emailChanged && !currentPassword) {
-        throw new Error(t("account.errors.email_needs_password"));
-      }
-      if (newPassword || confirmPassword || (currentPassword && !emailChanged)) {
+      if (newPassword || confirmPassword || currentPassword) {
         if (!newPassword || !confirmPassword || !currentPassword) {
           throw new Error(t("profile.errors.password_fields_required"));
         }
@@ -80,11 +77,11 @@ const ProfileSettings: React.FC = () => {
         body: JSON.stringify({
           first_name: firstName,
           last_name: lastName,
-          ...(emailChanged ? { email: email.trim() } : {}),
-          ...(newPassword || emailChanged
+          ...(newPassword
             ? {
                 current_password: currentPassword,
-                ...(newPassword ? { new_password: newPassword, confirm_password: confirmPassword } : {}),
+                new_password: newPassword,
+                confirm_password: confirmPassword,
               }
             : {}),
           profile: {
@@ -185,16 +182,29 @@ const ProfileSettings: React.FC = () => {
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">{t("profile.email_address")}</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className={settingsFieldClassName}
-            />
-            <p className="text-xs text-slate-400 dark:text-slate-500">
+            <div className="relative">
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                readOnly
+                tabIndex={-1}
+                aria-readonly="true"
+                aria-describedby="profile-email-hint"
+                autoComplete="off"
+                className={cn(
+                  settingsFieldClassName,
+                  "pointer-events-none border-dashed bg-muted/40 text-transparent caret-transparent shadow-none",
+                )}
+              />
+              <div
+                className="pointer-events-none absolute inset-y-0 start-0 flex w-full items-center px-3 text-sm text-muted-foreground blur-[5px] select-none"
+                aria-hidden
+              >
+                <span className="truncate">{email || "—"}</span>
+              </div>
+            </div>
+            <p id="profile-email-hint" className="text-xs text-muted-foreground">
               {t("profile.email_cannot_change")}
             </p>
           </div>

@@ -7,7 +7,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { User } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
-import { DIAL_COUNTRIES, apiPost, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
+import { apiPost, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
+import { DEFAULT_DIAL_COUNTRY_CODE, dialForCountryCode } from "@/lib/dialCountries";
+import { DialCountrySelect } from "@/components/settings/DialCountrySelect";
 import { settingsFieldClassName } from "@/components/settings/SettingsSection";
 
 /**
@@ -19,7 +21,7 @@ export function WhatsAppNumberCard() {
   const { toast } = useToast();
   const { user, updateUser } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [country, setCountry] = useState("MA");
+  const [country, setCountry] = useState(DEFAULT_DIAL_COUNTRY_CODE);
   const [input, setInput] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [code, setCode] = useState("");
@@ -35,7 +37,7 @@ export function WhatsAppNumberCard() {
   };
 
   const send = async () => {
-    const dial = DIAL_COUNTRIES.find((c) => c.code === country)?.dial || "212";
+    const dial = dialForCountryCode(country);
     const phone = composeWhatsAppNumber(input, dial);
     if (!isPlausibleWhatsApp(phone)) {
       setError(t("account.errors.whatsapp_invalid"));
@@ -95,18 +97,11 @@ export function WhatsAppNumberCard() {
         <div className="space-y-3">
           {!sentTo ? (
             <div className="flex flex-wrap gap-2">
-              <select
-                aria-label={t("auth.signup.whatsapp_country")}
+              <DialCountrySelect
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className={`${settingsFieldClassName} w-auto`}
-              >
-                {DIAL_COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setCountry}
+                aria-label={t("auth.signup.whatsapp_country")}
+              />
               <Input
                 type="tel"
                 inputMode="tel"
