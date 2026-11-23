@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/components/onboarding/ModulePicker";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
+import { formatDate } from "@/lib/localeTag";
 
 const fmtDate = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
+  iso ? formatDate(new Date(iso), undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 /** A Mizan invoice as a printable document (Print / Save as PDF from the browser). Always light, A4-friendly. */
 export default function BillingInvoicePage() {

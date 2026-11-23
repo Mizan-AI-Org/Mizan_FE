@@ -34,6 +34,7 @@ import AssignedShiftModal from '@/components/schedule/AssignedShiftModal';
 import { API_BASE } from "@/lib/api";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { useTranslation } from 'react-i18next';
+import { formatDate as fmtDate } from "@/lib/localeTag";
 
 
 interface TimesheetEntry {
@@ -188,7 +189,7 @@ const Timesheets: React.FC = () => {
       const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
       return d;
     });
-    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+    const fmt = (d: Date) => fmtDate(d, undefined, { month: 'numeric', day: 'numeric', year: 'numeric' });
     return { weekStart, days, label: `${fmt(days[0])} - ${fmt(days[6])}` };
   }, [dateFrom]);
 
@@ -515,7 +516,7 @@ const Timesheets: React.FC = () => {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return fmtDate(new Date(dateStr), undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -563,7 +564,7 @@ const Timesheets: React.FC = () => {
                 {weekRange.days.map((d, i) => (
                   <th key={i} className="p-2 text-center">
                     <div className="font-medium">{dayNames[d.getDay()]}</div>
-                    <div className="text-xs text-muted-foreground hidden md:block">{d.toLocaleDateString()}</div>
+                    <div className="text-xs text-muted-foreground hidden md:block">{fmtDate(d)}</div>
                   </th>
                 ))}
                 <th className="p-2 text-right">{t('generic.total')}</th>
@@ -699,7 +700,7 @@ const Timesheets: React.FC = () => {
                       <TableCell className="font-medium">
                         {s.staff_info ? `${s.staff_info.first_name} ${s.staff_info.last_name}` : s.staff}
                       </TableCell>
-                      <TableCell>{new Date(s.shift_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{fmtDate(new Date(s.shift_date))}</TableCell>
                       <TableCell className="text-sm text-gray-600">{s.start_time?.substring(0, 5)} - {s.end_time?.substring(0, 5)}</TableCell>
                       <TableCell>{s.role}</TableCell>
                       <TableCell>

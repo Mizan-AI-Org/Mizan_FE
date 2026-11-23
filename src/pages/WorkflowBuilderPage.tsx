@@ -48,6 +48,7 @@ import {
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { formatDate } from "@/lib/localeTag";
 
 // ── Types ───────────────────────────────────────────────────────────
 type TriggerType = "event" | "schedule" | "manual" | "threshold";
@@ -357,7 +358,7 @@ export default function WorkflowBuilderPage() {
                       </p>
                       {wf.last_run_at && (
                         <p className="text-xs text-muted-foreground/60">
-                          Last: {new Date(wf.last_run_at).toLocaleDateString()}
+                          Last: {formatDate(new Date(wf.last_run_at))}
                         </p>
                       )}
                     </div>

@@ -48,6 +48,7 @@ import type {
   StaffCapturedOrderRow,
 } from "@/lib/types";
 import { toast } from "sonner";
+import { currentLanguage, formatClockTime } from "@/lib/localeTag";
 
 const MANAGER_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"] as const;
 
@@ -139,7 +140,7 @@ function OrderCard({
   const taker = (row.recorded_by_name || "").trim() || t("take_orders.provenance.someone");
   const channel = channelLabel(String(row.channel || "MANUAL"), t);
   const role = friendlyRole(row.taken_by_role);
-  const time = format(new Date(row.created_at), "HH:mm");
+  const time = formatClockTime(new Date(row.created_at), currentLanguage());
   const guestBits = [row.customer_name, row.table_or_location, row.customer_phone]
     .map((s) => (s || "").trim())
     .filter(Boolean);

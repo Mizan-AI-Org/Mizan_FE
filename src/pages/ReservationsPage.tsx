@@ -25,6 +25,7 @@ import { CloudDownload, Plug, Plus, RefreshCw, Users } from "lucide-react";
 import ReservationDialog, { type ReservationRow } from "@/components/reservations/ReservationDialog";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { toast } from "sonner";
+import { formatDateTime } from "@/lib/localeTag";
 
 /** Backend errors that mean no provider / credentials (not upstream/API outages). */
 function isReservationConnectionConfigError(message: string | undefined): boolean {
@@ -275,7 +276,7 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
                   {rows.map((r) => (
                     <TableRow key={r.id || `${r.start_time}-${r.guest_name}`}>
                       <TableCell className="whitespace-nowrap font-medium">
-                        {r.start_time ? new Date(r.start_time).toLocaleString() : "-"}
+                        {r.start_time ? formatDateTime(new Date(r.start_time)) : "-"}
                       </TableCell>
                       <TableCell>{r.guest_name || "-"}</TableCell>
                       <TableCell>{r.covers ?? "-"}</TableCell>

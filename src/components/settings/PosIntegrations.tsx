@@ -23,6 +23,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { PosProviderLogo } from "@/components/settings/PosProviderLogo";
+import { formatDateTime } from "@/lib/localeTag";
 
 type PosKey = "square" | "clover" | "lightspeed" | "toast" | "custom";
 
@@ -70,7 +71,7 @@ async function posRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
 const QUERY_KEY = ["pos-integrations"];
 
 const fmtWhen = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  iso ? formatDateTime(new Date(iso), undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
 
 /** Settings → Integrations → POS: one card per POS, each with its real state, plus the push API for any other POS. */
 export default function PosIntegrations({ onChange }: { onChange?: () => void }) {

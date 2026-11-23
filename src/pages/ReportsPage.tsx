@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
+import { formatDateTime } from "@/lib/localeTag";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -273,7 +274,7 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
                       })()}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {format(new Date(report.generated_at), "PPP p")}
+                      {formatDateTime(new Date(report.generated_at), undefined, { day: 'numeric', month: 'long', year: 'numeric', hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => setViewingReport(report)}>

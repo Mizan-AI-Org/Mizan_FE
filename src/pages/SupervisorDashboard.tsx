@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, LayoutDashboard, ShoppingCart, Utensils } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { API_BASE } from "@/lib/api";
+import { formatDateTime } from "@/lib/localeTag";
 
 
 interface OrderItem {
@@ -151,7 +152,7 @@ const SupervisorDashboard: React.FC = () => {
                                             {order.table_number && <p>Table: {order.table_number}</p>}
                                             {order.customer_name && <p>Customer: {order.customer_name}</p>}
                                             <p className="font-bold">Total: ${order.total_amount.toFixed(2)}</p>
-                                            <p className="text-xs text-muted-foreground">{format(parseISO(order.created_at), 'MMM d, hh:mm a')}</p>
+                                            <p className="text-xs text-muted-foreground">{formatDateTime(parseISO(order.created_at), undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                                         </CardContent>
                                     </Card>
                                 ))}

@@ -102,6 +102,7 @@ import { t } from "i18next";
 import { translatedRoleName } from "@/lib/roleDisplayName";
 import { WEB_APP_ROLES, isPrivilegedRole } from "@/lib/operationalCommandRoles";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { formatPattern } from "@/lib/localeTag";
 
 const STAFF_MODAL_INPUT =
     "h-9 rounded-lg bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-medium [color-scheme:light] dark:[color-scheme:dark]";
@@ -888,7 +889,7 @@ const TeamTab: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.join_date")}</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.join_date ? format(new Date(selectedMember.profile.join_date), 'PPP') : t("staff.not_available")}</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.join_date ? formatPattern(new Date(selectedMember.profile.join_date), 'PPP') : t("staff.not_available")}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 group">
@@ -1319,7 +1320,7 @@ const TeamTab: React.FC = () => {
                                             </div>
                                             <div className="space-y-2">
                                                 <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.effective_date")}</label>
-                                                <Input disabled value={format(new Date(), "PPP")} className={cn(STAFF_MODAL_INPUT, "opacity-70 cursor-not-allowed")} />
+                                                <Input disabled value={formatPattern(new Date(), "PPP")} className={cn(STAFF_MODAL_INPUT, "opacity-70 cursor-not-allowed")} />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
@@ -1410,7 +1411,7 @@ const TeamTab: React.FC = () => {
                                                     </div>
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{doc.title}</span>
-                                                        <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">{format(new Date(doc.uploaded_at), "PPP")}</span>
+                                                        <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">{formatPattern(new Date(doc.uploaded_at), "PPP")}</span>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">

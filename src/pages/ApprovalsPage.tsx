@@ -35,6 +35,7 @@ import SignaturesPanel from "@/components/signatures/SignaturesPanel";
 import { cn } from "@/lib/utils";
 import type { ApprovalKind, ApprovalRow } from "@/lib/types";
 import { CURRENCY_CODES, DEFAULT_CURRENCY } from "@/lib/regional";
+import { formatDateTime } from "@/lib/localeTag";
 
 const APPROVAL_RULES_HREF = "/dashboard/settings?tab=compliance-approvals&section=approvals";
 
@@ -248,7 +249,7 @@ function ApprovalCard({ row, onChanged }: { row: ApprovalRow; onChanged: () => v
                   <span className="font-medium text-foreground">{t(`approvals.event.${ev.kind}`, { defaultValue: ev.kind })}</span>
                   {ev.actor ? <span className="text-muted-foreground"> · {ev.actor}</span> : null}
                   {ev.via === "whatsapp" ? <MessageCircle className="ms-1 inline h-3 w-3 text-emerald-600" aria-label="WhatsApp" /> : null}
-                  <span className="text-muted-foreground"> · {new Date(ev.at).toLocaleString()}</span>
+                  <span className="text-muted-foreground"> · {formatDateTime(new Date(ev.at))}</span>
                   {ev.note && ev.kind !== "notified" ? <p className="text-muted-foreground">“{ev.note}”</p> : null}
                 </li>
               ))}

@@ -35,6 +35,7 @@ import {
   Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/localeTag";
 type DocType = { id: string; label: string };
 
 type AttachmentInfo = {
@@ -668,7 +669,7 @@ export default function ComplianceDocumentsSettings({
                           : ` · ${t("settings.compliance.days_left", { n: doc.days_until_expiry })}`
                         : ""}
                       {dateInputValue(doc.expires_on || doc.expires_at)
-                        ? ` · ${new Date(`${dateInputValue(doc.expires_on || doc.expires_at)}T12:00:00`).toLocaleDateString()}`
+                        ? ` · ${formatDate(new Date(`${dateInputValue(doc.expires_on || doc.expires_at)}T12:00:00`))}`
                         : ""}
                     </p>
                   </div>
@@ -798,13 +799,13 @@ export default function ComplianceDocumentsSettings({
             {viewerDoc.expires_at ? (
               <>
                 <div className="text-muted-foreground">{t("settings.compliance.field_expires")}</div>
-                <div>{new Date(viewerDoc.expires_at).toLocaleDateString()}</div>
+                <div>{formatDate(new Date(viewerDoc.expires_at))}</div>
               </>
             ) : null}
             {viewerDoc.attachment?.uploaded_at ? (
               <>
                 <div className="text-muted-foreground">{t("settings.compliance.uploaded")}</div>
-                <div>{new Date(viewerDoc.attachment.uploaded_at).toLocaleDateString()}</div>
+                <div>{formatDate(new Date(viewerDoc.attachment.uploaded_at))}</div>
               </>
             ) : null}
             {viewerDoc.attachment?.filename ? (

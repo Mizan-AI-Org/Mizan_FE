@@ -119,7 +119,7 @@ import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffReque
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
 import { CalendarEventDialog } from "@/components/dashboard/CalendarEventDialog";
 import type { StaffTag } from "@/lib/staff-tags";
-import { translateWidgetTaskSubtitle } from "@/lib/localeTag";
+import { formatDate, formatDateTime, formatTime, translateWidgetTaskSubtitle } from "@/lib/localeTag";
 import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 
 import { useLanguage } from "@/hooks/use-language";
@@ -2460,7 +2460,7 @@ function pillClassForMeetingStatus(status: MeetingReminderItem["status"]) {
   }
 }
 
-function formatLastSyncLabel(iso: string | null | undefined, locale: string): string {
+function formatLastSyncLabel(iso: string | null | undefined, _locale: string): string {
   if (!iso) return "";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
@@ -2470,7 +2470,7 @@ function formatLastSyncLabel(iso: string | null | undefined, locale: string): st
   const hours = Math.round(mins / 60);
   if (hours < 48) return `${hours}h ago`;
   try {
-    return new Date(iso).toLocaleString(locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return formatDateTime(new Date(iso), undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   } catch {
     return "";
   }
@@ -2684,12 +2684,12 @@ function GoogleCalendarSyncHub({
 
 function formatMeetingTime(
   item: MeetingReminderItem,
-  locale: string,
+  _locale: string,
 ): string {
   // All-day events: show just the weekday + date.
   if (item.all_day) {
     try {
-      return new Date(item.start).toLocaleDateString(locale, {
+      return formatDate(new Date(item.start), undefined, {
         weekday: "short",
         month: "short",
         day: "numeric",
@@ -2713,15 +2713,15 @@ function formatMeetingTime(
       start.getFullYear() === tomorrow.getFullYear() &&
       start.getMonth() === tomorrow.getMonth() &&
       start.getDate() === tomorrow.getDate();
-    const time = start.toLocaleTimeString(locale, {
+    const time = formatTime(start, undefined, {
       hour: "numeric",
       minute: "2-digit",
     });
     if (sameDay) return time;
     if (isTomorrow) {
-      return `${start.toLocaleDateString(locale, { weekday: "short" })} ${time}`;
+      return `${formatDate(start, undefined, { weekday: "short" })} ${time}`;
     }
-    return `${start.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })} ${time}`;
+    return `${formatDate(start, undefined, { weekday: "short", month: "short", day: "numeric" })} ${time}`;
   } catch {
     return "";
   }
@@ -3223,7 +3223,7 @@ function MeetingsRemindersCard({
                   {r.due_at ? (
                     <span className="text-slate-500 dark:text-slate-400">
                       {" · "}
-                      {new Date(String(r.due_at)).toLocaleString()}
+                      {formatDateTime(new Date(String(r.due_at)))}
                     </span>
                   ) : null}
                 </li>
@@ -3569,10 +3569,10 @@ function ClockInsCard({
 }
 
 /** Compact "17:02" style time label for a clock-in row. Uses the
- * browser's locale so 12h/24h preference is honored. */
-function formatClockInTime(iso: string, locale: string): string {
+ * UI language's 12h/24h convention (24h for fr and ar). */
+function formatClockInTime(iso: string, _locale: string): string {
   try {
-    return new Date(iso).toLocaleTimeString(locale, {
+    return formatTime(new Date(iso), undefined, {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -3889,7 +3889,7 @@ function formatIncidentRelative(iso: string | null, t: (k: string) => string): s
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
   try {
-    return new Date(iso).toLocaleDateString();
+    return formatDate(new Date(iso));
   } catch {
     return "";
   }

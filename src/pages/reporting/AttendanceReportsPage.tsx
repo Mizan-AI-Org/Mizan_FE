@@ -47,6 +47,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { cn } from "@/lib/utils";
+import { formatPattern } from "@/lib/localeTag";
 
 type AttendanceRow = {
   staff: { id: string; name: string; role: string; avatar: string | null };
@@ -356,7 +357,7 @@ export default function AttendanceReportsPage() {
           <DialogHeader>
             <DialogTitle>{t("reporting.attendance_team.detail_title")}</DialogTitle>
             <DialogDescription>
-              {detailRow?.staff?.name} · {format(new Date(reportDate + "T12:00:00"), "PPP")}
+              {detailRow?.staff?.name} · {formatPattern(new Date(reportDate + "T12:00:00"), "PPP")}
             </DialogDescription>
           </DialogHeader>
           {detailRow && (

@@ -27,6 +27,7 @@ import { signaturesApi } from "@/lib/signaturesApi";
 import { cn } from "@/lib/utils";
 import type { SignatureRequestRow, SignatureSigner, SignatureStatus } from "@/lib/types";
 import SignDialog from "./SignDialog";
+import { formatDateTime } from "@/lib/localeTag";
 
 const STATUS_TONE: Record<SignatureStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -55,7 +56,7 @@ function SignerLine({ s }: { s: SignatureSigner }) {
       {!s.isTeam ? <span className="text-muted-foreground">{s.phone}</span> : null}
       <span className="text-muted-foreground">
         {s.role === "copy" ? t("signatures.signer.copy") : s.undelivered ? "" : t(`signatures.signer.${s.status}`)}
-        {s.signedAt ? ` · ${new Date(s.signedAt).toLocaleString()}` : ""}
+        {s.signedAt ? ` · ${formatDateTime(new Date(s.signedAt))}` : ""}
         {s.reminders ? ` · ${t("signatures.reminded", { count: s.reminders })}` : ""}
       </span>
       {s.undelivered ? <span className="font-semibold text-red-600 dark:text-red-400">{t("signatures.signer.undelivered")}</span> : null}
