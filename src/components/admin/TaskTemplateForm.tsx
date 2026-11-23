@@ -43,7 +43,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE, api, type AudienceSpec } from "@/lib/api";
-import { AudiencePicker, normalizeAudience, audienceIsEmpty } from "@/components/admin/AudiencePicker";
+import { normalizeAudience, audienceIsEmpty } from "@/components/admin/AudiencePicker";
+import { ProcessWhoCanRunSection } from "@/components/admin/ProcessWhoCanRunSection";
 import { loadStaffPickerOptions, type StaffPickerOption } from "@/lib/staffPicker";
 import {
   BranchAlertAssigneeSelect,
@@ -1076,17 +1077,13 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           </p>
         </CardHeader>
         <CardContent>
-          <ProcessAssigneeMultiSelect
-            selectedIds={formData.standing_assignees || []}
+          <ProcessWhoCanRunSection
+            standingAssignees={formData.standing_assignees || []}
+            onStandingAssigneesChange={(ids) => setFormData((prev) => ({ ...prev, standing_assignees: ids }))}
+            audience={groupAudience}
+            onAudienceChange={setGroupAudience}
             staffOptions={staffOptions}
-            onChange={(ids) => setFormData((prev) => ({ ...prev, standing_assignees: ids }))}
-            popoverHint={t("process.form.assignee_hint")}
           />
-          <div className="mt-4 space-y-2 border-t border-border/60 pt-4">
-            <p className="text-sm font-medium">{t('process.audience.groups_title')}</p>
-            <p className="text-xs text-muted-foreground">{t('process.audience.groups_help')}</p>
-            <AudiencePicker hidePeople value={groupAudience} onChange={setGroupAudience} />
-          </div>
         </CardContent>
       </Card>
 

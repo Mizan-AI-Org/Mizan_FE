@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { unwrapEnvelope } from "@/lib/envelope";
 import { AddPeopleDialog } from "@/components/staff/AddPeopleDialog";
+import { JobTitlesSettings } from "@/components/staff/JobTitlesPanel";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -1658,7 +1659,21 @@ const TeamTab: React.FC = () => {
                         <List className="w-4 h-4" />
                     </button>
                 </div>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white ml-auto" onClick={() => setIsInviteModalOpen(true)}>
+                {/* Job titles moved out of Settings > General: reachable from the team page. */}
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" className="ml-auto" data-testid="open-job-titles">
+                            {t("staff.job_titles.settings_title")}
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-xl">
+                        <DialogHeader>
+                            <DialogTitle>{t("staff.job_titles.settings_title")}</DialogTitle>
+                        </DialogHeader>
+                        <JobTitlesSettings />
+                    </DialogContent>
+                </Dialog>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setIsInviteModalOpen(true)}>
                     <PlusCircle className="w-4 h-4 mr-2" />
                     {t("staff.add")}
                 </Button>

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import {
   filterStaffPickerOptions,
   groupStaffPickerByDepartment,
+  STAFF_PICKER_UNASSIGNED_LABEL,
 } from "@/lib/staffPickerFilter";
 import {
   searchStaffPicker,
@@ -189,9 +190,11 @@ export function ProcessAssigneeMultiSelect({
 
   return (
     <div className="space-y-3">
-      {showDepartmentPills && departmentGroups.length > 1 ? (
+      {showDepartmentPills && departmentGroups.filter(([d]) => d !== STAFF_PICKER_UNASSIGNED_LABEL).length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {departmentGroups.map(([dept, members]) => {
+          {departmentGroups
+            .filter(([dept]) => dept !== STAFF_PICKER_UNASSIGNED_LABEL)
+            .map(([dept, members]) => {
             const ids = members.map((m) => m.id);
             const allOn = ids.length > 0 && ids.every((id) => selectedIds.includes(id));
             const someOn = ids.some((id) => selectedIds.includes(id));

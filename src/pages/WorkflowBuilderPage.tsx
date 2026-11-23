@@ -239,21 +239,21 @@ export default function WorkflowBuilderPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">{t("Workflow Builder")}</h1>
+          <h1 className="text-2xl font-bold">{t("workflows.builder.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {t("Create and manage automated workflows")}
+            {t("workflows.builder.subtitle")}
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              {t("New Workflow")}
+              {t("workflows.builder.new_workflow")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{t("Create Workflow")}</DialogTitle>
+              <DialogTitle>{t("workflows.builder.create_workflow")}</DialogTitle>
             </DialogHeader>
             <WorkflowForm
               onSubmit={(data) => createMutation.mutate(data)}
@@ -272,7 +272,7 @@ export default function WorkflowBuilderPage() {
               <Zap className="w-5 h-5 text-purple-500" />
               <div>
                 <p className="text-2xl font-bold">{workflows.length}</p>
-                <p className="text-xs text-muted-foreground">{t("Total Workflows")}</p>
+                <p className="text-xs text-muted-foreground">{t("workflows.builder.stat_total")}</p>
               </div>
             </div>
           </CardContent>
@@ -285,7 +285,7 @@ export default function WorkflowBuilderPage() {
                 <p className="text-2xl font-bold">
                   {workflows.filter((w) => w.is_enabled).length}
                 </p>
-                <p className="text-xs text-muted-foreground">{t("Active")}</p>
+                <p className="text-xs text-muted-foreground">{t("generic.active")}</p>
               </div>
             </div>
           </CardContent>
@@ -298,7 +298,7 @@ export default function WorkflowBuilderPage() {
                 <p className="text-2xl font-bold">
                   {workflows.reduce((sum, w) => sum + w.run_count, 0)}
                 </p>
-                <p className="text-xs text-muted-foreground">{t("Total Runs")}</p>
+                <p className="text-xs text-muted-foreground">{t("workflows.builder.stat_runs")}</p>
               </div>
             </div>
           </CardContent>
@@ -310,15 +310,15 @@ export default function WorkflowBuilderPage() {
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-            {t("Loading workflows...")}
+            {t("workflows.builder.loading")}
           </div>
         ) : workflows.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Zap className="w-12 h-12 text-muted-foreground/40 mb-3" />
-              <p className="text-muted-foreground">{t("No workflows yet")}</p>
+              <p className="text-muted-foreground">{t("workflows.builder.empty_title")}</p>
               <p className="text-sm text-muted-foreground/60 mt-1">
-                {t("Create your first automation workflow")}
+                {t("workflows.builder.empty_subtitle")}
               </p>
             </CardContent>
           </Card>
@@ -352,7 +352,7 @@ export default function WorkflowBuilderPage() {
                   <div className="flex items-center gap-4">
                     <div className="text-right text-sm">
                       <p className="text-muted-foreground">
-                        {wf.run_count} {t("runs")}
+                        {wf.run_count} {t("workflows.builder.runs_label")}
                       </p>
                       {wf.last_run_at && (
                         <p className="text-xs text-muted-foreground/60">
@@ -392,7 +392,7 @@ export default function WorkflowBuilderPage() {
 
                 {/* Trigger */}
                 <div>
-                  <h4 className="font-medium mb-2">{t("Trigger")}</h4>
+                  <h4 className="font-medium mb-2">{t("workflows.builder.trigger")}</h4>
                   <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                     {React.createElement(
                       TRIGGER_CONFIG[detailWorkflow.trigger_type]?.icon || Zap,
@@ -411,7 +411,7 @@ export default function WorkflowBuilderPage() {
                 {detailWorkflow.conditions.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-2">
-                      {t("Conditions")} ({detailWorkflow.conditions.length})
+                      {t("workflows.builder.conditions")} ({detailWorkflow.conditions.length})
                     </h4>
                     <div className="space-y-1">
                       {detailWorkflow.conditions.map((cond, i) => (
@@ -432,7 +432,7 @@ export default function WorkflowBuilderPage() {
                 {/* Actions */}
                 <div>
                   <h4 className="font-medium mb-2">
-                    {t("Actions")} ({detailWorkflow.actions.length})
+                    {t("generic.actions")} ({detailWorkflow.actions.length})
                   </h4>
                   <div className="space-y-2">
                     {detailWorkflow.actions.map((action, i) => {
@@ -478,19 +478,19 @@ export default function WorkflowBuilderPage() {
                     disabled={!detailWorkflow.is_enabled}
                   >
                     <Play className="w-4 h-4 mr-1" />
-                    {t("Run Now")}
+                    {t("workflows.builder.run_now")}
                   </Button>
                   <Button
                     size="sm"
                     variant="destructive"
                     onClick={() => {
-                      if (confirm(t("Delete this workflow?"))) {
+                      if (confirm(t("workflows.builder.delete_confirm"))) {
                         deleteMutation.mutate(detailWorkflow.id);
                       }
                     }}
                   >
                     <Trash2 className="w-4 h-4 mr-1" />
-                    {t("Delete")}
+                    {t("common.delete")}
                   </Button>
                 </div>
               </div>
@@ -571,20 +571,20 @@ function WorkflowForm({
       {/* Basic Info */}
       <div className="space-y-3">
         <div>
-          <label className="text-sm font-medium">{t("Workflow Name")} *</label>
+          <label className="text-sm font-medium">{t("workflows.builder.workflow_name")} *</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={t("e.g. Auto-escalate overdue tasks")}
+            placeholder={t("workflows.builder.name_placeholder")}
             required
           />
         </div>
         <div>
-          <label className="text-sm font-medium">{t("Description")}</label>
+          <label className="text-sm font-medium">{t("generic.description")}</label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={t("What does this workflow do?")}
+            placeholder={t("workflows.builder.description_placeholder")}
             rows={2}
           />
         </div>
@@ -594,7 +594,7 @@ function WorkflowForm({
 
       {/* Trigger */}
       <div>
-        <h4 className="font-medium mb-3">{t("Trigger")}</h4>
+        <h4 className="font-medium mb-3">{t("workflows.builder.trigger")}</h4>
         <Select value={triggerType} onValueChange={(v) => setTriggerType(v as any)}>
           <SelectTrigger>
             <SelectValue />
@@ -609,7 +609,7 @@ function WorkflowForm({
         </Select>
         {triggerType === "event" && (
           <div className="mt-2">
-            <label className="text-sm text-muted-foreground">{t("Event Type")}</label>
+            <label className="text-sm text-muted-foreground">{t("workflows.builder.event_type")}</label>
             <Select
               value={triggerConfig.event_type || ""}
               onValueChange={(v) =>
@@ -617,7 +617,7 @@ function WorkflowForm({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder={t("Select event...")} />
+                <SelectValue placeholder={t("workflows.builder.select_event")} />
               </SelectTrigger>
               <SelectContent>
                 {EVENT_TYPES.map((evt) => (
@@ -631,7 +631,7 @@ function WorkflowForm({
         )}
         {triggerType === "schedule" && (
           <div className="mt-2">
-            <label className="text-sm text-muted-foreground">{t("Cron Expression")}</label>
+            <label className="text-sm text-muted-foreground">{t("workflows.builder.cron_expression")}</label>
             <Input
               value={triggerConfig.cron || ""}
               onChange={(e) =>
@@ -648,10 +648,10 @@ function WorkflowForm({
       {/* Conditions */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium">{t("Conditions")} (optional)</h4>
+          <h4 className="font-medium">{t("workflows.builder.conditions")} (optional)</h4>
           <Button type="button" variant="ghost" size="sm" onClick={addCondition}>
             <Plus className="w-4 h-4 mr-1" />
-            {t("Add")}
+            {t("common.add")}
           </Button>
         </div>
         <div className="space-y-2">
@@ -660,7 +660,7 @@ function WorkflowForm({
               <Input
                 value={cond.field}
                 onChange={(e) => updateCondition(i, "field", e.target.value)}
-                placeholder={t("field")}
+                placeholder={t("workflows.builder.field_placeholder")}
                 className="flex-1"
               />
               <Select
@@ -681,7 +681,7 @@ function WorkflowForm({
               <Input
                 value={String(cond.value)}
                 onChange={(e) => updateCondition(i, "value", e.target.value)}
-                placeholder={t("value")}
+                placeholder={t("workflows.builder.value_placeholder")}
                 className="flex-1"
               />
               <Button
@@ -702,10 +702,10 @@ function WorkflowForm({
       {/* Actions */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium">{t("Actions")} *</h4>
+          <h4 className="font-medium">{t("generic.actions")} *</h4>
           <Button type="button" variant="ghost" size="sm" onClick={addAction}>
             <Plus className="w-4 h-4 mr-1" />
-            {t("Add Action")}
+            {t("workflows.builder.add_action")}
           </Button>
         </div>
         <div className="space-y-3">
@@ -743,7 +743,7 @@ function WorkflowForm({
                   placeholder="0"
                   className="w-20"
                 />
-                <span className="text-xs text-muted-foreground">{t("min delay")}</span>
+                <span className="text-xs text-muted-foreground">{t("workflows.builder.min_delay")}</span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -758,20 +758,20 @@ function WorkflowForm({
         </div>
         {actions.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            {t("Add at least one action")}
+            {t("workflows.builder.add_one_action")}
           </p>
         )}
       </div>
 
       <div className="flex gap-2 justify-end">
         <Button type="button" variant="ghost" onClick={onCancel}>
-          {t("Cancel")}
+          {t("common.cancel")}
         </Button>
         <Button
           type="submit"
           disabled={isLoading || !name.trim() || actions.length === 0}
         >
-          {isLoading ? t("Creating...") : t("Create Workflow")}
+          {isLoading ? t("common.creating") : t("workflows.builder.create_workflow")}
         </Button>
       </div>
     </form>

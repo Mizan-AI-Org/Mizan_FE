@@ -193,21 +193,21 @@ export default function GuestRequestsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">{t("Guest Requests")}</h1>
+          <h1 className="text-2xl font-bold">{t("guest_requests.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {t("Track and manage hospitality guest service requests")}
+            {t("guest_requests.subtitle")}
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              {t("New Request")}
+              {t("guest_requests.new_request")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{t("New Guest Request")}</DialogTitle>
+              <DialogTitle>{t("guest_requests.new_dialog_title")}</DialogTitle>
             </DialogHeader>
             <GuestRequestForm
               onSubmit={(data) => createMutation.mutate(data)}
@@ -222,26 +222,26 @@ export default function GuestRequestsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
           icon={Bell}
-          label={t("Open")}
+          label={t("common.open")}
           value={openCount}
           color="text-yellow-600"
         />
         <StatCard
           icon={Clock}
-          label={t("In Progress")}
+          label={t("status.IN_PROGRESS")}
           value={inProgressCount}
           color="text-blue-600"
         />
         <StatCard
           icon={CheckCircle2}
-          label={t("Resolved")}
+          label={t("status.RESOLVED")}
           value={resolvedCount}
           color="text-green-600"
         />
         {slaBreachedCount > 0 && (
           <StatCard
             icon={AlertTriangle}
-            label={t("SLA Breached")}
+            label={t("generic.sla_breached")}
             value={slaBreachedCount}
             color="text-red-600"
           />
@@ -251,10 +251,10 @@ export default function GuestRequestsPage() {
       {/* Filter Tabs */}
       <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
         <TabsList>
-          <TabsTrigger value="all">{t("All")}</TabsTrigger>
-          <TabsTrigger value="open">{t("Open")}</TabsTrigger>
-          <TabsTrigger value="in_progress">{t("In Progress")}</TabsTrigger>
-          <TabsTrigger value="resolved">{t("Resolved")}</TabsTrigger>
+          <TabsTrigger value="all">{t("common.all")}</TabsTrigger>
+          <TabsTrigger value="open">{t("common.open")}</TabsTrigger>
+          <TabsTrigger value="in_progress">{t("status.IN_PROGRESS")}</TabsTrigger>
+          <TabsTrigger value="resolved">{t("status.RESOLVED")}</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -263,13 +263,13 @@ export default function GuestRequestsPage() {
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-            {t("Loading guest requests...")}
+            {t("guest_requests.loading")}
           </div>
         ) : requests.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Users className="w-12 h-12 text-muted-foreground/40 mb-3" />
-              <p className="text-muted-foreground">{t("No guest requests found")}</p>
+              <p className="text-muted-foreground">{t("generic.no_guest_requests_found")}</p>
             </CardContent>
           </Card>
         ) : (
@@ -326,41 +326,41 @@ export default function GuestRequestsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <span className="text-muted-foreground">{t("Type")}:</span>{" "}
+                    <span className="text-muted-foreground">{t("generic.type")}:</span>{" "}
                     {t(REQUEST_TYPE_CONFIG[detailRequest.request_type]?.labelKey ?? "generic.other")}
                   </div>
                   <div>
-                    <span className="text-muted-foreground">{t("Room")}:</span>{" "}
+                    <span className="text-muted-foreground">{t("generic.room")}:</span>{" "}
                     {detailRequest.room_number || "—"}
                   </div>
                   <div>
-                    <span className="text-muted-foreground">{t("Priority")}:</span>{" "}
+                    <span className="text-muted-foreground">{t("common.priority")}:</span>{" "}
                     <Badge className={PRIORITY_COLORS[detailRequest.priority]} variant="secondary">
                       {detailRequest.priority}
                     </Badge>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">{t("Status")}:</span>{" "}
+                    <span className="text-muted-foreground">{t("common.status")}:</span>{" "}
                     <Badge className={STATUS_COLORS[detailRequest.status]}>
                       {detailRequest.status}
                     </Badge>
                   </div>
                   {detailRequest.assigned_to_name && (
                     <div className="col-span-2">
-                      <span className="text-muted-foreground">{t("Assigned to")}:</span>{" "}
+                      <span className="text-muted-foreground">{t("common.assigned_to")}:</span>{" "}
                       {detailRequest.assigned_to_name}
                     </div>
                   )}
                 </div>
                 {detailRequest.notes && (
                   <div>
-                    <p className="text-sm font-medium mb-1">{t("Notes")}</p>
+                    <p className="text-sm font-medium mb-1">{t("generic.notes")}</p>
                     <p className="text-sm text-muted-foreground">{detailRequest.notes}</p>
                   </div>
                 )}
                 {detailRequest.resolution_notes && (
                   <div>
-                    <p className="text-sm font-medium mb-1">{t("Resolution")}</p>
+                    <p className="text-sm font-medium mb-1">{t("guest_requests.resolution")}</p>
                     <p className="text-sm text-muted-foreground">
                       {detailRequest.resolution_notes}
                     </p>
@@ -378,7 +378,7 @@ export default function GuestRequestsPage() {
                       }
                     >
                       <Clock className="w-4 h-4 mr-1" />
-                      {t("Start Working")}
+                      {t("generic.start_working")}
                     </Button>
                   )}
                   {(detailRequest.status === "open" ||
@@ -395,7 +395,7 @@ export default function GuestRequestsPage() {
                       }
                     >
                       <CheckCircle2 className="w-4 h-4 mr-1" />
-                      {t("Mark Resolved")}
+                      {t("generic.mark_resolved")}
                     </Button>
                   )}
                 </div>
@@ -467,17 +467,17 @@ function GuestRequestForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="text-sm font-medium">{t("Guest Name")} *</label>
+        <label className="text-sm font-medium">{t("guest_requests.guest_name")} *</label>
         <Input
           value={guestName}
           onChange={(e) => setGuestName(e.target.value)}
-          placeholder={t("e.g. Mr. Smith")}
+          placeholder={t("guest_requests.guest_placeholder")}
           required
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-sm font-medium">{t("Request Type")}</label>
+          <label className="text-sm font-medium">{t("guest_requests.request_type")}</label>
           <Select value={requestType} onValueChange={(v) => setRequestType(v as any)}>
             <SelectTrigger>
               <SelectValue />
@@ -492,7 +492,7 @@ function GuestRequestForm({
           </Select>
         </div>
         <div>
-          <label className="text-sm font-medium">{t("Priority")}</label>
+          <label className="text-sm font-medium">{t("common.priority")}</label>
           <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
             <SelectTrigger>
               <SelectValue />
@@ -508,15 +508,15 @@ function GuestRequestForm({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-sm font-medium">{t("Room Number")}</label>
+          <label className="text-sm font-medium">{t("guest_requests.room_number")}</label>
           <Input
             value={roomNumber}
             onChange={(e) => setRoomNumber(e.target.value)}
-            placeholder={t("e.g. 201")}
+            placeholder={t("guest_requests.room_placeholder")}
           />
         </div>
         <div>
-          <label className="text-sm font-medium">{t("SLA (minutes)")}</label>
+          <label className="text-sm font-medium">{t("guest_requests.sla_minutes")}</label>
           <Input
             type="number"
             value={slaMinutes}
@@ -526,20 +526,20 @@ function GuestRequestForm({
         </div>
       </div>
       <div>
-        <label className="text-sm font-medium">{t("Notes")}</label>
+        <label className="text-sm font-medium">{t("generic.notes")}</label>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder={t("Additional details...")}
+          placeholder={t("guest_requests.details_placeholder")}
           rows={3}
         />
       </div>
       <div className="flex gap-2 justify-end">
         <Button type="button" variant="ghost" onClick={onCancel}>
-          {t("Cancel")}
+          {t("common.cancel")}
         </Button>
         <Button type="submit" disabled={isLoading || !guestName.trim()}>
-          {isLoading ? t("Creating...") : t("Create Request")}
+          {isLoading ? t("common.creating") : t("guest_requests.create_request")}
         </Button>
       </div>
     </form>

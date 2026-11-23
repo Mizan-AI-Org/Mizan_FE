@@ -83,26 +83,8 @@ export async function accountRequest<T = Record<string, unknown>>(
   };
 }
 
-export interface DialCountry {
-  code: string;
-  dial: string;
-  label: string;
-}
-
-/** Morocco first (default); any other country is allowed through "Other" (type the number with its +code). */
-export const DIAL_COUNTRIES: DialCountry[] = [
-  { code: "MA", dial: "212", label: "Maroc +212" },
-  { code: "FR", dial: "33", label: "France +33" },
-  { code: "ES", dial: "34", label: "España +34" },
-  { code: "BE", dial: "32", label: "Belgique +32" },
-  { code: "DZ", dial: "213", label: "Algérie +213" },
-  { code: "TN", dial: "216", label: "Tunisie +216" },
-  { code: "SN", dial: "221", label: "Sénégal +221" },
-  { code: "AE", dial: "971", label: "UAE +971" },
-  { code: "SA", dial: "966", label: "السعودية +966" },
-  { code: "GB", dial: "44", label: "UK +44" },
-  { code: "US", dial: "1", label: "US +1" },
-];
+export type { DialCountry } from "@/lib/dialCountries";
+export { DIAL_COUNTRIES, DEFAULT_DIAL_COUNTRY_CODE, dialForCountryCode } from "@/lib/dialCountries";
 
 /**
  * The WhatsApp number as international digits-with-plus. A number typed with "+" or "00" is kept as typed (any

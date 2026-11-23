@@ -79,7 +79,6 @@ import {
   settingsFieldClassName,
   settingsSelectClassName,
 } from "@/components/settings/SettingsSection";
-import { JobTitlesSettings } from "@/components/staff/JobTitlesPanel";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
 import { SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
@@ -91,7 +90,6 @@ import { ResponsibilitySettings } from "@/components/responsibilities/Responsibi
 import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
 import type { StaffPickerRow } from "@/lib/staffPicker";
 import {
-  ALL_BUSINESS_VERTICALS,
   parseBusinessVertical,
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
@@ -1075,28 +1073,6 @@ function Settings() {
                     </div>
                   </div>
                   </SettingsSubsection>
-
-                  <SettingsSubsection
-                    title={t("settings.general.business_vertical")}
-                    description={t("settings.general.business_vertical_hint")}
-                  >
-                    <select
-                      id="business-vertical"
-                      value={businessVertical}
-                      onChange={(e) => setBusinessVertical(e.target.value as BusinessVertical)}
-                      className={settingsSelectClassName}
-                      aria-describedby="business-vertical-hint"
-                    >
-                      {ALL_BUSINESS_VERTICALS.map((v) => (
-                        <option key={v} value={v}>
-                          {t(`settings.general.business_vertical_${v.toLowerCase()}`)}
-                        </option>
-                      ))}
-                    </select>
-                    <p id="business-vertical-hint" className="sr-only">
-                      {t("settings.general.business_vertical_hint")}
-                    </p>
-                  </SettingsSubsection>
                 </div>
 
                 <div className="min-w-0 lg:border-l lg:border-slate-200/90 lg:pl-8 dark:lg:border-slate-800">
@@ -1171,8 +1147,6 @@ function Settings() {
                       {t("settings.general.custom_staff_roles_add")}
                     </Button>
                   </div>
-
-                      <JobTitlesSettings embedded />
                     </div>
                   </SettingsSubsection>
                 </div>

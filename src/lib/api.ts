@@ -2647,7 +2647,13 @@ export class BackendService {
     });
   }
 
-  async createApproval(body: { kind: ApprovalKind; title: string; amount?: string; notes?: string }): Promise<ApprovalRow> {
+  async createApproval(body: {
+    kind: ApprovalKind;
+    title: string;
+    amount?: string;
+    currency?: string;
+    notes?: string;
+  }): Promise<ApprovalRow> {
     return this.peopleRequest(localStorage.getItem("access_token") || "", "/approvals/", {
       method: "POST",
       body: JSON.stringify(body),

@@ -35,14 +35,7 @@ import {
   arrayMove,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import {
-  ChevronDown,
-  ChevronRight,
-  LayoutGrid,
-  Plus,
-  Sliders,
-  Sparkles,
-} from "lucide-react";
+import { LayoutGrid, Plus, Sliders, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
@@ -81,14 +74,6 @@ import {
   isCustomWidgetSlotId,
 } from "@/pages/dashboard/DashboardWidgets";
 import { ManageDashboardCategoriesDialog } from "@/pages/dashboard/ManageDashboardCategoriesDialog";
-
-function SectionChevron({ open }: { open: boolean }) {
-  return open ? (
-    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-  ) : (
-    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-  );
-}
 
 export function DashboardWidgetGridSection() {
   const { t } = useLanguage();
@@ -186,7 +171,6 @@ export function DashboardWidgetGridSection() {
   const [customizeMode, setCustomizeMode] = useState(false);
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
-  const [showWidgets, setShowWidgets] = useState(true);
   const [widgetOrder, setWidgetOrder] = useState<DashboardWidgetSlotId[]>(() => [...DEFAULT_DASHBOARD_WIDGET_ORDER]);
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const skipNextPersist = useRef(true);
@@ -450,27 +434,17 @@ export function DashboardWidgetGridSection() {
   return (
     <section aria-label={t("nav.widget")} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
-        <button
-          type="button"
-          className="flex items-center gap-2 text-left"
-          onClick={() => setShowWidgets((v) => !v)}
-          aria-expanded={showWidgets}
-        >
-          <SectionChevron open={showWidgets} />
-          <div>
-            <p className="text-caption-label">{t("widgets.page.title")}</p>
-            <p className="type-secondary">
-              {t("widgets.page.desc")}
-            </p>
-          </div>
-        </button>
+        <div className="min-w-0">
+          <p className="text-caption-label">{t("widgets.page.title", "Projects")}</p>
+          <p className="type-secondary">
+            {t(
+              "widgets.page.desc",
+              "Operational dashboards, project task lists, and everyday business views in one place.",
+            )}
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!showWidgets ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setShowWidgets(true)}>
-              {t("widgets.page.show")}
-            </Button>
-          ) : null}
-          {canCustomizeDashboard && (showWidgets || customizeMode) ? (
+          {canCustomizeDashboard ? (
             <>
               {customizeMode && (
                 <Button
@@ -529,8 +503,7 @@ export function DashboardWidgetGridSection() {
         <p className="-mt-3 text-caption text-primary">{t("dashboard.customize.hint")}</p>
       ) : null}
 
-      {showWidgets || customizeMode ? (
-        <div className="space-y-6">
+      <div className="space-y-6">
           <ManageDashboardCategoriesDialog
             open={manageOpen}
             onOpenChange={setManageOpen}
@@ -751,7 +724,6 @@ export function DashboardWidgetGridSection() {
             </div>
           )}
         </div>
-      ) : null}
     </section>
   );
 }
