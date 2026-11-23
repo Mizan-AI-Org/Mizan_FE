@@ -67,8 +67,6 @@ import {
   DASHBOARD_WIDGET_IDS,
   DEFAULT_DASHBOARD_WIDGET_ORDER,
   parseStoredWidgetOrder,
-  stripRetiredDashboardWidgets,
-  RETIRED_DASHBOARD_WIDGET_IDS,
   mergeNewDefaultWidgets,
   markDefaultAsDismissed,
   clearDismissedDefaults,
@@ -338,7 +336,6 @@ export function DashboardWidgetGridSection() {
   const hiddenWidgets = useMemo(
     () =>
       (DASHBOARD_WIDGET_IDS as readonly DashboardWidgetId[])
-        .filter((id) => !(RETIRED_DASHBOARD_WIDGET_IDS as readonly string[]).includes(id))
         .filter((id) => !widgetOrder.includes(id))
         .filter((id) => isModuleOn(WIDGET_MODULES[id]))
         .filter((id) => canWidget(id)),
@@ -407,9 +404,7 @@ export function DashboardWidgetGridSection() {
     [customWidgetsById, hasRole, t],
   );
 
-  const rawDisplayOrder = stripRetiredDashboardWidgets(
-    canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER,
-  );
+  const rawDisplayOrder = canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER;
   const displayOrder = rawDisplayOrder.filter((id) => {
     if (isCustomWidgetSlotId(id)) return true;
     if (!isModuleOn(WIDGET_MODULES[id as string])) return false;

@@ -5,17 +5,18 @@ import { useLanguage } from "@/hooks/use-language";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canEdit?: boolean;
 };
 
-export function AssignResponsibilitiesDialog({ open, onOpenChange }: Props) {
+export function AssignResponsibilitiesDialog({ open, onOpenChange, canEdit = true }: Props) {
   const { t } = useLanguage();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{t("responsibilities.assign_dialog_title")}</DialogTitle>
+          <DialogTitle>{t("cursorUi.resp.assign_dialog_title")}</DialogTitle>
         </DialogHeader>
-        <ResponsibilitySettings />
+        <ResponsibilitySettings canEdit={canEdit} />
       </DialogContent>
     </Dialog>
   );

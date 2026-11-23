@@ -1,3 +1,4 @@
+import { CURRENCY_CODES, DEFAULT_CURRENCY, DEFAULT_TIMEZONE, TIMEZONES, withCurrent } from "@/lib/regional";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,19 +23,19 @@ import {
   Eye,
   EyeOff,
   CheckCircle,
-  AlertCircle,
   Unplug,
   ShieldCheck,
   Calendar,
   ExternalLink,
   Languages,
   Route,
-  Shield,
+  FileWarning,
   Plus,
   UserCog,
+  Shield,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
-import { useState, useEffect, useMemo, lazy, Suspense, memo } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { SectionErrorBoundary } from "@/components/ErrorBoundary";
 import { useQueryClient } from "@tanstack/react-query";
 import ReservationIntegration from "@/components/ReservationIntegration";
@@ -43,6 +44,7 @@ import PosIntegrations from "@/components/settings/PosIntegrations";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const ProfileSettings = lazy(() => import("./ProfileSettings"));
+import { AccountDataCard } from "@/components/settings/AccountDataCard";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const MultiLocationSettings = lazy(() => import("@/components/settings/MultiLocationSettings"));
@@ -52,11 +54,16 @@ const BillingSettings = lazy(() => import("@/components/settings/BillingSettings
 const ModulesSettings = lazy(() => import("@/components/settings/ModulesSettings"));
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
+const ComplianceDocumentsSettings = lazy(
+  () => import("@/components/settings/ComplianceDocumentsSettings"),
+);
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const ApprovalRulesSettings = lazy(() => import("@/components/settings/ApprovalRulesSettings"));
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
+import { useMyLanguage } from "@/hooks/use-my-language";
+import { useAuth } from "@/hooks/use-auth";
 import { Language } from "@/contexts/LanguageContext.types";
 import { supportedLanguages } from "@/i18n";
 import axios from "axios";
@@ -67,9 +74,9 @@ import { translateApiError } from "@/i18n/messages";
 import {
   SettingsSection,
   SettingsSubsection,
+  settingsInsetPanelClassName,
   SettingsStickyActions,
   settingsFieldClassName,
-  settingsInsetPanelClassName,
   settingsSelectClassName,
 } from "@/components/settings/SettingsSection";
 import { JobTitlesSettings } from "@/components/staff/JobTitlesPanel";
@@ -79,7 +86,10 @@ import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
+import { mergeLegacyIncidentAssignees } from "@/lib/categoryOwners";
 import { ResponsibilitySettings } from "@/components/responsibilities/ResponsibilitySettings";
+import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
+import type { StaffPickerRow } from "@/lib/staffPicker";
 import {
   ALL_BUSINESS_VERTICALS,
   parseBusinessVertical,
@@ -103,6 +113,8 @@ interface AISettings {
 
 type GeneralSettingsSection = "profile" | "general" | "location" | "modules";
 type IntegrationSection = "pos" | "reservations" | "calendar";
+type ComplianceApprovalsSection = "compliance" | "approvals";
+
 function normalizeSettingsTab(raw: string): string {
   const tab = (raw || "").toLowerCase();
   if (tab === "approvals" || tab === "payguard" || tab === "compliance") {
@@ -112,6 +124,15 @@ function normalizeSettingsTab(raw: string): string {
     return "general-settings";
   }
   return tab;
+}
+
+function resolveComplianceApprovalsSection(params: URLSearchParams): ComplianceApprovalsSection {
+  const section = (params.get("section") || "").toLowerCase();
+  if (section === "compliance" || section === "approvals") return section;
+  const legacyTab = (params.get("tab") || "").toLowerCase();
+  if (legacyTab === "compliance") return "compliance";
+  if (legacyTab === "approvals" || legacyTab === "payguard") return "approvals";
+  return "approvals";
 }
 
 function resolveGeneralSettingsSection(params: URLSearchParams): GeneralSettingsSection {
@@ -147,9 +168,16 @@ function resolveIntegrationSection(params: URLSearchParams): IntegrationSection 
   return "pos";
 }
 
+/** Main's category-owners picker, kept as the Responsibilities slot until workstream D lands. */
 function Settings() {
   const queryClient = useQueryClient();
-  const { language, setLanguage: setAppLanguage, t } = useLanguage();
+  const { t } = useLanguage();
+  // The person's own language (the app, Miya, WhatsApp) vs. the business default for everyone who hasn't chosen.
+  const { language, changeLanguage: changeMyLanguage, saving: savingMyLanguage } = useMyLanguage();
+  const { user: authUser, updateUser } = useAuth();
+  const followingBusinessLanguage = authUser?.language_chosen === false;
+  const [businessLanguage, setBusinessLanguage] = useState<Language>("en");
+  const [savingBusinessLanguage, setSavingBusinessLanguage] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [latitude, setLatitude] = useState<number>(0);
@@ -163,8 +191,9 @@ function Settings() {
   const [restaurantAddress, setRestaurantAddress] = useState("");
   const [restaurantPhone, setRestaurantPhone] = useState("");
   const [restaurantEmail, setRestaurantEmail] = useState("");
-  const [timezone, setTimezone] = useState("America/New_York");
-  const [currency, setCurrency] = useState("USD");
+  const [businessWhatsapp, setBusinessWhatsapp] = useState("");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [operatingHours, setOperatingHours] = useState<{
     [key: string]: { open: string; close: string; isClosed: boolean };
   }>({
@@ -178,6 +207,13 @@ function Settings() {
   });
   const [automaticClockOut, setAutomaticClockOut] = useState(false);
   const [allowChecklistWithoutClockIn, setAllowChecklistWithoutClockIn] = useState(false);
+  const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
+  // Legacy incident_category_assignees still get promoted to owners on save (as before), but against the
+  // LIVE owner map: ResponsibilitySettings saves owners itself, so this state may be stale.
+  const legacyAssigneesRef = useRef<Record<string, string>>({});
+  const [categoryOwnerDirectory, setCategoryOwnerDirectory] = useState<
+    Record<string, StaffPickerRow>
+  >({});
   const [businessVertical, setBusinessVertical] = useState<BusinessVertical>("RESTAURANT");
   const [customStaffRoles, setCustomStaffRoles] = useState<{ id: string; name: string }[]>([]);
   const [breakDuration, setBreakDuration] = useState(30);
@@ -238,6 +274,9 @@ function Settings() {
   const [integrationSection, setIntegrationSection] = useState<IntegrationSection>(() =>
     resolveIntegrationSection(searchParams),
   );
+  const [complianceApprovalsSection, setComplianceApprovalsSection] =
+    useState<ComplianceApprovalsSection>(() => resolveComplianceApprovalsSection(searchParams));
+
   // Deep links from other screens can change ?tab= while this page stays mounted.
   useEffect(() => {
     const fromUrl = normalizeSettingsTab(searchParams.get("tab") || "");
@@ -269,6 +308,7 @@ function Settings() {
   useEffect(() => {
     const legacyTab = (searchParams.get("tab") || "").toLowerCase();
     const section = (searchParams.get("section") || "").toLowerCase();
+    // Compliance lives in Operations (Live operations > Compliance), not in Settings.
     if (
       legacyTab === "compliance" ||
       section === "compliance" ||
@@ -277,7 +317,9 @@ function Settings() {
       navigate("/dashboard/operations/live?view=compliance", { replace: true });
       return;
     }
-    if (legacyTab !== "approvals" && legacyTab !== "payguard") return;
+    const legacyApprovals = legacyTab === "approvals" || legacyTab === "payguard";
+    const bareHub = legacyTab === "compliance-approvals" && section !== "approvals";
+    if (!legacyApprovals && !bareHub) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -357,6 +399,26 @@ function Settings() {
     );
   };
 
+  useEffect(() => {
+    if (activeTab !== "compliance-approvals") return;
+    const section = resolveComplianceApprovalsSection(searchParams);
+    setComplianceApprovalsSection((current) => (current === section ? current : section));
+  }, [searchParams, activeTab]);
+
+  const onComplianceApprovalsSectionChange = (next: string) => {
+    const section = next as ComplianceApprovalsSection;
+    setComplianceApprovalsSection(section);
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set("tab", "compliance-approvals");
+        n.set("section", section);
+        return n;
+      },
+      { replace: true },
+    );
+  };
+
   const onSettingsTabChange = (next: string) => {
     setActiveTab(next);
     setSearchParams(
@@ -421,7 +483,6 @@ function Settings() {
     const storedUser = localStorage.getItem("user");
     if (token && storedUser) {
       apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      apiClient.defaults.headers.common["Accept-Language"] = language;
       const parsedUser: User = JSON.parse(storedUser);
       setUser(parsedUser);
       const role = (parsedUser?.role || "").toUpperCase();
@@ -435,7 +496,12 @@ function Settings() {
     } else {
       navigate("/auth");
     }
-  }, [navigate, apiClient, language]);
+  }, [navigate, apiClient]);
+
+  // Changing my language must not reload (and overwrite) the business settings form.
+  useEffect(() => {
+    apiClient.defaults.headers.common["Accept-Language"] = language;
+  }, [apiClient, language]);
 
   // Restrict non-profile settings for staff users: only admins/managers/owners see other tabs
   const roleUpper = (user?.role || "").toUpperCase();
@@ -491,37 +557,6 @@ function Settings() {
     return items;
   }, [isStaff, t]);
 
-  const loadCoreSettings = async () => {
-    try {
-      const response = await apiClient.get("/timeclock/restaurant-location/");
-      const data = response.data?.restaurant || response.data || {};
-      setLatitude(data.latitude || 0);
-      setLongitude(data.longitude || 0);
-      setRadius(data.geofence_radius ?? data.radius ?? 0);
-      setRestaurantName(data.name || "");
-      setRestaurantAddress(data.address || "");
-      setRestaurantPhone(data.phone || "");
-      setRestaurantEmail(data.email || "");
-      setTimezone(data.timezone || "America/New_York");
-      setCurrency(data.currency || "USD");
-      setAppLanguage(
-        typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
-          ? (data.language as Language)
-          : "en"
-      );
-      setOperatingHours(data.operating_hours || operatingHours);
-      setAutomaticClockOut(data.automatic_clock_out === true);
-      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in === true);
-      setBreakDuration(data.break_duration || 30);
-      setEmailNotifications(data.email_notifications || emailNotifications);
-      setPushNotifications(data.push_notifications || pushNotifications);
-    } catch (error) {
-      console.error("Failed to fetch restaurant settings:", error);
-      toast.error(t("generic.toast.failed_to_load_restaurant_settings"));
-    }
-
-  };
-
   const fetchUnifiedSettings = async () => {
     try {
       const response = await apiClient.get("/settings/unified/");
@@ -539,9 +574,10 @@ function Settings() {
       setRestaurantAddress(data.address || "");
       setRestaurantPhone(data.phone || data.phone_restaurant || "");
       setRestaurantEmail(data.email || "");
-      setTimezone(data.timezone || "America/New_York");
-      setCurrency(data.currency || "USD");
-      setAppLanguage(
+      setBusinessWhatsapp(data.whatsapp_number || "");
+      setTimezone(data.timezone || DEFAULT_TIMEZONE);
+      setCurrency(data.currency || DEFAULT_CURRENCY);
+      setBusinessLanguage(
         typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
           ? (data.language as Language)
           : "en"
@@ -570,6 +606,38 @@ function Settings() {
           ? data.settings_schema_version
           : (typeof data.settingsVersion === "number" ? data.settingsVersion : 0)
       );
+
+      const rawAssignees = data.incident_category_assignees;
+      const legacyAssignees =
+        rawAssignees && typeof rawAssignees === "object" && !Array.isArray(rawAssignees)
+          ? (rawAssignees as Record<string, string>)
+          : {};
+
+      try {
+        const ownersRes = await api.getCategoryOwners();
+        const raw = ownersRes?.owners || {};
+        const normalized: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
+        }
+        legacyAssigneesRef.current = legacyAssignees;
+        setCategoryOwners(mergeLegacyIncidentAssignees(normalized, legacyAssignees));
+        const directory: Record<string, StaffPickerRow> = {};
+        for (const [id, row] of Object.entries(ownersRes?.staff_directory || {})) {
+          if (!row || typeof row !== "object") continue;
+          directory[id] = {
+            id: String(row.id || id),
+            first_name: String(row.first_name || ""),
+            last_name: String(row.last_name || ""),
+            email: String(row.email || ""),
+            role: row.role ? String(row.role) : undefined,
+          };
+        }
+        setCategoryOwnerDirectory(directory);
+      } catch {
+        setCategoryOwners(mergeLegacyIncidentAssignees({}, legacyAssignees));
+        setCategoryOwnerDirectory({});
+      }
 
       setGcalConnected(data.google_calendar_connected || false);
       setGcalEmail(data.google_calendar_email || "");
@@ -650,9 +718,10 @@ function Settings() {
         address: restaurantAddress,
         phone_restaurant: restaurantPhone,
         email: restaurantEmail,
+        whatsapp_number: businessWhatsapp,
         timezone,
         currency,
-        language,
+        language: businessLanguage,
         operating_hours: operatingHours,
         automatic_clock_out: automaticClockOut,
         allow_checklist_without_clock_in: allowChecklistWithoutClockIn,
@@ -666,6 +735,15 @@ function Settings() {
         // Include the version for optimistic locking
         settings_schema_version: settingsSchemaVersion,
       });
+      if (Object.keys(legacyAssigneesRef.current).length) {
+        const live = (await api.getCategoryOwners())?.owners || {};
+        const normalized: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(live)) {
+          normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
+        }
+        const merged = mergeLegacyIncidentAssignees(normalized, legacyAssigneesRef.current);
+        if (JSON.stringify(merged) !== JSON.stringify(normalized)) await api.saveCategoryOwners(merged);
+      }
       if (response.status === 200) {
         const ver =
           typeof response.data?.settings_schema_version === "number"
@@ -705,27 +783,53 @@ function Settings() {
     }
   };
 
-  const persistLanguagePreference = async (lng: Language) => {
-    // Apply immediately in-app, then persist to workspace (restaurant) without requiring full Save.
-    setAppLanguage(lng);
-    apiClient.defaults.headers.common["Accept-Language"] = lng;
+  const persistMyLanguage = async (lng: Language) => {
     try {
-      const response = await apiClient.put("/settings/unified/", {
-        language: lng,
-        settings_schema_version: settingsSchemaVersion,
-      });
-      // Refresh version so subsequent saves don't conflict
-      const version =
-        typeof response.data?.settings_schema_version === "number"
-          ? response.data.settings_schema_version
-          : (typeof response.data?.settingsVersion === "number" ? response.data.settingsVersion : settingsSchemaVersion);
-      if (typeof version === "number") setSettingsSchemaVersion(version);
+      await changeMyLanguage(lng);
     } catch (error) {
-      const axiosErr = error as AxiosError<{ detail?: string }>;
-      console.error("Failed to persist language:", axiosErr);
-      toast.error(translateApiError(axiosErr));
+      console.error("Failed to save my language:", error);
+      toast.error(t("settings.language.save_error"));
     }
   };
+
+  const persistBusinessLanguage = async (lng: Language) => {
+    // Business default for everyone who hasn't picked their own; saved at once, without the full Save.
+    const previous = businessLanguage;
+    setBusinessLanguage(lng);
+    setSavingBusinessLanguage(true);
+    try {
+      // businessOnly: the person's own language (and Miya's) stays as it is.
+      const updated = await api.updateMyLanguage({ language: lng, businessOnly: true });
+      if (updated) updateUser(updated);
+      toast.success(t("settings.language.business_saved"));
+    } catch (error) {
+      console.error("Failed to persist business language:", error);
+      setBusinessLanguage(previous);
+      toast.error(t("settings.language.save_error"));
+    } finally {
+      setSavingBusinessLanguage(false);
+    }
+  };
+
+  const myLanguageField = (
+    <div className="space-y-2">
+      <Label htmlFor="my-language">{t("settings.language.mine")}</Label>
+      <select
+        id="my-language"
+        value={language}
+        disabled={savingMyLanguage}
+        onChange={(e) => persistMyLanguage(e.target.value as Language)}
+        className={settingsSelectClassName}
+      >
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="ar">العربية</option>
+      </select>
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+        {followingBusinessLanguage ? t("settings.language.following_business") : t("settings.language.mine_hint")}
+      </p>
+    </div>
+  );
 
   const handleOperatingHoursChange = (
     day: string,
@@ -831,6 +935,16 @@ function Settings() {
             </TabsList>
 
             <TabsContent value="profile" className="mt-0 space-y-4 focus-visible:outline-none">
+              {isStaff ? (
+                <SettingsSection
+                  icon={<Languages className="h-5 w-5" />}
+                  iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+                  title={t("settings.language.mine")}
+                  description={t("settings.language.mine_hint")}
+                >
+                  <div className="max-w-sm">{myLanguageField}</div>
+                </SettingsSection>
+              ) : null}
               <Suspense fallback={<FormSectionSkeleton fields={5} />}>
                 <ProfileSettings />
               </Suspense>
@@ -924,6 +1038,42 @@ function Settings() {
                         />
                       </div>
                     </div>
+                  </SettingsSubsection>
+
+                  <SettingsSubsection
+                    title={t("cursorUi.settings.regional_title")}
+                    description={t("cursorUi.settings.regional_desc")}
+                  >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="timezone">{t("settings.general.timezone")}</Label>
+                      <select id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} className={settingsSelectClassName}>
+                        {withCurrent(TIMEZONES, timezone).map((tz) => (
+                          <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">{t("settings.general.currency")}</Label>
+                      <select id="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={settingsSelectClassName}>
+                        {withCurrent(CURRENCY_CODES, currency).map((code) => (
+                          <option key={code} value={code}>{code}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="business-whatsapp">{t("settings.general.business_whatsapp")}</Label>
+                      <Input
+                        id="business-whatsapp"
+                        type="tel"
+                        value={businessWhatsapp}
+                        onChange={(e) => setBusinessWhatsapp(e.target.value)}
+                        className={settingsFieldClassName}
+                        placeholder="+212 6 00 00 00 00"
+                      />
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("settings.general.business_whatsapp_hint")}</p>
+                    </div>
+                  </div>
                   </SettingsSubsection>
 
                   <SettingsSubsection
@@ -1038,21 +1188,25 @@ function Settings() {
               defaultOpen
             >
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
-                  <div className="space-y-2">
-                    <Label htmlFor="language">{t("settings.general.language")}</Label>
-                    <select
-                      id="language"
-                      value={language}
-                      onChange={(e) => persistLanguagePreference(e.target.value as Language)}
-                      className={settingsSelectClassName}
-                    >
-                      <option value="en">English</option>
-                      <option value="fr">Français</option>
-                      <option value="ar">العربية</option>
-                    </select>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {t("settings.general.language_hint")}
-                    </p>
+                  <div className="space-y-5">
+                    {myLanguageField}
+                    <div className="space-y-2">
+                      <Label htmlFor="language">{t("settings.language.business")}</Label>
+                      <select
+                        id="language"
+                        value={businessLanguage}
+                        disabled={savingBusinessLanguage}
+                        onChange={(e) => persistBusinessLanguage(e.target.value as Language)}
+                        className={settingsSelectClassName}
+                      >
+                        <option value="en">English</option>
+                        <option value="fr">Français</option>
+                        <option value="ar">العربية</option>
+                      </select>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t("settings.language.business_hint")}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4 h-full min-h-[5.5rem]">
                     <div className="space-y-0.5 min-w-0 flex-1">
@@ -1090,14 +1244,19 @@ function Settings() {
             </SettingsSection>
 
             <SettingsSection
+              id="who-owns-what"
               icon={<Route className="h-5 w-5" />}
               iconClassName="bg-violet-50 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
               title={t("onboarding.owners.title", "Who owns what?")}
-              description={t("onboarding.owners.subtitle")}
+              description={t(
+                "onboarding.owners.subtitle",
+                "Pick one or more people for each category - incidents, requests, and tasks are routed to them automatically.",
+              )}
               collapsible
               defaultOpen
               contentClassName="pt-0"
             >
+              {/* Responsibilities: owners (several per area) + opt-in watchers; saves each change itself. */}
               <ResponsibilitySettings />
             </SettingsSection>
 
@@ -1312,17 +1471,7 @@ function Settings() {
               <BillingSettings />
             </Suspense>
 
-            <SettingsSection
-              icon={<AlertCircle className="h-5 w-5" />}
-              iconClassName="bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
-              title={t("settings.danger_zone")}
-              description={t("settings.danger_zone_desc")}
-              className="border-red-200/80 dark:border-red-900/50"
-            >
-              <Button variant="destructive" className="w-full sm:w-auto h-11 rounded-xl font-semibold">
-                {t("settings.delete_account")}
-              </Button>
-            </SettingsSection>
+            <AccountDataCard />
           </TabsContent>
         ) : null}
 

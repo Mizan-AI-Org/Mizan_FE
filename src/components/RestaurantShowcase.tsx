@@ -128,8 +128,8 @@ export const RestaurantShowcase: React.FC = () => {
             className="mt-1 line-clamp-2 min-h-[2.35rem] text-[1.2rem] font-bold leading-tight tracking-tight text-white sm:min-h-[2.5rem] sm:text-[1.35rem]"
             title={headline}
           >
-            {headline}
-          </h2>
+              {headline}
+            </h2>
           <p
             className="mx-auto mt-1.5 line-clamp-3 min-h-[3.15rem] max-w-[28rem] text-xs leading-snug text-[#B0BEC5] sm:min-h-[3.3rem] sm:text-[13px]"
             title={subheading}
@@ -147,8 +147,8 @@ export const RestaurantShowcase: React.FC = () => {
                 >
                   <Icon className="h-3.5 w-3.5 text-[#00E676]" aria-hidden />
                   <span className="text-sm font-bold tabular-nums leading-none text-white">
-                    {stat.number}
-                  </span>
+                        {stat.number}
+                      </span>
                   <p className="line-clamp-2 text-[9px] font-medium leading-tight text-[#78909C]">
                     {t(stat.labelKey)}
                   </p>
@@ -157,7 +157,7 @@ export const RestaurantShowcase: React.FC = () => {
             })}
           </div>
 
-          <div className="mt-2 flex h-4 shrink-0 items-center justify-center gap-2" role="tablist" aria-label="Showcase slides">
+          <div className="mt-2 flex h-4 shrink-0 items-center justify-center gap-2" role="tablist" aria-label={t("cursorUi.auth.slides_aria")}>
             {images.map((_, index) => (
               <button
                 key={index}

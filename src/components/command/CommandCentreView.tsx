@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
 import { ApprovalsPopupHost } from "@/components/command/ApprovalsPopupHost";
@@ -233,7 +233,7 @@ export function CommandCentreView({ className }: { className?: string }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { askAgent } = useAgentPanel();
-  const { data, isLoading, isError, refetch } = useCommandCentre();
+  const { data, isLoading, isError, refetch, isFetching } = useCommandCentre();
   const [filter, setFilter] = useState<CommandFilterKey>("needs_me");
 
   const filtered = useMemo(() => signalsForFilter(data, filter), [data, filter]);
@@ -328,11 +328,22 @@ export function CommandCentreView({ className }: { className?: string }) {
           >
             {t("attention.brief_me")}
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            aria-label={t("command.refresh_aria")}
+            title={t("common.refresh", { defaultValue: "Refresh" })}
+          >
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} aria-hidden />
+          </Button>
         </div>
       </header>
 
-      <ApprovalsPopupHost />
-      <CommandCenterTiles />
+      <CommandCenterTiles metrics={data.metrics} />
 
       <section
         aria-label={t("command.glance")}
@@ -537,6 +548,7 @@ export function CommandCentreView({ className }: { className?: string }) {
           ) : null}
         </>
       )}
+      <ApprovalsPopupHost />
     </div>
   );
 }

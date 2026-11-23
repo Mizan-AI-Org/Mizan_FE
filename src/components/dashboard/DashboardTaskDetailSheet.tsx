@@ -13,10 +13,11 @@ import type { DashboardTaskDemandItem } from "@/lib/types";
 import { useLanguage } from "@/hooks/use-language";
 import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTaskDetailContent";
 import { toast } from "sonner";
+import { COMMAND_ROUTES } from "@/lib/commandCentre";
 import { archiveWithUndo } from "@/lib/archiveApi";
 
 function tasksDemandsDetailHref(taskId: string): string {
-  return `/dashboard/operations?task=${taskId}`;
+  return `${COMMAND_ROUTES.operations}?task=${taskId}`;
 }
 
 export function DashboardTaskDetailSheet({

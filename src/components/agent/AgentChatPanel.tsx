@@ -28,6 +28,7 @@ import {
   saveMastraMessages,
   savePendingConfirmation,
   sanitizeMiyaText,
+  playAgentReplyAudio,
   invalidateAfterAgentWrite,
   uploadAgentFiles,
   type AgentFile,
@@ -186,6 +187,14 @@ function ChatMessages({
                         </button>
                       ))}
                     </div>
+                  ) : null}
+                  {msg.replyAudio ? (
+                    <audio
+                      controls
+                      preload="none"
+                      className="mt-2 h-9 w-full max-w-[240px]"
+                      src={`data:${msg.replyAudio.mimeType};base64,${msg.replyAudio.base64}`}
+                    />
                   ) : null}
                   <span className="absolute bottom-1 end-2 text-[10px] leading-none text-muted-foreground">
                     {formatMessageTime(msg.createdAt, language)}
@@ -752,6 +761,16 @@ export const AgentChatPanel: React.FC = () => {
                 )
               : result.message || t("ai.chat_error", "I couldn't complete that just now. Try again in a moment.");
 
+        const replyAudio =
+          fromVoice && result.audioBase64
+            ? {
+                base64: result.audioBase64,
+                mimeType: result.mimeType || "audio/mpeg",
+              }
+            : undefined;
+        if (replyAudio) {
+          playAgentReplyAudio(replyAudio.base64, replyAudio.mimeType);
+        }
         setMessages((prev) => [
           ...prev,
           {
@@ -759,6 +778,7 @@ export const AgentChatPanel: React.FC = () => {
             role: "assistant",
             content: reply,
             createdAt: Date.now(),
+            replyAudio,
             quickReplies: result.quickReplies?.length ? result.quickReplies : undefined,
           },
         ]);
