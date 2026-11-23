@@ -794,13 +794,20 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
     if (priorityFilter) filters.priority = priorityFilter;
     if (dateFrom) filters.dateFrom = dateFrom;
     if (dateTo) filters.dateTo = dateTo;
+    // The Staff Requests view tells Miya its own tab and lane (StaffRequestsPage): publishing here too would
+    // overwrite it (parent effects run after the child's) and make Miya read the board instead.
+    if (opsView === "requests") return;
+    if (opsView === "compliance") {
+      publishUiContext({ view: "compliance" });
+      return;
+    }
     publishUiContext({
       tab: activeLane,
       category: categoryFilter || undefined,
       view: "live",
       filters: Object.keys(filters).length ? filters : undefined,
     });
-  }, [activeLane, categoryFilter, debouncedSearch, staffFilter, priorityFilter, dateFrom, dateTo]);
+  }, [opsView, activeLane, categoryFilter, debouncedSearch, staffFilter, priorityFilter, dateFrom, dateTo]);
   const [attachmentPreview, setAttachmentPreview] = useState<AttachmentViewerState | null>(
     null,
   );
