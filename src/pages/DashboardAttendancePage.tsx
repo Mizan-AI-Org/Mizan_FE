@@ -101,9 +101,9 @@ export default function DashboardAttendancePage() {
       toast.success(t("generic.toast.shift_marked_as_no_show"));
     },
     onError: (err: Error) => {
-      const msg = err.message || "Failed to mark as no-show";
+      const msg = err.message || t("dashboard_attendance.no_show_failed");
       const friendly = msg.includes("404")
-        ? "Shift not found. It may have been updated or removed-refresh the page to see the latest."
+        ? t("dashboard_attendance.shift_not_found")
         : msg;
       toast.error(friendly);
     },
@@ -122,12 +122,12 @@ export default function DashboardAttendancePage() {
       <div className={`${PAGE_SHELL} py-6 md:py-8 space-y-8`}>
         <header className="text-left">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-            Critical issues & attendance
+            {t("dashboard_attendance.title")}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
             {criticalCount + operationalCount > 0
-              ? `${criticalCount + operationalCount} item(s) need attention`
-              : "All clear right now"}
+              ? t("dashboard_attendance.items_need_attention", { count: criticalCount + operationalCount })
+              : t("dashboard_attendance.all_clear")}
           </p>
         </header>
 
@@ -145,7 +145,7 @@ export default function DashboardAttendancePage() {
               {t("dashboard.insights.title")}
             </CardTitle>
             <Badge variant="secondary" className="text-xs font-medium tabular-nums">
-              {insights.length} total
+              {t("dashboard_attendance.total", { count: insights.length })}
             </Badge>
           </CardHeader>
           <CardContent className="space-y-1 px-6 pb-6 pt-0">
@@ -182,7 +182,7 @@ export default function DashboardAttendancePage() {
                       : "";
                   const actionUrl = getActionRoute(it.action_url);
                   const canMarkNoShow = type === "missed_clock_in" && shiftId;
-                  const staffName = staff[0]?.name ?? "Staff";
+                  const staffName = staff[0]?.name ?? t("dashboard_attendance.staff_fallback");
 
                   return (
                     <div
@@ -203,14 +203,14 @@ export default function DashboardAttendancePage() {
                                 variant="outline"
                                 className={`text-[10px] font-bold ${levelPill}`}
                               >
-                                {level}
+                                {level ? t(`dashboard_attendance.level.${level.toLowerCase()}`, level) : level}
                               </Badge>
                               <ChevronRight className="w-4 h-4 text-slate-400" />
                             </div>
                           </div>
                           {it.recommended_action && (
                             <div className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-snug">
-                              {level === "CRITICAL" ? "Action" : "Recommendation"}:{" "}
+                              {level === "CRITICAL" ? t("dashboard_attendance.action") : t("dashboard_attendance.recommendation")}:{" "}
                               {it.recommended_action}
                             </div>
                           )}
@@ -223,7 +223,7 @@ export default function DashboardAttendancePage() {
                                 onClick={() => setNoShowConfirm({ shiftId, staffName })}
                               >
                                 <UserX className="w-3.5 h-3.5" />
-                                Mark as no-show
+                                {t("dashboard_attendance.mark_no_show_cta")}
                               </Button>
                             )}
                             <Button
@@ -255,15 +255,15 @@ export default function DashboardAttendancePage() {
         <AlertDialog open={!!noShowConfirm} onOpenChange={(open) => !open && setNoShowConfirm(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Mark as no-show?</AlertDialogTitle>
+              <AlertDialogTitle>{t("dashboard_attendance.confirm_title")}</AlertDialogTitle>
               <AlertDialogDescription>
                 {noShowConfirm
-                  ? `This will mark the shift as no-show for ${noShowConfirm.staffName}. You can still follow up with them on WhatsApp.`
+                  ? t("dashboard_attendance.confirm_body", { name: noShowConfirm.staffName })
                   : ""}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 type="button"
                 className="bg-red-600 hover:bg-red-700"
@@ -277,7 +277,7 @@ export default function DashboardAttendancePage() {
                 {markNoShowMutation.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  "Mark no-show"
+                  t("dashboard_attendance.mark_no_show")
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>

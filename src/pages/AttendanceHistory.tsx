@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { API_BASE, api } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 
 
 interface Break {
@@ -34,6 +35,7 @@ interface AttendanceRecord {
 const AttendanceHistory: React.FC = () => {
     const { user_id } = useParams<{ user_id?: string }>(); // Optional user_id for managers
     const { user } = useAuth();
+    const { t } = useLanguage();
     const queryClient = useQueryClient();
     const { toast } = useToast();
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -47,7 +49,7 @@ const AttendanceHistory: React.FC = () => {
     const { data: attendanceHistory, isLoading, error } = useQuery<AttendanceRecord[]>({ // Specify the type of data expected
         queryKey: ['attendanceHistory', targetUserId, formattedStartDate, formattedEndDate],
         queryFn: async () => {
-            if (!targetUserId) return Promise.reject('No user ID available');
+            if (!targetUserId) return Promise.reject(new Error(t('attendance_history.no_user')));
             const endpoint = user_id
                 ? `${API_BASE}/timeclock/attendance-history/${user_id}/?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
                 : `${API_BASE}/timeclock/attendance-history/?start_date=${formattedStartDate}&end_date=${formattedEndDate}`;
@@ -61,7 +63,7 @@ const AttendanceHistory: React.FC = () => {
 
                 if (!response.ok) {
                     const text = await response.text();
-                    let errorMessage = 'Failed to fetch attendance history';
+                    let errorMessage = t('attendance_history.fetch_failed');
                     try {
                         const data = JSON.parse(text);
                         errorMessage = data.error || data.message || errorMessage;
@@ -91,20 +93,20 @@ const AttendanceHistory: React.FC = () => {
         mutationFn: (payload: { reason: string; shift_id?: string }) => api.managerClockIn(user_id!, payload),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['attendanceHistory', targetUserId, formattedStartDate, formattedEndDate] });
-            toast({ title: 'Success', description: 'Staff clocked in (manager override)' });
+            toast({ title: t('attendance_history.success'), description: t('attendance_history.clocked_in_override') });
         },
         onError: (err: Error) => {
-            toast({ title: 'Error', description: err.message || 'Failed to clock in', variant: 'destructive' });
+            toast({ title: t('attendance_history.error'), description: err.message || t('attendance_history.clock_in_failed'), variant: 'destructive' });
         },
     });
     const managerClockOutMutation = useMutation({
         mutationFn: () => api.managerClockOut(user_id!),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['attendanceHistory', targetUserId, formattedStartDate, formattedEndDate] });
-            toast({ title: 'Success', description: 'Staff clocked out (manager override)' });
+            toast({ title: t('attendance_history.success'), description: t('attendance_history.clocked_out_override') });
         },
         onError: (err: Error) => {
-            toast({ title: 'Error', description: err.message || 'Failed to clock out', variant: 'destructive' });
+            toast({ title: t('attendance_history.error'), description: err.message || t('attendance_history.clock_out_failed'), variant: 'destructive' });
         },
     });
 
@@ -125,11 +127,11 @@ const AttendanceHistory: React.FC = () => {
     }
 
     if (error) {
-        return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
+        return <div className="text-center py-8 text-red-500">{t('attendance_history.error_prefix', { message: error.message })}</div>;
     }
 
     if (!user) {
-        return <div className="text-center py-8 text-gray-500">Please log in to view attendance history.</div>;
+        return <div className="text-center py-8 text-gray-500">{t('attendance_history.login_required')}</div>;
     }
 
     const totalHoursMonth = attendanceHistory?.reduce((sum, record) => sum + record.total_hours, 0) || 0;
@@ -138,7 +140,9 @@ const AttendanceHistory: React.FC = () => {
         <div className="container mx-auto p-6">
             <h2 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
                 <CalendarDays className="w-8 h-8 mr-3 text-blue-600" />
-                Attendance History {isManagerView && user_id ? `for ${attendanceHistory?.[0]?.staff_info?.first_name || 'Staff'}` : ''}
+                {isManagerView && user_id
+                    ? t('attendance_history.title_for', { name: attendanceHistory?.[0]?.staff_info?.first_name || t('attendance_history.staff_fallback') })
+                    : t('attendance_history.title')}
             </h2>
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-gray-100 p-3 rounded-lg">
@@ -163,20 +167,20 @@ const AttendanceHistory: React.FC = () => {
                                 disabled={managerClockOutMutation.isPending}
                             >
                                 {managerClockOutMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
-                                Clock Out (Manager)
+                                {t('attendance_history.clock_out_manager')}
                             </Button>
                         ) : (
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                    const reason = window.prompt("Reason for manager clock-in (e.g. device failure, location issue):");
+                                    const reason = window.prompt(t('attendance_history.clock_in_reason_prompt'));
                                     if (reason?.trim()) managerClockInMutation.mutate({ reason: reason.trim() });
                                 }}
                                 disabled={managerClockInMutation.isPending}
                             >
                                 {managerClockInMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogIn className="w-4 h-4 mr-2" />}
-                                Clock In (Manager)
+                                {t('attendance_history.clock_in_manager')}
                             </Button>
                         )}
                     </div>
@@ -185,18 +189,18 @@ const AttendanceHistory: React.FC = () => {
 
             <Card className="mb-6 shadow-sm">
                 <CardHeader>
-                    <CardTitle>Monthly Summary</CardTitle>
+                    <CardTitle>{t('attendance_history.monthly_summary')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-2xl font-bold text-gray-900 mb-2">{totalHoursMonth.toFixed(2)} Hours</p>
+                    <p className="text-2xl font-bold text-gray-900 mb-2">{t('attendance_history.hours_total', { hours: totalHoursMonth.toFixed(2) })}</p>
                     <Progress value={(totalHoursMonth / 160) * 100} className="w-full" /> {/* Assuming 160 hours for full-time */}
-                    <p className="text-sm text-muted-foreground mt-1">{((totalHoursMonth / 160) * 100).toFixed(1)}% of typical full-time hours</p>
+                    <p className="text-sm text-muted-foreground mt-1">{t('attendance_history.pct_fulltime', { pct: ((totalHoursMonth / 160) * 100).toFixed(1) })}</p>
                 </CardContent>
             </Card>
 
             <div className="space-y-4">
                 {attendanceHistory?.length === 0 ? (
-                    <p className="text-center text-gray-500">No attendance records for this period.</p>
+                    <p className="text-center text-gray-500">{t('attendance_history.empty')}</p>
                 ) : (
                     // Sort newest-first by clock out (if present) falling back to clock in
                     [...(attendanceHistory || [])]
@@ -210,35 +214,35 @@ const AttendanceHistory: React.FC = () => {
                             <CardHeader className="flex-row items-center justify-between">
                                 <CardTitle className="text-lg">{format(parseISO(record.date), 'PPP')}</CardTitle>
                                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${record.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                    {record.status === 'active' ? 'Clocked In' : record.status}
+                                    {record.status === 'active' ? t('attendance_history.status_clocked_in') : record.status === 'completed' ? t('attendance_history.status_completed') : t('attendance_history.status_incomplete')}
                                 </span>
                             </CardHeader>
                             <CardContent className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="flex items-center text-gray-700"><Clock className="w-4 h-4 mr-2" /> Clock In:</p>
+                                    <p className="flex items-center text-gray-700"><Clock className="w-4 h-4 mr-2" /> {t('attendance_history.clock_in')}</p>
                                     <p>{format(parseISO(record.clock_in), 'hh:mm:ss a')}</p>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <p className="flex items-center text-gray-700"><Clock className="w-4 h-4 mr-2" /> Clock Out:</p>
+                                    <p className="flex items-center text-gray-700"><Clock className="w-4 h-4 mr-2" /> {t('attendance_history.clock_out')}</p>
                                     <p>{record.clock_out ? format(parseISO(record.clock_out), 'hh:mm:ss a') : '-'}</p>
                                 </div>
                                 <Separator />
                                 <div className="flex items-center justify-between font-semibold">
-                                    <p>Total Hours:</p>
+                                    <p>{t('attendance_history.total_hours')}</p>
                                     <p>{record.total_hours.toFixed(2)}</p>
                                 </div>
 
                                 {record.breaks.length > 0 && (
                                     <div className="mt-4">
-                                        <p className="font-semibold mb-2 flex items-center"><Coffee className="w-4 h-4 mr-2" /> Breaks:</p>
+                                        <p className="font-semibold mb-2 flex items-center"><Coffee className="w-4 h-4 mr-2" /> {t('attendance_history.breaks')}</p>
                                         <div className="space-y-1 ml-6">
                                             {record.breaks.map((b, idx) => (
                                                 <div key={idx} className="flex justify-between text-sm text-gray-600">
                                                     <span>
                                                         {format(parseISO(b.start), 'hh:mm a')} -
-                                                        {b.end ? format(parseISO(b.end), 'hh:mm a') : 'Active'}
+                                                        {b.end ? format(parseISO(b.end), 'hh:mm a') : t('attendance_history.break_active')}
                                                     </span>
-                                                    <span>({b.duration_minutes.toFixed(1)} mins)</span>
+                                                    <span>({t('attendance_history.break_mins', { mins: b.duration_minutes.toFixed(1) })})</span>
                                                 </div>
                                             ))}
                                         </div>

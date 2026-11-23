@@ -34,6 +34,8 @@ export interface LoginResponse {
 }
 
 export interface SignupData {
+    /** The language picked on the signup page: becomes the owner's and the business's language. */
+    language?: "en" | "fr" | "ar";
     user: {
         email: string;
         password: string;
@@ -43,12 +45,19 @@ export interface SignupData {
         whatsapp_phone?: string;
         phone?: string;
         pin_code?: string;
+        /** UI language at signup (en | fr | ar): becomes the business's and the owner's language. */
+        language?: string;
+        /** Terms of use + privacy policy accepted (the server refuses signup without it) and the text version. */
+        accept_terms?: boolean;
+        terms_version?: string;
     };
     restaurant: {
         name: string;
         address: string;
         phone: string;
         email: string;
+        /** ISO country of the business (MA default): its dial code reads a national WhatsApp number. */
+        country?: string;
         /** Saved to general_settings.business_vertical on the backend */
         business_vertical?: string;
         /** Modules chosen at signup (general_settings.enabled_modules); core modules are always added. */
@@ -158,6 +167,8 @@ export interface BillingInvoiceRow {
     reportedAt: string | null;
     reportedReference: string;
     reportedNote: string;
+    reportedReceiptUrl?: string | null;
+    transferReference?: string;
 }
 
 export interface BillingPaymentInstructions {
@@ -191,7 +202,7 @@ export interface BillingBundleOffer {
     extraMonthly: number;
 }
 
-export type BillingState = "trial" | "trial_over" | "active" | "due" | "overdue" | "suspended" | "none";
+export type BillingState = "trial" | "trial_over" | "active" | "due" | "overdue" | "suspended" | "canceled" | "inactive" | "none";
 
 export interface BillingOverview {
     moduleBilling: boolean;
@@ -212,6 +223,57 @@ export interface BillingOverview {
     invoices: BillingInvoiceRow[];
     paymentInstructions: BillingPaymentInstructions;
     billingDetails: BillingDetails;
+    graceDays?: number;
+    trialGranted?: boolean;
+    cancelAtPeriodEnd?: boolean;
+    cancelEffectiveAt?: string | null;
+    canceledAt?: string | null;
+    pendingModules?: string[] | null;
+    pendingEffectiveAt?: string | null;
+    selectedModules?: string[];
+}
+
+export interface BillingCharge {
+    subtotal: number;
+    taxRate: number;
+    tax: number;
+    total: number;
+}
+
+export interface PlanChangePreview {
+    added: string[];
+    removed: string[];
+    addedLabels: string[];
+    removedLabels: string[];
+    modules: string[];
+    changed: boolean;
+    removedEffectiveAt: string | null;
+    chargeNow: BillingCharge | null;
+    currentBill: BillingQuote;
+    nextBill: BillingQuote;
+    inTrial: boolean;
+    interval: "month" | "year";
+}
+
+export interface CancelPreview {
+    effectiveAt: string;
+    immediate: boolean;
+    inTrial: boolean;
+    openBalance: number;
+    openInvoices: string[];
+}
+
+export interface BillingOpsAlertRow {
+    id: string;
+    kind: string;
+    title: string;
+    body: string;
+    restaurantId: string | null;
+    restaurantName: string;
+    invoiceId: string | null;
+    delivered: { whatsapp?: number; email?: number };
+    createdAt: string;
+    resolvedAt: string | null;
 }
 
 export interface BillingInvoiceDocument extends BillingInvoiceRow {
@@ -417,14 +479,6 @@ export type DashboardTaskPillStatus =
 export interface DashboardTaskDemandItem {
     id: string;
     title: string;
-    /** Who made it (its source) and everyone it was assigned to, oldest first. */
-    created_by?: { id?: string | null; name?: string | null; role?: string | null } | null;
-    assignee_trail?: Array<{
-        user?: { id?: string | null; name?: string | null; role?: string | null } | null;
-        by?: { id?: string | null; name?: string | null } | null;
-        reason?: string;
-        at?: string;
-    }> | null;
     description: string | null;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
     /** Coarse status used by filter/counter logic (kept for back-compat). */
@@ -509,6 +563,24 @@ export interface DashboardTaskDemandItem {
     proof_submitter_name?: string | null;
     attachment_url?: string | null;
     attachment_label?: string | null;
+    /** Who asked for it (routing_metadata.requested_by / invoice creator). */
+    created_by?: TrailPerson | null;
+    /** Every hand-over, oldest first (AssignmentEvent). */
+    assignee_trail?: AssigneeTrailStep[];
+}
+
+export interface TrailPerson {
+    id: string;
+    name: string;
+    role?: string | null;
+}
+
+export interface AssigneeTrailStep {
+    to: TrailPerson | null;
+    from: TrailPerson | null;
+    by: TrailPerson | null;
+    reason: 'create' | 'claim' | 'reassign' | 'escalate' | 'backfill' | string;
+    at: string;
 }
 
 /** Row in the Operations Live full-page feed. */
@@ -1403,6 +1475,19 @@ export interface ReorderLine {
 export interface ReorderSuggestions {
     itemCount: number;
     groups: { supplierId: string | null; supplierName: string | null; estimatedTotal: number; lines: ReorderLine[] }[];
+}
+
+export interface NeedsAttentionItem {
+    kind: "blocked" | "overdue" | "unassigned" | "validate";
+    taskId: string;
+    title: string;
+    who?: string;
+    reason?: string;
+    due?: string | null;
+    since?: string | null;
+    nudges?: number;
+    escalationLevel?: number;
+    proof?: string | null;
 }
 
 /** Approvals engine (Operations → Approvals, WhatsApp buttons, Miya). */

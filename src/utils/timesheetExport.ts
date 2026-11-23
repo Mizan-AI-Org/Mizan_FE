@@ -68,7 +68,7 @@ export function buildTimesheetMatrix(
     if (!byRole[role]) byRole[role] = [];
     byRole[role].push(s);
   });
-  const order = ["MANAGER", "CHEF", "BARTENDER", "SERVER", "WAITER", "HOST", "CASHIER", "CLEANER", "KITCHEN_PORTER"];
+  const order = ["MANAGER", "CHEF", "BARTENDER", "SERVER", "WAITER", "HOST", "RECEPTIONIST", "CASHIER", "KITCHEN_HELP", "DISHWASHER", "CLEANER", "SECURITY", "KITCHEN_PORTER"];
   const staffByRole: { role: string; staff: StaffMemberForExport[] }[] = [];
   const seen = new Set<string>();
   order.forEach((r) => {

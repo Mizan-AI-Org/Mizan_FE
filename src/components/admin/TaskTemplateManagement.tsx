@@ -918,6 +918,7 @@ export default function TaskTemplateManagement() {
 
                 <ChecklistAssigneePreview
                   assignees={standingAssigneesForTemplate(template, staffDirectory)}
+                  groupLabel={(template as { audience_label?: string }).audience_label || undefined}
                   sectionLabel={t("processes.standing_assignees_label", {
                     defaultValue: "Who runs this",
                   })}

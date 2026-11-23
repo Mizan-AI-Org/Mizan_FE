@@ -1,7 +1,7 @@
 # Mizan_FE — Git ignore (production push hygiene)
 
 # Dependencies & builds
-node_modules/
+node_modules
 dist/
 dist-ssr/
 .vite/

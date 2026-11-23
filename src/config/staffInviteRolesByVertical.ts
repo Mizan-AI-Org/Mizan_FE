@@ -110,6 +110,7 @@ const RESTAURANT_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "CHEF", labelKey: "staff.roles.chef" },
       { value: "KITCHEN_HELP", labelKey: "staff.roles.kitchen_help" },
+      { value: "DISHWASHER", labelKey: "staff.roles.dishwasher" },
       { value: "BARTENDER", labelKey: "staff.roles.bartender" },
     ],
   },

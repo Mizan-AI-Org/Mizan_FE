@@ -2,6 +2,7 @@ import React from 'react';
 import { CalendarShift } from '@/utils/calendarUtils';
 import { formatShiftTime, getShiftDurationText, isOvernightShift } from '@/utils/calendarUtils';
 import { Clock, User, Calendar } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import './ShiftCard.css';
 
 export interface ShiftCardProps {
@@ -80,11 +81,12 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
   showDetails = false,
   compact = false
 }) => {
+  const { t } = useTranslation();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  let startTime = 'Invalid';
-  let endTime = 'Invalid';
-  let duration = 'Unknown';
+  let startTime = t('shift_card.invalid');
+  let endTime = t('shift_card.invalid');
+  let duration = t('shift_card.unknown');
   let isOvernight = false;
 
   try {
@@ -117,7 +119,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  const title = shift.title || 'Unnamed Shift';
+  const title = shift.title || t('shift_card.unnamed');
 
   if (useMinimal) {
     return (
@@ -130,7 +132,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         role="button"
         tabIndex={0}
         title={`${title} · ${startTime} - ${endTime}`}
-        aria-label={`Shift from ${startTime} to ${endTime}`}
+        aria-label={t('shift_card.aria', { start: startTime, end: endTime })}
       >
         <div className="shift-card-title">{title}</div>
       </div>
@@ -148,7 +150,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         role="button"
         tabIndex={0}
         title={`${title} · ${startTime} - ${endTime}`}
-        aria-label={`Shift from ${startTime} to ${endTime}`}
+        aria-label={t('shift_card.aria', { start: startTime, end: endTime })}
       >
         <div className="shift-card-title">{title}</div>
         <div className="shift-card-time">
@@ -167,13 +169,13 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
       onMouseLeave={onMouseLeave}
       role="button"
       tabIndex={0}
-      aria-label={`Shift from ${startTime} to ${endTime}, duration ${duration}`}
+      aria-label={t('shift_card.aria_duration', { start: startTime, end: endTime, duration })}
     >
       <div className="flex items-start justify-between gap-1 mb-1 min-w-0">
         <div className="shift-card-title">{title}</div>
         {isOvernight && (
           <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0">
-            Overnight
+            {t('shift_card.overnight')}
           </span>
         )}
       </div>
@@ -190,12 +192,12 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
           <div className="flex items-center gap-1.5 mt-1 flex-wrap min-w-0">
             {hasProcessTasks && (
               <span className="truncate rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-emerald-300">
-                {processCount} process
+                {t('shift_card.process_count', { count: processCount })}
               </span>
             )}
             {hasCustomTasks && (
               <span className="truncate rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-sky-300">
-                {customCount} task{customCount !== 1 ? 's' : ''}
+                {t('shift_card.task_count', { count: customCount })}
               </span>
             )}
           </div>
@@ -215,7 +217,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
             {shift.staff_members_details.length > 3 && (
               <div
                 className="h-5 w-5 rounded-full bg-[#0d5c3e]/90 flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white dark:ring-slate-800"
-                title={`${shift.staff_members_details.length - 3} more staff`}
+                title={t('shift_card.more_staff', { count: shift.staff_members_details.length - 3 })}
               >
                 +{shift.staff_members_details.length - 3}
               </div>
@@ -226,9 +228,9 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
 
       {showDetails && (
         <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400">
-          <div>Timezone: {timezone}</div>
-          <div>Day: {shift.day}</div>
-          <div>Date: {shift.date}</div>
+          <div>{t('shift_card.timezone', { value: timezone })}</div>
+          <div>{t('shift_card.day', { value: shift.day })}</div>
+          <div>{t('shift_card.date', { value: shift.date })}</div>
         </div>
       )}
     </div>
@@ -242,6 +244,7 @@ export interface ShiftTooltipProps {
 }
 
 export const ShiftTooltip: React.FC<ShiftTooltipProps> = ({ shift, position, visible }) => {
+  const { t } = useTranslation();
   if (!visible) return null;
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -259,7 +262,7 @@ export const ShiftTooltip: React.FC<ShiftTooltipProps> = ({ shift, position, vis
         zIndex: 1000
       }}
     >
-      <div className="shift-tooltip-title">{shift.title || 'Unnamed Shift'}</div>
+      <div className="shift-tooltip-title">{shift.title || t('shift_card.unnamed')}</div>
 
       <div className="shift-tooltip-content">
         <div className="shift-tooltip-item">
@@ -275,7 +278,7 @@ export const ShiftTooltip: React.FC<ShiftTooltipProps> = ({ shift, position, vis
         {isOvernight && (
           <div className="shift-tooltip-item text-yellow-300">
             <Calendar className="shift-tooltip-icon" />
-            <span>Overnight shift</span>
+            <span>{t('shift_card.overnight_shift')}</span>
           </div>
         )}
 

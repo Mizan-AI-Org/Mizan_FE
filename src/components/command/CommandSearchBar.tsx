@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Calendar, FileText, Plus, Search, Sparkles } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAgentPanel } from "@/context/AgentPanelContext";
-import { cn } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
 import { CommandSearchResults } from "./CommandSearchResults";
 import { useOpsSearch, type OpsSearchHit } from "./useOpsSearch";
+import { cn } from "@/lib/utils";
 
 const RECENT_KEY = "mizan.command.recent";
 const MAX_RECENT = 4;
@@ -38,21 +38,11 @@ export function CommandSearchBar({ className }: { className?: string }) {
   const { askAgent } = useAgentPanel();
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<string[]>(() => loadRecent());
-  const [typed, setTyped] = useState("");
-  const navigate = useNavigate();
-  const { hits, loading } = useOpsSearch(typed);
-
-  const openHit = useCallback(
-    (hit: OpsSearchHit) => {
-      setOpen(false);
-      setTyped("");
-      if (inputRef.current) inputRef.current.value = "";
-      navigate(hit.href);
-    },
-    [navigate],
-  );
+  const [query, setQuery] = useState("");
+  const { hits, loading, active: showingResults } = useOpsSearch(query);
 
   const suggested = [
     t("ai.suggest.attention"),
@@ -102,10 +92,21 @@ export function CommandSearchBar({ className }: { className?: string }) {
       setRecent(loadRecent());
       setOpen(false);
       if (inputRef.current) inputRef.current.value = "";
-      setTyped("");
+      setQuery("");
       askAgent(q);
     },
     [askAgent],
+  );
+
+  const openHit = useCallback(
+    (hit: OpsSearchHit) => {
+      setOpen(false);
+      if (inputRef.current) inputRef.current.value = "";
+      setQuery("");
+      if (hit.href) navigate(hit.href);
+      else askAgent(hit.title);
+    },
+    [askAgent, navigate],
   );
 
   useEffect(() => {
@@ -155,7 +156,10 @@ export function CommandSearchBar({ className }: { className?: string }) {
           aria-expanded={open}
           aria-haspopup="listbox"
           onFocus={() => setOpen(true)}
-          onChange={(e) => setTyped(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
         />
         <kbd className="pointer-events-none absolute end-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
           ⌘ K
@@ -165,11 +169,13 @@ export function CommandSearchBar({ className }: { className?: string }) {
       {open ? (
         <div
           role="listbox"
-          className="absolute start-0 end-0 top-[calc(100%+0.5rem)] z-[3000] overflow-hidden rounded-panel border border-border/80 bg-card shadow-strong"
+          className="absolute start-0 end-0 top-[calc(100%+0.5rem)] z-[3000] max-h-[70vh] overflow-y-auto rounded-panel border border-border/80 bg-card shadow-strong"
         >
-          <CommandSearchResults hits={hits} loading={loading} onPick={openHit} />
+          {showingResults ? (
+            <CommandSearchResults hits={hits} loading={loading} query={query} onPick={openHit} onAsk={submit} />
+          ) : null}
 
-          {recent.length > 0 ? (
+          {!showingResults && recent.length > 0 ? (
             <div className="border-b border-border/60 px-3 py-2">
               <p className="px-1 pb-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
                 {t("command.palette.recent", { defaultValue: "Recent" })}
@@ -190,43 +196,47 @@ export function CommandSearchBar({ className }: { className?: string }) {
             </div>
           ) : null}
 
-          <div className="border-b border-border/60 px-3 py-2">
-            <p className="px-1 pb-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
-              {t("command.palette.suggested", { defaultValue: "Suggested" })}
-            </p>
-            <ul className="space-y-0.5">
-              {suggested.map((q) => (
-                <li key={q}>
-                  <button
-                    type="button"
-                    className="w-full rounded-control px-2 py-1.5 text-start text-sm hover:bg-muted/60"
-                    onClick={() => submit(q)}
-                  >
-                    {q}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {showingResults ? null : (
+            <>
+              <div className="border-b border-border/60 px-3 py-2">
+                <p className="px-1 pb-1.5 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("command.palette.suggested", { defaultValue: "Suggested" })}
+                </p>
+                <ul className="space-y-0.5">
+                  {suggested.map((q) => (
+                    <li key={q}>
+                      <button
+                        type="button"
+                        className="w-full rounded-control px-2 py-1.5 text-start text-sm hover:bg-muted/60"
+                        onClick={() => submit(q)}
+                      >
+                        {q}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-          <div className="px-3 py-2.5">
-            <p className="px-1 pb-2 text-caption font-medium uppercase tracking-wide text-muted-foreground">
-              {t("command.palette.quick_actions", { defaultValue: "Quick actions" })}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {quickActions.map(({ id, label, icon: Icon, prompt }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-caption font-medium hover:bg-muted/60"
-                  onClick={() => submit(prompt)}
-                >
-                  <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+              <div className="px-3 py-2.5">
+                <p className="px-1 pb-2 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("command.palette.quick_actions", { defaultValue: "Quick actions" })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {quickActions.map(({ id, label, icon: Icon, prompt }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-caption font-medium hover:bg-muted/60"
+                      onClick={() => submit(prompt)}
+                    >
+                      <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>

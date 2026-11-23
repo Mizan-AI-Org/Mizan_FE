@@ -1,5 +1,19 @@
 /** Mizan Command Centre API types */
 
+/**
+ * Where command-centre tiles and review links point. One place so the integrator can retarget them
+ * if the unified Operations page (workstream C) lands on different paths.
+ */
+export const COMMAND_ROUTES = {
+  operations: "/dashboard/operations/live",
+  compliance: "/dashboard/operations/live?view=compliance",
+  incidents: "/dashboard/operations/incidents",
+  performance: "/dashboard/employees/performance",
+  attendance: "/dashboard/employees/attendance",
+  orders: "/dashboard/customers/reservations-orders?tab=orders",
+  calendar: "/dashboard/settings?tab=integrations&section=calendar",
+} as const;
+
 export type CommandSignal = {
   id: string;
   lane: "needs_me" | "today" | "handling" | "waiting" | "watching";

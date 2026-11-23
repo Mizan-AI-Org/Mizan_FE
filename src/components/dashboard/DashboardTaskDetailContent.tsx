@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BACKEND_URL } from "@/lib/api";
 import type { DashboardTaskDemandItem } from "@/lib/types";
+import { AssigneeTrail } from "@/components/dashboard/AssigneeTrail";
 import {
   dashboardTaskPrimaryAction,
   dashboardTaskPriorityBadge,
@@ -123,6 +124,8 @@ export function DashboardTaskDetailContent({
   const hasAssigneeChanges = multiAssignMode && !sameIdSet(pendingIds, savedIds);
   const primaryAction = dashboardTaskPrimaryAction(task.status, t);
   const secondaryStatuses = dashboardTaskSecondaryStatuses(task.status, primaryAction?.nextStatus ?? null);
+  // Got it = seen, not started. Need help = the "I can't" path: the accountable owner is told.
+  const canSignal = task.status !== "COMPLETED" && task.status !== "CANCELLED";
   const dueLabel = task.due_date
     ? new Date(task.due_date).toLocaleDateString(undefined, {
         weekday: "short",
@@ -178,7 +181,12 @@ export function DashboardTaskDetailContent({
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {[
-              task.source_label || task.source,
+              task.created_by?.name
+                ? t("dashboard.task_detail.requested_by", {
+                  name: task.created_by.name,
+                  defaultValue: "Requested by {{name}}",
+                })
+                : task.source_label || task.source,
               task.kind === "dashboard" &&
               String(task.source_label || "")
                 .toLowerCase()
@@ -250,6 +258,8 @@ export function DashboardTaskDetailContent({
             </Badge>
           )}
         </div>
+
+        <AssigneeTrail createdBy={task.created_by} trail={task.assignee_trail} />
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
@@ -449,7 +459,7 @@ export function DashboardTaskDetailContent({
               {t("common.save", { defaultValue: "Save" })}
             </Button>
           ) : null}
-          {secondaryStatuses.length > 0 ? (
+          {secondaryStatuses.length > 0 || canSignal ? (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" disabled={isUpdating || isSaving} className="gap-1.5">
@@ -458,6 +468,16 @@ export function DashboardTaskDetailContent({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52 z-[4000]">
+                {canSignal ? (
+                  <>
+                    <DropdownMenuItem onClick={() => onStatusChange("GOT_IT")}>
+                      {t("dashboard.task_detail.got_it", { defaultValue: "Got it" })}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onStatusChange("NEED_HELP")}>
+                      {t("dashboard.task_detail.need_help", { defaultValue: "Need help" })}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
                 {secondaryStatuses.map((nextStatus) => (
                   <DropdownMenuItem
                     key={nextStatus}

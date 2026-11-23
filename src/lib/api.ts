@@ -67,6 +67,7 @@ import {
   ApprovalsListResponse,
   ApprovalRule,
   ApprovalRulesResponse,
+  NeedsAttentionItem,
 } from "./types"; // Updated import path
 import { unwrapEnvelope } from "./envelope";
 
@@ -424,6 +425,80 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
     }
   }
   return response;
+}
+
+// ── Audience (who a task / process reaches) ──────────────────────────────────
+export type AudienceMode = "first" | "all" | "each";
+export interface AudienceSpec {
+  people: string[];
+  roles: string[];
+  titles: string[];
+  departments: string[];
+  everyone: boolean;
+  on_shift: boolean;
+  branch_id?: string | null;
+  mode: AudienceMode;
+}
+export interface AudiencePerson {
+  id: string;
+  name: string;
+  role?: string;
+  title?: string;
+  department?: string;
+}
+export interface AudienceOptions {
+  people: AudiencePerson[];
+  roles: { value: string; label: string; count: number }[];
+  titles: { value: string; count: number }[];
+  departments: { value: string; count: number }[];
+  branches: { id: string; name: string }[];
+  modes: AudienceMode[];
+}
+export interface AudiencePreview {
+  audience: AudienceSpec;
+  label: string;
+  count: number;
+  people: AudiencePerson[];
+}
+export interface TaskScheduleRow {
+  id: string;
+  title: string;
+  notes?: string;
+  audience: Partial<AudienceSpec>;
+  mode?: AudienceMode;
+  onShiftOnly?: boolean;
+  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUALLY";
+  interval: number;
+  weekdays: number[];
+  monthDay?: number | null;
+  releaseTime?: string;
+  dueTime?: string | null;
+  dueInDays?: number | null;
+  priority: "normal" | "medium" | "urgent";
+  requirePhotoProof?: boolean;
+  requiresValidation?: boolean;
+  startsOn?: string | null;
+  endsOn?: string | null;
+  isActive: boolean;
+  branch?: string | null;
+  audienceLabel?: string;
+  rule?: string;
+  nextDates?: string[];
+  lastRunOn?: string | null;
+  branchName?: string | null;
+  recentRuns?: { date: string; taskIds: string[]; people: number; note?: string }[];
+}
+export type TaskSchedulePayload = Partial<Omit<TaskScheduleRow, "id" | "audienceLabel" | "rule" | "nextDates" | "lastRunOn" | "branchName" | "recentRuns">>;
+export interface CreateTaskPayload {
+  title: string;
+  description?: string;
+  priority?: string;
+  due_date?: string | null;
+  due_time?: string | null;
+  assigned_to?: string | null;
+  audience?: AudienceSpec;
+  require_photo_proof?: boolean;
+  requires_validation?: boolean;
 }
 
 export class BackendService {
@@ -887,6 +962,8 @@ export class BackendService {
     dateFrom?: string;
     dateTo?: string;
     item?: string;
+    page?: number;
+    pageSize?: number;
   }): Promise<import("@/pages/operations/contract").OperationsOverview> {
     const search = new URLSearchParams();
     if (params?.category && params.category !== "all") search.set("category", params.category);
@@ -897,6 +974,8 @@ export class BackendService {
     if (params?.dateFrom) search.set("date_from", params.dateFrom);
     if (params?.dateTo) search.set("date_to", params.dateTo);
     if (params?.item) search.set("item", params.item);
+    if (params?.page != null) search.set("page", String(params.page));
+    if (params?.pageSize != null) search.set("page_size", String(params.pageSize));
     const qs = search.toString();
     return unwrapApiPayload(await this.fetchWithError(`/operations/overview/${qs ? `?${qs}` : ""}`));
   }
@@ -1215,6 +1294,12 @@ export class BackendService {
     if (filters?.assignee) params.set("assignee", filters.assignee);
     if (filters?.date_from) params.set("date_from", filters.date_from);
     if (filters?.date_to) params.set("date_to", filters.date_to);
+    return this.fetchWithError(`/dashboard/ops-search/?${params.toString()}`);
+  }
+
+  /** Tenant-wide command-bar search (role- and branch-scoped server-side). */
+  async searchTenant(q: string): Promise<TenantSearchResult> {
+    const params = new URLSearchParams({ q, limit: "5" });
     return this.fetchWithError(`/dashboard/ops-search/?${params.toString()}`);
   }
 
@@ -1772,6 +1857,46 @@ export class BackendService {
 
   async managerClockOut(staffId: string): Promise<Record<string, unknown>> {
     return this.fetchWithError(`/timeclock/staff/${staffId}/manager-clock-out/`, { method: "POST" });
+  }
+
+  // ── Audience + recurring tasks ─────────────────────────────────────────────
+  async getAudienceOptions(): Promise<AudienceOptions> {
+    return this.fetchWithError("/operations/audience/options/");
+  }
+
+  /** Read-only: who would this audience reach (POST only to carry the body). */
+  async previewAudience(audience: AudienceSpec, date?: string): Promise<AudiencePreview> {
+    return this.fetchWithError("/operations/audience/preview/", {
+      method: "POST",
+      body: JSON.stringify({ audience, ...(date ? { date } : {}) }),
+    });
+  }
+
+  /** One-off task; with `audience` the backend may fan out (createdCount / taskIds). */
+  async createDashboardTask(
+    payload: CreateTaskPayload,
+  ): Promise<{ id?: string; createdCount?: number; taskIds?: string[] } & Record<string, unknown>> {
+    return this.fetchWithError("/dashboard/tasks/", { method: "POST", body: JSON.stringify(payload) });
+  }
+
+  async listTaskSchedules(q?: string): Promise<{ count: number; results: TaskScheduleRow[] }> {
+    return this.fetchWithError(`/operations/task-schedules/${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+  }
+
+  async getTaskSchedule(id: string): Promise<TaskScheduleRow> {
+    return this.fetchWithError(`/operations/task-schedules/${id}/`);
+  }
+
+  async createTaskSchedule(payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
+    return this.fetchWithError("/operations/task-schedules/", { method: "POST", body: JSON.stringify(payload) });
+  }
+
+  async updateTaskSchedule(id: string, payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
+    return this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+
+  async archiveTaskSchedule(id: string): Promise<void> {
+    await this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "DELETE" });
   }
 
   async getTasks(accessToken: string): Promise<Task[]> {
@@ -2376,11 +2501,50 @@ export class BackendService {
   }
 
   /** "We paid this by bank transfer": Mizan confirms it against the bank, then marks it paid. */
-  async reportBillingPayment(id: string, reference: string, note = ""): Promise<BillingInvoiceRow> {
-    return this.peopleRequest(localStorage.getItem("access_token") || "", `/billing/invoices/${id}/report-payment/`, {
+  async reportBillingPayment(id: string, reference = "", note = "", receipt?: File | null): Promise<BillingInvoiceRow> {
+    const token = localStorage.getItem("access_token") || "";
+    if (receipt) {
+      const form = new FormData();
+      form.append("reference", reference);
+      form.append("note", note);
+      form.append("receipt", receipt);
+      return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, { method: "POST", body: form });
+    }
+    return this.peopleRequest(token, `/billing/invoices/${id}/report-payment/`, {
       method: "POST",
       body: JSON.stringify({ reference, note }),
     });
+  }
+
+  async previewPlanChange(modules: string[]): Promise<import("./types").PlanChangePreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules, preview: true }),
+    });
+  }
+
+  async changePlan(modules: string[]): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/change-plan/", {
+      method: "POST",
+      body: JSON.stringify({ modules }),
+    });
+  }
+
+  async previewCancelSubscription(): Promise<import("./types").CancelPreview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "GET",
+    });
+  }
+
+  async cancelSubscription(reason = ""): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async resumeSubscription(): Promise<{ overview: BillingOverview }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/resume/", { method: "POST" });
   }
 
   async listApprovals(scope: "mine" | "pending" | "requested" | "decided" | "all" = "mine"): Promise<ApprovalsListResponse> {
@@ -2417,6 +2581,21 @@ export class BackendService {
     return this.peopleRequest(localStorage.getItem("access_token") || "", "/approvals/rules/", {
       method: "PUT",
       body: JSON.stringify({ rules }),
+    });
+  }
+
+  async getNeedsAttention(): Promise<{ items: NeedsAttentionItem[] }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/operations/needs-attention/");
+  }
+
+  async taskExecutionAction(
+    taskId: string,
+    action: "reassign" | "extend" | "validate" | "block",
+    body: Record<string, unknown> = {},
+  ): Promise<unknown> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/operations/tasks/${taskId}/${action}/`, {
+      method: "POST",
+      body: JSON.stringify(body),
     });
   }
 
@@ -5723,6 +5902,36 @@ export type StaffImportPreview = {
   errors: StaffImportPreviewRow[];
   validCount: number;
   unmatchedTitles: UnmatchedTitle[];
+};
+
+export type TenantSearchHit = {
+  kind: string;
+  id: string;
+  title: string;
+  subtitle?: string;
+  status?: string;
+  href?: string;
+};
+
+export const TENANT_SEARCH_GROUPS = [
+  "tasks",
+  "staff_requests",
+  "incidents",
+  "staff",
+  "invoices",
+  "inventory",
+  "checklists",
+  "processes",
+  "meetings",
+  "shifts",
+  "reminders",
+] as const;
+
+export type TenantSearchGroup = (typeof TENANT_SEARCH_GROUPS)[number];
+
+export type TenantSearchResult = Partial<Record<TenantSearchGroup, TenantSearchHit[]>> & {
+  total?: number;
+  query?: string;
 };
 
 export const api = new BackendService();

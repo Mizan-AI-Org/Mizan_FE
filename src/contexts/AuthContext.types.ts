@@ -40,12 +40,21 @@ export interface User {
         restaurant_type?: string;
     };
     phone?: string;
+    /** The person's own language (falls back to the business's on the server). Drives the app, Miya and WhatsApp. */
+    language?: string | null;
+    /** False: the person hasn't picked a language and follows the business default. */
+    language_chosen?: boolean;
     preferred_language?: string | null;
     profile?: {
         emergency_contact_name?: string;
         emergency_contact_phone?: string;
     };
     branch_scope?: BranchScopePayload;
+    /** The WhatsApp number on the account was proven by a code (or by writing to Mizan from it). */
+    whatsapp_verified?: boolean;
+    /** Entered at signup / number change and not proven yet: the dashboard shows "verify your WhatsApp". */
+    whatsapp_verification_pending?: boolean;
+    legal?: { current_version: string; accepted_version: string | null; accepted_at: string | null } | null;
     /** One person, several businesses: every business they can open (empty when only one). */
     businesses?: UserBusiness[];
 }

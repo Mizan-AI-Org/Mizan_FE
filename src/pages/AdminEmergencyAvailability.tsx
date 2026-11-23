@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useLanguage } from "@/hooks/use-language";
 
 type AvailabilityTask = {
   id: string;
@@ -25,7 +26,17 @@ type AvailabilityTask = {
 };
 
 const AdminEmergencyAvailability: React.FC = () => {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
+  const priorityLabel = (p?: string) => {
+    const map: Record<string, string> = { CRITICAL: "generic.critical", HIGH: "generic.high", MEDIUM: "operations_live.priority.medium", LOW: "generic.low" };
+    return t(map[p || "MEDIUM"] || "", p || "MEDIUM");
+  };
+  const statusLabel = (st?: string) => {
+    if (!st) return "-";
+    const map: Record<string, string> = { PENDING: "status.PENDING", IN_REVIEW: "admin_emergency_availability.status_in_review", APPROVED: "status.APPROVED", REJECTED: "status.REJECTED", IN_PROGRESS: "generic.in_progress", COMPLETED: "status.COMPLETED" };
+    return map[st] ? t(map[st]) : st;
+  };
   const { notifications } = useNotifications();
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -73,8 +84,8 @@ const AdminEmergencyAvailability: React.FC = () => {
       await api.logAdminAction?.(id, { action: 'APPROVE', message: 'Task approved' });
       return res.json();
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["emergency-availability-tasks"] }); toast.success('Approved'); },
-    onError: () => toast.error('Approval failed'),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["emergency-availability-tasks"] }); toast.success(t('status.APPROVED')); },
+    onError: () => toast.error(t('admin_emergency_availability.approve_failed')),
   });
   const rejectMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -84,13 +95,13 @@ const AdminEmergencyAvailability: React.FC = () => {
       await api.logAdminAction?.(id, { action: 'REJECT', message: 'Task rejected' });
       return res.json();
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["emergency-availability-tasks"] }); toast.success('Rejected'); },
-    onError: () => toast.error('Rejection failed'),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["emergency-availability-tasks"] }); toast.success(t('status.REJECTED')); },
+    onError: () => toast.error(t('admin_emergency_availability.reject_failed')),
   });
 
   const bulkApprove = async () => {
     if (selectedIds.length === 0) return;
-    if (!confirm(`Approve ${selectedIds.length} tasks?`)) return;
+    if (!confirm(t('admin_emergency_availability.confirm_bulk_approve', { count: selectedIds.length }))) return;
     for (const id of selectedIds) { 
       try { 
         await approveMutation.mutateAsync(id); 
@@ -103,7 +114,7 @@ const AdminEmergencyAvailability: React.FC = () => {
   const bulkReject = async () => {
     if (selectedIds.length === 0) return;
 
-    if (!confirm(`Reject ${selectedIds.length} tasks?`)) return;
+    if (!confirm(t('admin_emergency_availability.confirm_bulk_reject', { count: selectedIds.length }))) return;
     for (const id of selectedIds) { try { await rejectMutation.mutateAsync(id); } catch {} }
     setSelectedIds([]);
   };
@@ -129,71 +140,71 @@ const AdminEmergencyAvailability: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Emergency Staff Availability</h2>
-          <p className="text-sm text-muted-foreground">Live task submissions and admin actions</p>
+          <h2 className="text-lg font-semibold">{t('admin_emergency_availability.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('admin_emergency_availability.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Input placeholder="Search by title or staff" value={search} onChange={(e)=>setSearch(e.target.value)} className="w-56" />
+          <Input placeholder={t('admin_emergency_availability.search_placeholder')} value={search} onChange={(e)=>setSearch(e.target.value)} className="w-56" />
           <Input type="date" value={dateFrom} onChange={(e)=>setDateFrom(e.target.value)} className="w-40" />
           <Input type="date" value={dateTo} onChange={(e)=>setDateTo(e.target.value)} className="w-40" />
           <select className="border rounded-md h-9 px-2" value={priority} onChange={(e)=>setPriority(e.target.value)}>
-            <option value="">All priorities</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
+            <option value="">{t('operations_live.filter_priority_all')}</option>
+            <option value="CRITICAL">{priorityLabel('CRITICAL')}</option>
+            <option value="HIGH">{priorityLabel('HIGH')}</option>
+            <option value="MEDIUM">{priorityLabel('MEDIUM')}</option>
+            <option value="LOW">{priorityLabel('LOW')}</option>
           </select>
           <select className="border rounded-md h-9 px-2" value={status} onChange={(e)=>setStatus(e.target.value)}>
-            <option value="">All statuses</option>
-            <option value="PENDING">Pending</option>
-            <option value="IN_REVIEW">In Review</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="COMPLETED">Completed</option>
+            <option value="">{t('live_board.status_all')}</option>
+            <option value="PENDING">{statusLabel('PENDING')}</option>
+            <option value="IN_REVIEW">{statusLabel('IN_REVIEW')}</option>
+            <option value="APPROVED">{statusLabel('APPROVED')}</option>
+            <option value="REJECTED">{statusLabel('REJECTED')}</option>
+            <option value="IN_PROGRESS">{statusLabel('IN_PROGRESS')}</option>
+            <option value="COMPLETED">{statusLabel('COMPLETED')}</option>
           </select>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={bulkApprove} disabled={selectedIds.length === 0}>Bulk Approve</Button>
-        <Button size="sm" variant="outline" onClick={bulkReject} disabled={selectedIds.length === 0}>Bulk Reject</Button>
-        <div className="text-xs text-muted-foreground">Selected: {selectedIds.length}</div>
+        <Button size="sm" variant="outline" onClick={bulkApprove} disabled={selectedIds.length === 0}>{t('admin_emergency_availability.bulk_approve')}</Button>
+        <Button size="sm" variant="outline" onClick={bulkReject} disabled={selectedIds.length === 0}>{t('admin_emergency_availability.bulk_reject')}</Button>
+        <div className="text-xs text-muted-foreground">{t('admin_emergency_availability.selected_count', { count: selectedIds.length })}</div>
       </div>
 
-      {error && <div className="text-red-600 text-sm">Failed to load tasks</div>}
+      {error && <div className="text-red-600 text-sm">{t('admin_emergency_availability.load_failed')}</div>}
       {isLoading ? (
-        <div className="text-sm text-muted-foreground">Loading tasks…</div>
+        <div className="text-sm text-muted-foreground">{t('live_board.loading_tasks')}</div>
       ) : filtered.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No tasks</div>
+        <div className="text-sm text-muted-foreground">{t('admin_emergency_availability.no_tasks')}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((t) => (
-            <Card key={t.id} className="transition hover:shadow-md">
+          {filtered.map((task) => (
+            <Card key={task.id} className="transition hover:shadow-md">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Checkbox checked={selectedIds.includes(t.id)} onCheckedChange={() => toggleSelect(t.id)} aria-label="Select task" />
+                    <Checkbox checked={selectedIds.includes(task.id)} onCheckedChange={() => toggleSelect(task.id)} aria-label={t('admin_emergency_availability.select_task')} />
                     <div>
-                      <CardTitle className="text-base">{t.title || 'Task'}</CardTitle>
-                      <CardDescription className="text-sm">{t.staff?.name || '-'} • {t.submitted_at ? new Date(t.submitted_at).toLocaleString() : '-'}</CardDescription>
+                      <CardTitle className="text-base">{task.title || t('admin_emergency_availability.task_fallback')}</CardTitle>
+                      <CardDescription className="text-sm">{task.staff?.name || '-'} • {task.submitted_at ? new Date(task.submitted_at).toLocaleString() : '-'}</CardDescription>
                     </div>
                   </div>
-                  <Badge variant={t.priority === 'CRITICAL' ? 'destructive' : (t.priority === 'HIGH' ? 'secondary' : 'outline')} className="text-xs">{t.priority || 'MEDIUM'}</Badge>
+                  <Badge variant={task.priority === 'CRITICAL' ? 'destructive' : (task.priority === 'HIGH' ? 'secondary' : 'outline')} className="text-xs">{priorityLabel(task.priority)}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {t.description && <div className="text-sm text-muted-foreground">{t.description}</div>}
+                {task.description && <div className="text-sm text-muted-foreground">{task.description}</div>}
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs">{t.status || '-'}</Badge>
+                  <Badge variant="outline" className="text-xs">{statusLabel(task.status)}</Badge>
                   <div className="w-40">
-                    <Progress value={t.progress_pct || 0} />
+                    <Progress value={task.progress_pct || 0} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() => setOpenId(t.id)}>View</Button>
-                  <Button size="sm" variant="outline" onClick={() => approveMutation.mutate(t.id)}>Approve</Button>
-                  <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate(t.id)}>Reject</Button>
+                  <Button size="sm" onClick={() => setOpenId(task.id)}>{t('common.view')}</Button>
+                  <Button size="sm" variant="outline" onClick={() => approveMutation.mutate(task.id)}>{t('generic.approve')}</Button>
+                  <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate(task.id)}>{t('approvals.reject')}</Button>
                 </div>
               </CardContent>
             </Card>
@@ -204,24 +215,24 @@ const AdminEmergencyAvailability: React.FC = () => {
       <Dialog open={!!openId} onOpenChange={(o)=> setOpenId(o ? openId : null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Task Details</DialogTitle>
+            <DialogTitle>{t('admin_emergency_availability.task_details')}</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="summary">
             <TabsList variant="compact" className="grid grid-cols-2 w-full">
-              <TabsTrigger variant="compact" value="summary">Summary</TabsTrigger>
-              <TabsTrigger variant="compact" value="expanded">Expanded</TabsTrigger>
+              <TabsTrigger variant="compact" value="summary">{t('generic.summary')}</TabsTrigger>
+              <TabsTrigger variant="compact" value="expanded">{t('admin_emergency_availability.tab_expanded')}</TabsTrigger>
             </TabsList>
             <TabsContent value="summary" className="space-y-3 mt-3">
-              <div className="text-sm text-muted-foreground">Key fields and status</div>
+              <div className="text-sm text-muted-foreground">{t('admin_emergency_availability.summary_hint')}</div>
             </TabsContent>
             <TabsContent value="expanded" className="space-y-3 mt-3">
-              <div className="text-sm text-muted-foreground">Full submission content</div>
+              <div className="text-sm text-muted-foreground">{t('admin_emergency_availability.expanded_hint')}</div>
             </TabsContent>
           </Tabs>
           <DialogFooter>
-            <Button onClick={() => openId && approveMutation.mutate(openId)}>Approve</Button>
-            <Button variant="outline" onClick={() => openId && rejectMutation.mutate(openId)}>Reject</Button>
-            <Button variant="ghost" onClick={() => setOpenId(null)}>Close</Button>
+            <Button onClick={() => openId && approveMutation.mutate(openId)}>{t('generic.approve')}</Button>
+            <Button variant="outline" onClick={() => openId && rejectMutation.mutate(openId)}>{t('approvals.reject')}</Button>
+            <Button variant="ghost" onClick={() => setOpenId(null)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

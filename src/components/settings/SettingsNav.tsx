@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/hooks/use-language";
 
 export type SettingsNavItem = {
   id: string;
@@ -33,6 +34,7 @@ export function SettingsNav({
   PermissionsIcon,
   className,
 }: SettingsNavProps) {
+  const { t } = useLanguage();
   const linkClass = (active: boolean) =>
     cn(
       "group flex shrink-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors lg:w-full",
@@ -52,7 +54,7 @@ export function SettingsNav({
   return (
     <nav
       className={cn("flex flex-col gap-1", className)}
-      aria-label="Settings sections"
+      aria-label={t('settings.nav.sections_aria')}
     >
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0 lg:flex-col lg:overflow-visible lg:pb-0 lg:gap-1">
         {items.map((item) => {

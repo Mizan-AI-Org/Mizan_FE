@@ -87,7 +87,7 @@ const ManagerSwapRequests: React.FC = () => {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 },
             });
-            if (!response.ok) throw new Error('Failed to fetch swap requests');
+            if (!response.ok) throw new Error(t('swap_requests.fetch_failed'));
             return asList(await response.json());
         },
         enabled: !!user?.restaurant && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
@@ -104,7 +104,7 @@ const ManagerSwapRequests: React.FC = () => {
             });
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to ${action} swap request`);
+                throw new Error(errorData.error || t(action === 'approve' ? 'swap_requests.approve_failed' : 'swap_requests.reject_failed'));
             }
             return asList(await response.json());
         },
@@ -115,7 +115,7 @@ const ManagerSwapRequests: React.FC = () => {
             toast.success(t("generic.toast.shift_swap_request_updated_successfully"));
         },
         onError: (error) => {
-            toast.error(error.message || "Failed to update shift swap request.");
+            toast.error(error.message || t("swap_requests.update_failed"));
         },
     });
 
@@ -128,50 +128,50 @@ const ManagerSwapRequests: React.FC = () => {
     }
 
     if (error) {
-        return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
+        return <div className="text-center py-8 text-red-500">{t("swap_requests.error_prefix", { message: error.message })}</div>;
     }
 
     if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'ADMIN')) {
-        return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
+        return <div className="text-center py-8 text-gray-500">{t("generic.no_access_description")}</div>;
     }
 
     return (
         <div className="container mx-auto p-6">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Shift Swap Requests</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">{t("swap_requests.title")}</h2>
 
             <div className="space-y-4">
                 {swapRequests?.length === 0 ? (
-                    <p className="text-center text-gray-500">No pending shift swap requests.</p>
+                    <p className="text-center text-gray-500">{t("swap_requests.empty")}</p>
                 ) : (
                     swapRequests?.map(request => (
                         <Card key={request.id} className="shadow-sm">
                             <CardHeader>
                                 <CardTitle className="flex justify-between items-center">
-                                    <span>Request from {request.requester_info.first_name} {request.requester_info.last_name}</span>
+                                    <span>{t("swap_requests.request_from", { name: `${request.requester_info.first_name} ${request.requester_info.last_name}` })}</span>
                                     <span className={`text-sm font-medium ${request.status === 'PENDING' ? 'text-yellow-600' : request.status === 'APPROVED' ? 'text-green-600' : 'text-red-600'}`}>
-                                        {request.status}
+                                        {t(`swap_requests.status.${request.status.toLowerCase()}`, request.status)}
                                     </span>
                                 </CardTitle>
-                                <p className="text-sm text-muted-foreground">Requested on {format(new Date(request.created_at), 'PPP p')}</p>
+                                <p className="text-sm text-muted-foreground">{t("swap_requests.requested_on", { date: format(new Date(request.created_at), 'PPP p') })}</p>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div>
-                                    <p className="font-semibold">Shift to Swap:</p>
+                                    <p className="font-semibold">{t("swap_requests.shift_to_swap")}</p>
                                     <p className="text-sm text-gray-700">
                                         {format(new Date(request.shift_to_swap_info.shift_date), 'PPP')} {format(new Date(`2000-01-01T${request.shift_to_swap_info.start_time}`), 'hh:mm a')} - {format(new Date(`2000-01-01T${request.shift_to_swap_info.end_time}`), 'hh:mm a')}
                                         ({request.shift_to_swap_info.role})
                                     </p>
-                                    <p className="text-sm text-gray-600">Original Staff: {request.shift_to_swap_info.staff_info.first_name} {request.shift_to_swap_info.staff_info.last_name}</p>
+                                    <p className="text-sm text-gray-600">{t("swap_requests.original_staff", { name: `${request.shift_to_swap_info.staff_info.first_name} ${request.shift_to_swap_info.staff_info.last_name}` })}</p>
                                 </div>
                                 {request.receiver_info && (
                                     <div>
-                                        <p className="font-semibold">Suggested Receiver:</p>
+                                        <p className="font-semibold">{t("swap_requests.suggested_receiver")}</p>
                                         <p className="text-sm text-gray-700">{request.receiver_info.first_name} {request.receiver_info.last_name} ({request.receiver_info.email})</p>
                                     </div>
                                 )}
                                 {request.request_message && (
                                     <div>
-                                        <p className="font-semibold">Message:</p>
+                                        <p className="font-semibold">{t("swap_requests.message")}</p>
                                         <p className="text-sm text-gray-700 italic">"{request.request_message}"</p>
                                     </div>
                                 )}
@@ -183,14 +183,14 @@ const ManagerSwapRequests: React.FC = () => {
                                             disabled={handleActionMutation.isPending}
                                             className="bg-green-600 hover:bg-green-700"
                                         >
-                                            <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                                            <CheckCircle className="w-4 h-4 mr-2" /> {t("generic.approve")}
                                         </Button>
                                         <Button
                                             onClick={() => handleActionMutation.mutate({ id: request.id, action: 'reject' })}
                                             disabled={handleActionMutation.isPending}
                                             variant="destructive"
                                         >
-                                            <XCircle className="w-4 h-4 mr-2" /> Reject
+                                            <XCircle className="w-4 h-4 mr-2" /> {t("approvals.reject")}
                                         </Button>
                                     </div>
                                 )}
