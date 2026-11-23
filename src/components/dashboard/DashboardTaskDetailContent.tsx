@@ -34,6 +34,8 @@ import {
   resolveStoredMediaUrl,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
+import { formatDateTime, localeTag } from "@/lib/localeTag";
+import { useLanguage } from "@/hooks/use-language";
 import {
   AttachmentViewerModal,
   type AttachmentViewerState,
@@ -53,6 +55,14 @@ function sameIdSet(a: string[], b: string[]): boolean {
   const sa = [...a].sort();
   const sb = [...b].sort();
   return sa.every((id, i) => id === sb[i]);
+}
+
+/** Category enums (OPERATIONS, PURCHASE_ORDER...) shown in the UI language; unknown values are title-cased. */
+function categoryLabel(raw: string, t: (key: string, options?: Record<string, string | number>) => string): string {
+  const key = `operations_live.category.${String(raw).trim().toLowerCase()}`;
+  const label = t(key);
+  if (label && label !== key) return label;
+  return String(raw).replace(/[_-]+/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 }
 
 export function DashboardTaskDetailContent({
@@ -86,6 +96,7 @@ export function DashboardTaskDetailContent({
   /** Archive the task (30-day undo); only for dashboard tasks. */
   onArchive?: () => void;
 }) {
+  const { language } = useLanguage();
   const multiAssignMode = !!onSaveAssignees;
   const savedIds = useMemo(() => initialAssigneeIds(task), [task]);
   const [pendingIds, setPendingIds] = useState<string[]>(savedIds);
@@ -126,7 +137,7 @@ export function DashboardTaskDetailContent({
   // Got it = seen, not started. Need help = the "I can't" path: the accountable owner is told.
   const canSignal = task.status !== "COMPLETED" && task.status !== "CANCELLED";
   const dueLabel = task.due_date
-    ? new Date(task.due_date).toLocaleDateString(undefined, {
+    ? new Date(task.due_date).toLocaleDateString(localeTag(language), {
         weekday: "short",
         month: "short",
         day: "numeric",
@@ -151,16 +162,16 @@ export function DashboardTaskDetailContent({
       ? `${t("dashboard.task_detail.source", { defaultValue: "Source" })}: ${task.source_label || task.source}`
       : null,
     task.category
-      ? `${t("dashboard.task_detail.category", { defaultValue: "Category" })}: ${task.category}`
+      ? `${t("dashboard.task_detail.category", { defaultValue: "Category" })}: ${categoryLabel(task.category, t)}`
       : null,
     task.age_label
       ? `${t("dashboard.task_detail.reported", { defaultValue: "Opened" })}: ${localizeAgeLabel(task.age_label, t)}`
       : null,
     task.created_at
-      ? `${t("dashboard.task_detail.created", { defaultValue: "Created" })}: ${new Date(task.created_at).toLocaleString()}`
+      ? `${t("dashboard.task_detail.created", { defaultValue: "Created" })}: ${formatDateTime(task.created_at, language)}`
       : null,
     task.updated_at
-      ? `${t("dashboard.task_detail.updated_at", { defaultValue: "Updated" })}: ${new Date(task.updated_at).toLocaleString()}`
+      ? `${t("dashboard.task_detail.updated_at", { defaultValue: "Updated" })}: ${formatDateTime(task.updated_at, language)}`
       : null,
   ].filter(Boolean) as string[];
 
@@ -481,6 +492,8 @@ export function DashboardTaskDetailContent({
           ) : null}
         </div>
         )}
+        {onArchive || onOpenInbox ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {onArchive ? (
           <button
             type="button"
@@ -499,6 +512,8 @@ export function DashboardTaskDetailContent({
           >
             {t("dashboard.task_detail.open_inbox", { defaultValue: "Open in staff inbox" })}
           </button>
+        ) : null}
+        </div>
         ) : null}
       </div>
     </div>

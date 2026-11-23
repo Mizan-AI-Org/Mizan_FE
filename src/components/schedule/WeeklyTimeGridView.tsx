@@ -19,8 +19,9 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import type { Shift, Task, TaskFrequency } from "@/types/schedule";
 import { useCalendar } from "@/hooks/useCalendar";
 import { useLanguage } from "@/hooks/use-language";
+import { dateFnsLocale, uses24h } from "@/lib/localeTag";
 import { ShiftCard } from "@/components/calendar/ShiftCard";
-import { format, startOfWeek, endOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format as dfFormat, startOfWeek, endOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { API_BASE } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import ShiftModal from "@/components/ShiftModal";
@@ -142,7 +143,8 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
     isLoading = false,
 }) => {
     const { hasRole } = useAuth() as AuthContextType;
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const format = (d: Date, f: string) => dfFormat(d, f, { locale: dateFnsLocale(language) });
     const canEditShifts = hasRole?.([ 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OWNER' ]) ?? false;
     const [view, setView] = useState<"week" | "day" | "month">("week");
     const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
@@ -427,8 +429,8 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                 </div>
                 <div className="flex-1 overflow-auto p-4">
                     <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
-                        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-                            <div key={day} className="bg-gray-50 dark:bg-slate-800/50 py-2 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{day}</div>
+                        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => (
+                            <div key={day} className="bg-gray-50 dark:bg-slate-800/50 py-2 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{format(addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), i), "EEE")}</div>
                         ))}
                         {monthDays.map((d, i) => {
                             if (!d) {
@@ -526,8 +528,8 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                             <Clock className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         {hours.map((hour) => {
-                            const h = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                            const ampm = hour < 12 ? "AM" : "PM";
+                            const h = uses24h(language) ? String(hour).padStart(2, "0") : hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                            const ampm = uses24h(language) ? "" : hour < 12 ? "AM" : "PM";
                             return (
                                 <div
                                     key={hour}
@@ -552,7 +554,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                                         "h-14 border-b border-gray-100 dark:border-slate-800 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center",
                                         isToday && "bg-green-50/80 dark:bg-green-900/20"
                                     )}>
-                                        <span className={cn("text-[10px] font-bold uppercase tracking-widest", isToday ? "text-green-700 dark:text-green-400" : "text-gray-400 dark:text-gray-500")}>{day}</span>
+                                        <span className={cn("text-[10px] font-bold uppercase tracking-widest", isToday ? "text-green-700 dark:text-green-400" : "text-gray-400 dark:text-gray-500")}>{format(date, "EEE")}</span>
                                         <span className={cn(
                                             "text-lg font-black mt-0.5 h-8 w-8 flex items-center justify-center rounded-full leading-none",
                                             isToday ? "bg-green-600 text-white shadow-sm" : "text-gray-900 dark:text-gray-100"

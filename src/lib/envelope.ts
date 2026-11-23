@@ -40,3 +40,15 @@ export function mapInventoryItem(row: Record<string, unknown>) {
     isLow: Boolean(row.isLow),
   };
 }
+
+/** Unwrap a list response: bare array, `{success,data:[...]}`, `{data:{results:[...]}}` or `{results:[...]}`. */
+export function unwrapList<T = unknown>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object") {
+    const body = payload as Record<string, unknown>;
+    if (body.success === false) throw new Error(String(body.error || "Request failed"));
+    if ("data" in body) return unwrapList<T>(body.data);
+    if (Array.isArray(body.results)) return body.results as T[];
+  }
+  return [];
+}

@@ -203,15 +203,18 @@ const Timesheets: React.FC = () => {
 
   const hhmm = (s?: string) => (s ? s.substring(11, 16) || s.substring(0, 5) : '');
   const hoursBetween = (start?: string, end?: string) => {
-    try {
-      if (!start || !end) return 0;
-      const a = new Date(start);
-      const b = new Date(end);
-      return Math.max(0, (b.getTime() - a.getTime()) / 3600000);
-    } catch { return 0; }
+    if (!start || !end) return 0;
+    // Shifts carry bare "HH:mm[:ss]" times; full ISO datetimes also work.
+    const clock = /^(\d{1,2}):(\d{2})/;
+    const sm = clock.exec(start);
+    const em = clock.exec(end);
+    if (sm && em && !start.includes('T') && !end.includes('T')) {
+      const mins = (+em[1] * 60 + +em[2]) - (+sm[1] * 60 + +sm[2]);
+      return (mins < 0 ? mins + 1440 : mins) / 60;
+    }
+    const diff = (new Date(end).getTime() - new Date(start).getTime()) / 3600000;
+    return Number.isFinite(diff) ? Math.max(0, diff) : 0;
   };
-
-
 
   // Fetch users for department mapping
   const { data: users = [] } = useQuery<BackendUserSummary[]>({
@@ -269,7 +272,8 @@ const Timesheets: React.FC = () => {
       const dayIdx = new Date(ymd).getDay();
       const rec = map.get(key) || { name, days: {}, total: 0 };
       (rec.days[dayIdx] ||= []).push(s);
-      rec.total += s.actual_hours ?? hoursBetween(s.start_time, s.end_time);
+      const actual = Number(s.actual_hours);
+      rec.total += Number.isFinite(actual) && s.actual_hours != null ? actual : hoursBetween(s.start_time, s.end_time);
       map.set(key, rec);
     }
     return Array.from(map.entries()).map(([id, v]) => ({ id, ...v }));
@@ -587,7 +591,7 @@ const Timesheets: React.FC = () => {
                       </td>
                     );
                   })}
-                  <td className="p-2 text-right font-semibold">{row.total.toFixed(0)}</td>
+                  <td className="p-2 text-right font-semibold">{(Number.isFinite(row.total) ? row.total : 0).toFixed(0)}</td>
                 </tr>
               ))}
             </tbody>

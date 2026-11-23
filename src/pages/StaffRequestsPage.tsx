@@ -1712,7 +1712,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                       {activeLane ? ` · ${activeLane.label}` : ""}
                     </span>
                   </CardTitle>
-                  <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
+                  <Badge variant="outline" className="max-w-[60%] shrink-0 whitespace-normal text-center text-[10px] font-semibold uppercase leading-tight tracking-wide">
                     {t(staffRequestStatusLabelKey(activeStatus))}
                   </Badge>
                 </div>

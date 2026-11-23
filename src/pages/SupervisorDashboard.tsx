@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from "@/hooks/use-language";
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -34,6 +35,7 @@ interface Table {
 
 const SupervisorDashboard: React.FC = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
 
     const { data: restaurantOrders = [], isLoading: isLoadingOrders, error: ordersError } = useQuery<Order[]>({
         queryKey: ['restaurantOrders', user?.restaurant],
@@ -94,7 +96,7 @@ const SupervisorDashboard: React.FC = () => {
     }
 
     if (!user || (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(user.role))) {
-        return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
+        return <div className="text-center py-8 text-gray-500">{t("generic.no_access_description")}</div>;
     }
 
     const getOrderStatusColor = (status: string) => {

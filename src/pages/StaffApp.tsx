@@ -99,6 +99,7 @@ import {
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
 import { t } from "i18next";
+import { translatedRoleName } from "@/lib/roleDisplayName";
 import { WEB_APP_ROLES, isPrivilegedRole } from "@/lib/operationalCommandRoles";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -187,6 +188,8 @@ interface StaffMember {
 }
 
 function staffRoleLabel(m: Pick<StaffMember, "role" | "role_display">): string {
+    const translated = translatedRoleName(m.role, t);
+    if (translated) return translated;
     if (m.role_display) return m.role_display;
     return m.role?.toLowerCase().replace(/_/g, " ") ?? "";
 }

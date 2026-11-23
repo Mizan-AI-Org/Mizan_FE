@@ -136,16 +136,25 @@ function complianceAttachmentUrl(doc: ComplianceDoc): string {
   return resolveMediaUrl(raw);
 }
 
-function typeLabel(doc: ComplianceDoc, types: DocType[]): string {
+type TFn = (key: string) => string;
+
+/** Document-type label in the UI language; the backend list is English-only, so known ids map to locale keys. */
+function localizedTypeLabel(id: string, label: string, t: TFn): string {
+  const key = `settings.compliance.type_${String(id).trim().toLowerCase()}`;
+  const translated = t(key);
+  return translated && translated !== key ? translated : label;
+}
+
+function typeLabel(doc: ComplianceDoc, types: DocType[], t: TFn): string {
   const raw = (doc.document_type || doc.category || "").trim();
   const match = types.find(
     (item) =>
       item.id.toLowerCase() === raw.toLowerCase() || item.label.toLowerCase() === raw.toLowerCase(),
   );
-  if (match) return match.label;
+  if (match) return localizedTypeLabel(match.id, match.label, t);
   if (!raw || raw.toLowerCase() === "compliance") {
-    if (/insur/i.test(doc.title)) return "Insurance";
-    return "Compliance";
+    if (/insur/i.test(doc.title)) return t("settings.compliance.type_insurance");
+    return t("settings.compliance.type_compliance");
   }
   return raw.replace(/[_-]+/g, " ");
 }
@@ -462,7 +471,7 @@ export default function ComplianceDocumentsSettings({
                       ]
                   ).map((opt) => (
                     <SelectItem key={opt.id} value={opt.id}>
-                      {opt.label}
+                      {localizedTypeLabel(opt.id, opt.label, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -652,7 +661,7 @@ export default function ComplianceDocumentsSettings({
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {typeLabel(doc, types)}
+                      {typeLabel(doc, types, t)}
                       {doc.days_until_expiry != null
                         ? doc.days_until_expiry < 0
                           ? ` · ${t("settings.compliance.days_ago", { n: -doc.days_until_expiry })}`
@@ -785,7 +794,7 @@ export default function ComplianceDocumentsSettings({
         viewerDoc ? (
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
             <div className="text-muted-foreground">{t("settings.compliance.document_type")}</div>
-            <div>{types.find((x) => x.id === viewerDoc.document_type)?.label || viewerDoc.document_type}</div>
+            <div>{(() => { const m = types.find((x) => x.id === viewerDoc.document_type); return m ? localizedTypeLabel(m.id, m.label, t) : viewerDoc.document_type; })()}</div>
             {viewerDoc.expires_at ? (
               <>
                 <div className="text-muted-foreground">{t("settings.compliance.field_expires")}</div>

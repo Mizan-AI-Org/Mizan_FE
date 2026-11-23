@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { unwrapList } from "@/lib/envelope";
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
@@ -155,7 +156,7 @@ export default function WorkflowBuilderPage() {
     queryFn: async () => {
       const res = await authFetch(`${API_BASE}/core/workflows/`);
       if (!res.ok) throw new Error("Failed to fetch workflows");
-      return res.json();
+      return unwrapList<WorkflowDefinition>(await res.json());
     },
   });
 
