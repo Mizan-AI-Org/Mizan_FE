@@ -74,7 +74,6 @@ export type ModuleKey =
     | "scheduling"
     | "hr"
     | "checklists"
-    | "accountability"
     | "incidents"
     | "sales"
     | "reservations"
@@ -886,6 +885,13 @@ export interface DashboardMeetingsRemindersResponse {
     /** ISO timestamp of last Google pull (when connected). */
     last_sync_at?: string | null;
     sync_mode?: string | null;
+    /** User's token includes calendar.events (primary calendar titles). */
+    calendar_full_access?: boolean;
+    /** Server is configured to request full calendar scope on connect. */
+    full_access_available?: boolean;
+    /** Connected but token lacks calendar.events while server expects it. */
+    needs_calendar_reconnect?: boolean;
+    busy_only?: boolean;
 }
 
 /** Row shape served by GET /api/dashboard/clock-ins/. */
@@ -1469,38 +1475,6 @@ export interface ReorderLine {
 export interface ReorderSuggestions {
     itemCount: number;
     groups: { supplierId: string | null; supplierName: string | null; estimatedTotal: number; lines: ReorderLine[] }[];
-}
-
-// ── Accountability (Mizan_BE apps.operations.scorecard) ───────────────────
-
-export interface AccountabilityPerson {
-    staffId: string;
-    name: string;
-    role: string;
-    assigned: number;
-    completed: number;
-    onTime: number;
-    late: number;
-    onTimePct: number | null;
-    open: number;
-    openOverdue: number;
-    nudges: number;
-    nudgesPerTask: number;
-    blocked: number;
-    sentBack: number;
-    escalated: number;
-    medianAckMinutes: number | null;
-    medianCompleteHours: number | null;
-    incidentsResolved: number;
-    incidentResolutionHours: number | null;
-    flags: ("overdue" | "often_late" | "needs_chasing" | "often_blocked")[];
-}
-
-export interface AccountabilityScorecard {
-    days: number;
-    team: { onTimePct: number | null; completed: number; openOverdue: number; unassigned: number; blocked: number;
-            awaitingValidation: number; escalatedOpen: number };
-    people: AccountabilityPerson[];
 }
 
 export interface NeedsAttentionItem {

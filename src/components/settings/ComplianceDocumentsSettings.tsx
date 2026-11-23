@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/select";
 import { SettingsSection } from "@/components/settings/SettingsSection";
 import { api, API_BASE, resolveMediaUrl } from "@/lib/api";
-import i18n from "@/i18n";
 import {
   AttachmentViewerModal,
   type AttachmentViewerState,
@@ -106,7 +105,7 @@ async function postFormData(path: string, formData: FormData): Promise<unknown> 
     body: formData,
   });
   if (!response.ok) {
-    let message = i18n.t("settings.compliance.upload_failed");
+    let message = "Upload failed";
     try {
       const err = await response.json();
       message = err?.error || err?.message || err?.detail || message;
@@ -172,7 +171,6 @@ export default function ComplianceDocumentsSettings({
   const [viewerAttachment, setViewerAttachment] = useState<AttachmentViewerState | null>(
     null,
   );
-  const [viewerDoc, setViewerDoc] = useState<ComplianceDoc | null>(null);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const attachFileRef = useRef<HTMLInputElement>(null);
 
@@ -295,7 +293,7 @@ export default function ComplianceDocumentsSettings({
       toast.success(t("generic.toast.document_attached"));
       await load();
     } catch (err) {
-      toast.error(saveErrorMessage(err, t("settings.compliance.attach_failed")));
+      toast.error(saveErrorMessage(err, "Failed to attach file."));
     } finally {
       setSaving(false);
       setAttachingId(null);
@@ -308,7 +306,7 @@ export default function ComplianceDocumentsSettings({
       toast.success(t("generic.toast.attachment_removed"));
       await load();
     } catch (err) {
-      toast.error(saveErrorMessage(err, t("settings.compliance.remove_failed")));
+      toast.error(saveErrorMessage(err, "Failed to remove file."));
     }
   };
 
@@ -454,11 +452,11 @@ export default function ComplianceDocumentsSettings({
                   {(types.length
                     ? types
                     : [
-                        { id: "INSURANCE", label: t("settings.compliance.type_insurance") },
-                        { id: "HYGIENE", label: t("settings.compliance.type_hygiene") },
-                        { id: "FIRE_EXTINGUISHER", label: t("settings.compliance.type_fire_extinguisher") },
-                        { id: "BUSINESS_REGISTRATION", label: t("settings.compliance.type_business_registration") },
-                        { id: "OTHER", label: t("settings.compliance.type_other") },
+                        { id: "INSURANCE", label: "Insurance" },
+                        { id: "HYGIENE", label: "Hygiene" },
+                        { id: "FIRE_EXTINGUISHER", label: "Fire extinguisher" },
+                        { id: "BUSINESS_REGISTRATION", label: "Business registration" },
+                        { id: "OTHER", label: "Other" },
                       ]
                   ).map((opt) => (
                     <SelectItem key={opt.id} value={opt.id}>
@@ -692,7 +690,7 @@ export default function ComplianceDocumentsSettings({
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                     <Paperclip className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span className="truncate max-w-[250px] font-medium">
-                      {doc.attachment.filename || t("settings.compliance.attached_document")}
+                      {doc.attachment.filename || "Attached document"}
                     </span>
                     {doc.attachment.size ? (
                       <span className="text-slate-400">{formatFileSize(doc.attachment.size)}</span>
@@ -709,7 +707,6 @@ export default function ComplianceDocumentsSettings({
                             toast.error(t("settings.compliance.preview_unavailable"));
                             return;
                           }
-                          setViewerDoc(doc);
                           setViewerAttachment({
                             url,
                             name: doc.attachment?.filename || doc.title,
@@ -718,7 +715,7 @@ export default function ComplianceDocumentsSettings({
                         }}
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        {t("common.view")}
+                        View
                       </Button>
                       {complianceAttachmentUrl(doc) ? (
                         <a
@@ -729,7 +726,7 @@ export default function ComplianceDocumentsSettings({
                         >
                           <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-xs">
                             <Download className="h-3.5 w-3.5" />
-                            {t("common.download")}
+                            Download
                           </Button>
                         </a>
                       ) : null}
@@ -742,14 +739,14 @@ export default function ComplianceDocumentsSettings({
                         disabled={saving}
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
-                        {t("common.replace")}
+                        Replace
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Paperclip className="h-3.5 w-3.5 shrink-0" />
-                    <span>{t("settings.compliance.no_document")}</span>
+                    <span>No document attached</span>
                     <Button
                       type="button"
                       variant="outline"
@@ -759,7 +756,7 @@ export default function ComplianceDocumentsSettings({
                       disabled={saving}
                     >
                       <Upload className="h-3.5 w-3.5" />
-                      {t("settings.compliance.attach_document")}
+                      Attach document
                     </Button>
                   </div>
                 )}
@@ -775,44 +772,9 @@ export default function ComplianceDocumentsSettings({
     <AttachmentViewerModal
       open={!!viewerAttachment}
       onOpenChange={(open) => {
-        if (!open) {
-          setViewerAttachment(null);
-          setViewerDoc(null);
-        }
+        if (!open) setViewerAttachment(null);
       }}
       attachment={viewerAttachment}
-      details={
-        viewerDoc ? (
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-            <div className="text-muted-foreground">{t("settings.compliance.document_type")}</div>
-            <div>{types.find((x) => x.id === viewerDoc.document_type)?.label || viewerDoc.document_type}</div>
-            {viewerDoc.expires_at ? (
-              <>
-                <div className="text-muted-foreground">{t("settings.compliance.field_expires")}</div>
-                <div>{new Date(viewerDoc.expires_at).toLocaleDateString()}</div>
-              </>
-            ) : null}
-            {viewerDoc.attachment?.uploaded_at ? (
-              <>
-                <div className="text-muted-foreground">{t("settings.compliance.uploaded")}</div>
-                <div>{new Date(viewerDoc.attachment.uploaded_at).toLocaleDateString()}</div>
-              </>
-            ) : null}
-            {viewerDoc.attachment?.filename ? (
-              <>
-                <div className="text-muted-foreground">{t("settings.compliance.filename")}</div>
-                <div className="truncate">{viewerDoc.attachment.filename}</div>
-              </>
-            ) : null}
-            {viewerDoc.attachment?.size ? (
-              <>
-                <div className="text-muted-foreground">{t("settings.compliance.size")}</div>
-                <div>{formatFileSize(viewerDoc.attachment.size)}</div>
-              </>
-            ) : null}
-          </div>
-        ) : null
-      }
     />
   );
 

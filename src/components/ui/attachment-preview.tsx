@@ -24,7 +24,6 @@
  * (3 photos + 1 PDF) reads cleanly without bespoke layout glue at the
  * call site.
  */
-import i18n from "@/i18n";
 import { useEffect, useState } from "react";
 import {
   Download,
@@ -49,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { safeUrl } from "@/lib/safeUrl";
-import { BACKEND_URL, resolveMediaUrl } from "@/lib/api";
+import { resolveMediaUrl } from "@/lib/api";
 
 /**
  * Loose attachment shape - every back-end serializer that surfaces a file
@@ -85,7 +84,7 @@ function resolveName(a: AttachmentLike, fallback?: string): string {
     a.original_name?.trim() ||
     a.filename?.trim() ||
     fallback ||
-    i18n.t("attachment.default_name")
+    "Attachment"
   );
 }
 
@@ -181,9 +180,9 @@ function formatSize(bytes?: number | null): string {
 }
 
 function kindLabel(kind: AttachmentKind): string {
-  if (kind === "other") return i18n.t("attachment.kind_file");
-  if (kind === "doc") return i18n.t("attachment.kind_doc");
-  if (kind === "sheet") return i18n.t("attachment.kind_sheet");
+  if (kind === "other") return "FILE";
+  if (kind === "doc") return "DOC";
+  if (kind === "sheet") return "SHEET";
   return kind.toUpperCase();
 }
 
@@ -282,7 +281,7 @@ function ImageLightbox({
           e.stopPropagation();
           onClose();
         }}
-        aria-label={i18n.t("attachment.close_preview")}
+        aria-label="Close preview"
         className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-lg hover:bg-white"
       >
         <X className="h-4 w-4" aria-hidden />
@@ -346,17 +345,17 @@ function FileCard({
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-        aria-label={i18n.t("attachment.open_new_tab_named", { name })}
+        aria-label={`Open ${name} in a new tab`}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-        {i18n.t("attachment.open")}
+        Open
       </a>
       <a
         href={safeUrl(url)}
         download={name}
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        aria-label={i18n.t("attachment.download_named", { name })}
-        title={i18n.t("attachment.download_named", { name })}
+        aria-label={`Download ${name}`}
+        title={`Download ${name}`}
       >
         <Download className="h-3.5 w-3.5" aria-hidden />
       </a>
@@ -403,7 +402,7 @@ export function AttachmentPreview({
         <button
           type="button"
           onClick={() => setLightboxOpen(true)}
-          aria-label={i18n.t("attachment.open_full_size", { name })}
+          aria-label={`Open ${name} in full size`}
           className={cn(
             "group relative block w-full overflow-hidden rounded-lg border border-border bg-muted/40 transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring",
             className,
@@ -545,63 +544,59 @@ export function AttachmentViewerModal({
   open,
   onOpenChange,
   attachment,
-  details,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   attachment: AttachmentViewerState | null;
-  /** Optional metadata shown under the preview (e.g. a compliance document's type, expiry, size). */
-  details?: React.ReactNode;
 }) {
   const [imgError, setImgError] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
   const url = attachment?.url?.trim() || "";
-  const name = attachment?.name?.trim() || i18n.t("attachment.default_name");
+  const resolvedUrl = resolveMediaUrl(url) || url;
+  const name = attachment?.name?.trim() || "Attachment";
   const kind = attachment ? viewerKind(attachment) : "other";
 
   useEffect(() => {
     if (open) setImgError(false);
   }, [open, url]);
 
-  // PDFs are fetched as a blob and shown from a blob: URL. The API host sends frame-blocking headers
-  // (X-Frame-Options) so framing the media URL directly renders blank (signed contract PDFs).
-  // If the fetch fails (CORS, expired link) we fall back to framing the URL, as before.
   useEffect(() => {
-    if (!open || kind !== "pdf" || !url) {
+    if (!open || kind !== "pdf" || !resolvedUrl) {
       setPdfBlobUrl(null);
+      setPdfLoadError(false);
       setPdfLoading(false);
       return;
     }
     let objectUrl: string | null = null;
     let cancelled = false;
     setPdfLoading(true);
+    setPdfLoadError(false);
+
     void (async () => {
       try {
-        const target = resolveMediaUrl(url) || url;
-        const headers: Record<string, string> = {};
-        // The access token only ever goes to our own API host, never to a third-party (e.g. S3) link.
-        const ours = !/^https?:\/\//i.test(target) || (!!BACKEND_URL && target.startsWith(BACKEND_URL));
-        const token = ours && typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
-        if (token) headers.Authorization = `Bearer ${token}`;
-        const response = await fetch(target, { headers });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const response = await fetch(resolvedUrl, { credentials: "include" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
         const blob = await response.blob();
         if (cancelled) return;
-        objectUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+        objectUrl = URL.createObjectURL(blob);
         setPdfBlobUrl(objectUrl);
       } catch {
-        if (!cancelled) setPdfBlobUrl(null);
+        if (!cancelled) setPdfLoadError(true);
       } finally {
         if (!cancelled) setPdfLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setPdfBlobUrl(null);
     };
-  }, [open, kind, url]);
+  }, [open, kind, resolvedUrl]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -617,13 +612,13 @@ export function AttachmentViewerModal({
         </DialogHeader>
         <div className="max-h-[calc(92vh-8rem)] overflow-auto bg-muted/20 px-5 py-4">
           {!url ? (
-            <p className="text-sm text-muted-foreground">{i18n.t("attachment.no_file")}</p>
+            <p className="text-sm text-muted-foreground">No file to preview.</p>
           ) : kind === "image" ? (
             imgError ? (
-              <p className="text-sm text-muted-foreground">{i18n.t("attachment.preview_unavailable")}</p>
+              <p className="text-sm text-muted-foreground">Preview unavailable.</p>
             ) : (
               <img
-                src={safeUrl(url)}
+                src={safeUrl(resolvedUrl)}
                 alt={name}
                 onError={() => setImgError(true)}
                 className="mx-auto max-h-[70vh] w-full object-contain"
@@ -631,11 +626,15 @@ export function AttachmentViewerModal({
             )
           ) : kind === "pdf" ? (
             pdfLoading ? (
-              <p className="text-sm text-muted-foreground">{i18n.t("attachment.loading")}</p>
+              <p className="text-sm text-muted-foreground">Loading preview…</p>
+            ) : pdfLoadError || !pdfBlobUrl ? (
+              <p className="text-sm text-muted-foreground">
+                Preview unavailable. Try Download or Open in new tab.
+              </p>
             ) : (
               <iframe
                 title={name}
-                src={pdfBlobUrl ?? safeUrl(url)}
+                src={pdfBlobUrl}
                 className="h-[70vh] w-full rounded-md border border-border bg-background"
               />
             )
@@ -643,7 +642,7 @@ export function AttachmentViewerModal({
             <video
               controls
               preload="metadata"
-              src={safeUrl(url)}
+              src={safeUrl(resolvedUrl)}
               className="mx-auto max-h-[70vh] w-full rounded-md bg-black"
             >
               <track kind="captions" />
@@ -651,30 +650,29 @@ export function AttachmentViewerModal({
           ) : kind === "audio" ? (
             <div className="rounded-lg border border-border bg-background p-4">
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <audio controls preload="metadata" src={safeUrl(url)} className="w-full" />
+              <audio controls preload="metadata" src={safeUrl(resolvedUrl)} className="w-full" />
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4 py-8 text-center">
               <IconForKind kind={kind} className="h-12 w-12 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                {i18n.t("attachment.preview_not_supported")}
+                Preview is not available for this file type.
               </p>
             </div>
           )}
         </div>
-        {details ? <div className="border-t border-border px-5 py-3 text-sm">{details}</div> : null}
         {url ? (
           <DialogFooter className="border-t border-border px-5 py-3 sm:justify-between">
             <Button type="button" variant="outline" size="sm" asChild>
-              <a href={safeUrl(url)} download={name}>
+              <a href={safeUrl(resolvedUrl)} download={name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                {i18n.t("common.download")}
+                Download
               </a>
             </Button>
             <Button type="button" variant="secondary" size="sm" asChild>
-              <a href={safeUrl(url)} target="_blank" rel="noopener noreferrer">
+              <a href={safeUrl(resolvedUrl)} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                {i18n.t("attachment.open_new_tab")}
+                Open in new tab
               </a>
             </Button>
           </DialogFooter>
@@ -701,7 +699,7 @@ export function AttachmentList({
     if (emptyMessage === null) return null;
     return (
       <p className={cn("text-sm text-muted-foreground", className)}>
-        {emptyMessage ?? i18n.t("attachment.none")}
+        {emptyMessage ?? "No attachments"}
       </p>
     );
   }

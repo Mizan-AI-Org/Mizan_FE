@@ -9,7 +9,6 @@ import {
   FolderHeart,
   MapPin,
   Package,
-  ShieldCheck,
   ShoppingCart,
   Users,
   Wallet,
@@ -67,7 +66,6 @@ export const MODULES: ModuleMeta[] = [
       "/dashboard/reviews/checklists",
     ],
   },
-  { key: "accountability", icon: ShieldCheck, bundle: "execution", routes: ["/dashboard/operations/accountability"] },
   {
     key: "incidents",
     icon: AlertTriangle,
@@ -113,7 +111,7 @@ export const CORE_MODULES: ModuleKey[] = MODULES.filter((m) => m.core).map((m) =
 export const ALL_MODULES: ModuleKey[] = MODULES.map((m) => m.key);
 
 /** Offline fallback for the signup picker; the backend catalog is the source of truth. */
-const EXECUTION: ModuleKey[] = ["checklists", "accountability", "incidents"];
+const EXECUTION: ModuleKey[] = ["checklists", "incidents"];
 const WORKFORCE: ModuleKey[] = ["geo_clock", "attendance", "scheduling", "hr"];
 const OPTIONAL_BY_SECTOR: Record<string, ModuleKey[]> = {
   RESTAURANT: MODULES.filter((m) => !m.core).map((m) => m.key),

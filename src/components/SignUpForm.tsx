@@ -5,12 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowRight, Loader2, User, Mail, Lock, Building2, MessageCircle } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { DIAL_COUNTRIES, LEGAL_VERSION, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
 import { useLanguage } from "@/hooks/use-language";
 import type { SignupData } from "@/lib/types";
-import { normalizeAppLanguage } from "@/lib/userLanguage";
 import { authFieldClass } from "./AuthAmbientBackground";
 
 interface SignUpFormProps {
@@ -25,9 +22,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const { toast } = useToast();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const auth = useAuth();
-  const [country, setCountry] = useState("MA");
 
   const handleOwnerSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,33 +40,27 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
     }
     const fullName = (formData.get("fullName") as string).trim();
     const email = (formData.get("email") as string).trim();
-    const dial = DIAL_COUNTRIES.find((c) => c.code === country)?.dial || "212";
-    const whatsappPhone = composeWhatsAppNumber(formData.get("whatsappPhone") as string, dial);
-    if (!isPlausibleWhatsApp(whatsappPhone)) {
+    const whatsappPhone = (formData.get("whatsappPhone") as string).trim();
+    const waDigits = whatsappPhone.replace(/\D/g, "");
+    if (!waDigits || waDigits.length < 8) {
       setError(t("auth.signup.errors.whatsapp_invalid"));
       return;
     }
-    const nameParts = fullName.trim().split(/\s+/);
+    const nameParts = fullName.split(" ");
     const signupData: SignupData = {
-      // The language on the signup page is the owner's (and the business's) from the first screen on.
-      language: normalizeAppLanguage(language) ?? "en",
       user: {
         email,
         password,
         first_name: nameParts[0],
-        last_name: nameParts.slice(1).join(" "),
+        last_name: nameParts.slice(1).join(" ") || "User",
         whatsapp_phone: whatsappPhone,
         phone: whatsappPhone,
-        language,
-        accept_terms: true,
-        terms_version: LEGAL_VERSION,
       },
       restaurant: {
         name: (formData.get("businessName") as string).trim(),
         address: "",
         phone: "",
         email,
-        country,
       },
     };
 
@@ -90,14 +80,14 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
 
   return (
     <div className="w-full space-y-4">
-      {error && (
+      {error ? (
         <Alert
           variant="destructive"
           className="rounded-lg border-red-500/30 bg-red-500/10"
         >
           <AlertDescription className="text-red-200">{error}</AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
       <h2 className="text-xl font-bold text-white">{t("auth.signup.title")}</h2>
 
@@ -162,37 +152,19 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 WA
               </span>
             </div>
-            <div className="flex gap-2">
-              <select
-                aria-label={t("auth.signup.whatsapp_country")}
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className={`h-10 shrink-0 rounded-md px-2 text-sm ${authFieldClass}`}
-              >
-                {DIAL_COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code} className="bg-[#0A0D10] text-white">
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <div className="group relative min-w-0 flex-1">
-                <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
-                <Input
-                  id="signup-whatsapp"
-                  name="whatsappPhone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder={t("auth.signup.whatsapp_placeholder")}
-                  required
-                  aria-describedby="signup-whatsapp-hint"
-                  className={`h-10 pl-9 text-sm ${authFieldClass}`}
-                />
-              </div>
+            <div className="group relative">
+              <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
+              <Input
+                id="signup-whatsapp"
+                name="whatsappPhone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder={t("auth.signup.whatsapp_placeholder")}
+                required
+                className={`h-10 pl-9 text-sm ${authFieldClass}`}
+              />
             </div>
-            <p id="signup-whatsapp-hint" className="text-[10px] leading-snug text-[#78909C]">
-              {t("auth.signup.whatsapp_hint")}
-            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -240,13 +212,13 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
           />
           <label htmlFor="terms" className="cursor-pointer text-[11px] leading-relaxed text-[#B0BEC5]">
             {t("auth.signup.terms")}{" "}
-            <Link to="/legal/terms" target="_blank" rel="noopener" className="text-[#00E676] transition-colors hover:text-[#00F77B]">
+            <a href="#" className="text-[#00E676] transition-colors hover:text-[#00F77B]">
               {t("auth.signup.terms_link")}
-            </Link>{" "}
+            </a>{" "}
             {t("auth.signup.and")}{" "}
-            <Link to="/legal/privacy" target="_blank" rel="noopener" className="text-[#00E676] transition-colors hover:text-[#00F77B]">
+            <a href="#" className="text-[#00E676] transition-colors hover:text-[#00F77B]">
               {t("auth.signup.privacy_link")}
-            </Link>
+            </a>
           </label>
         </div>
 

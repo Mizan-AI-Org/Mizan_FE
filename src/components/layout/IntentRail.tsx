@@ -156,7 +156,8 @@ function leafMatches(pathname: string, search: string, leaf: NavLeaf) {
   const current = new URLSearchParams(search);
   const [routePart, queryPart] = leaf.href.split("#")[0].split("?");
   if (!queryPart) {
-    if (!pathMatches(pathname, routePart, leaf.exact)) return false;
+    const pathOk = pathMatches(pathname, routePart, leaf.exact);
+    if (!pathOk) return false;
     if (leaf.exact && leaf.exactInactiveIfSearchHas?.length) {
       const suppressed = leaf.exactInactiveIfSearchHas.some((key) => {
         const val = current.get(key);
@@ -167,7 +168,6 @@ function leafMatches(pathname: string, search: string, leaf: NavLeaf) {
     return true;
   }
   if (pathname !== routePart) return false;
-
   const target = new URLSearchParams(queryPart);
   let sawAny = false;
   for (const [key, value] of target.entries()) {
@@ -196,11 +196,11 @@ function navItemClass(active: boolean, collapsed: boolean) {
     collapsed && "justify-center px-0",
     active
       ? [
-          "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
-          "[&>svg:first-of-type]:text-primary",
-          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-6 before:w-[3px]",
-          "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
-        ]
+        "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
+        "[&>svg:first-of-type]:text-primary",
+        "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-6 before:w-[3px]",
+        "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
+      ]
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
   );
 }
@@ -210,10 +210,10 @@ function navChildItemClass(active: boolean) {
     "relative flex min-h-10 w-full items-center gap-2 rounded-md px-2.5 py-2 text-start text-body transition-all duration-os",
     active
       ? [
-          "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
-          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-5 before:w-[3px]",
-          "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
-        ]
+        "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
+        "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-5 before:w-[3px]",
+        "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
+      ]
       : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
   );
 }
@@ -262,7 +262,7 @@ export function IntentRail({ className }: { className?: string }) {
       (g) => g.children?.length && groupOwnsPath(g, location.pathname, location.search),
     );
     if (!owning) return;
-    setOpenGroups((state) => (state[owning.id] ? state : { [owning.id]: true }));
+    setOpenGroups({ [owning.id]: true });
   }, [location.pathname, location.search]);
 
   const toggleGroup = (group: NavGroup, expanded: boolean) => {
@@ -490,7 +490,7 @@ export function MobileIntentDock() {
       { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.employees", href: "/dashboard/employees", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.sales", href: "/dashboard/products/sales", icon: IconProducts, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.operations", href: "/dashboard/operations/live", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.operations", href: "/dashboard/operations", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));
   }, [hasRole]);

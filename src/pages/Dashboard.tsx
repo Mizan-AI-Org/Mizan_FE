@@ -1,4 +1,3 @@
-import React from "react";
 import { CommandCentreView } from "@/components/command/CommandCentreView";
 import FirstRunChecklist from "@/components/command/FirstRunChecklist";
 

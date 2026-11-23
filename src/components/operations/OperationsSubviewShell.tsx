@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Shared card shell for the sub-views of the Operations page (Compliance, Accountability, Progress). */
+/** Shared card shell for Compliance & Staff Requests on Live Operations. */
 export function OperationsSubviewShell({
   children,
   className,
