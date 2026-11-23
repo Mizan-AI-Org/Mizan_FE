@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AssignmentTrail, type AssignmentTrailEntry, type TrailPerson } from "@/components/staff/AssignmentTrail";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { API_BASE, parseStaffRequestListResponse, unwrapApiPayload } from "@/lib/api";
@@ -23,6 +22,7 @@ import {
   Plus,
   AlertCircle,
   Clock,
+  ChevronLeft,
   ChevronRight,
   Wrench,
   BookOpen,
@@ -50,15 +50,20 @@ import { HUB_TABS_LIST, HUB_TABS_TRIGGER_GRID, MIZAN_TOOLBAR } from "@/lib/mizan
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { AttachmentList } from "@/components/ui/attachment-preview";
 import { api, BACKEND_URL } from "@/lib/api";
+import { publishUiContext } from "@/lib/uiContext";
 import type { DashboardTaskDemandItem, Invoice } from "@/lib/types";
 import { toast } from "sonner";
 import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTaskDetailContent";
+import { AssigneeTrail } from "@/components/dashboard/AssigneeTrail";
+import type { AssigneeTrailStep, TrailPerson } from "@/lib/types";
 import {
   dashboardTaskStatusBadge,
   dashboardTaskStatusLabel,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 
-type StaffRequestStatus = "ALL" | "PENDING" | "IN_PROGRESS" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
+type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON" | "ALL";
+
+const INBOX_PAGE_SIZE = 50;
 
 type StaffRequestComment = {
   id: string;
@@ -93,9 +98,8 @@ type StaffRequest = {
   comments?: StaffRequestComment[];
   assignee?: string | null;
   assignee_summary?: AssigneeSummary | null;
-  /** The person who made the request (its source) and everyone it was assigned to, oldest first. */
   created_by?: TrailPerson | null;
-  assignee_trail?: AssignmentTrailEntry[] | null;
+  assignee_trail?: AssigneeTrailStep[];
   assignee_details?: { id: string; first_name?: string; last_name?: string; email?: string; role?: string } | null;
   voice_audio_url?: string;
   transcription?: string;
@@ -105,8 +109,6 @@ type StaffRequest = {
 };
 
 const STATUSES: { key: StaffRequestStatus; labelKey: string }[] = [
-  // Everything, whatever its status: nothing can hide between the tabs.
-  { key: "ALL", labelKey: "staff.requests.status_all" },
   { key: "PENDING", labelKey: "staff.requests.status_pending" },
   // APPROVED in the inbox means "manager acknowledged - being worked on",
   // which the dashboard widgets surface as "In progress".
@@ -120,6 +122,7 @@ const STATUSES: { key: StaffRequestStatus; labelKey: string }[] = [
   { key: "REJECTED", labelKey: "staff.requests.status_rejected" },
   { key: "ESCALATED", labelKey: "staff.requests.status_escalated" },
   { key: "CLOSED", labelKey: "staff.requests.status_closed" },
+  { key: "ALL", labelKey: "staff.requests.status_all" },
 ];
 
 function getLaneIcon(lane: Pick<StaffInboxLane, "icon" | "categories">) {
@@ -161,7 +164,7 @@ function priorityBadge(priority?: string) {
 function statusBadge(status?: string) {
   const s = String(status || "").toUpperCase();
   if (s === "PENDING") return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
-  if (s === "APPROVED" || s === "IN_PROGRESS") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
+  if (s === "APPROVED") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
   if (s === "REJECTED") return "bg-rose-50 text-rose-700 border-rose-200 ring-1 ring-rose-200";
   if (s === "ESCALATED") return "bg-violet-50 text-violet-700 border-violet-200 ring-1 ring-violet-200";
   if (s === "WAITING_ON") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
@@ -171,12 +174,12 @@ function statusBadge(status?: string) {
 /** i18n key aligned with dashboard widget pill vocabulary. */
 function staffRequestStatusLabelKey(status?: string): string {
   const s = String(status || "").toUpperCase();
-  if (s === "ALL") return "staff.requests.status_all";
-  if (s === "APPROVED" || s === "IN_PROGRESS") return "staff.requests.status_in_progress";
+  if (s === "APPROVED") return "staff.requests.status_in_progress";
   if (s === "WAITING_ON") return "staff.requests.status_waiting_on";
   if (s === "ESCALATED") return "staff.requests.status_escalated";
   if (s === "REJECTED") return "staff.requests.status_rejected";
   if (s === "CLOSED") return "staff.requests.status_closed";
+  if (s === "ALL") return "staff.requests.status_all";
   return "staff.requests.status_pending";
 }
 
@@ -745,7 +748,7 @@ function DashboardTaskDetailPanel({
   widgetTitle,
 }: {
   task: DashboardTaskDemandItem;
-  onStatusChange: (status: DashboardTaskDemandItem["status"]) => void;
+  onStatusChange: (status: DashboardTaskDemandItem["status"] | "GOT_IT" | "NEED_HELP") => void;
   onAssigneeChange?: (assigneeId: string | null) => void;
   isUpdating: boolean;
   isAssigneeUpdating?: boolean;
@@ -765,6 +768,7 @@ function DashboardTaskDetailPanel({
   );
 }
 
+/** Embedded inside Live operations (?view=requests) the list/detail URLs stay on that page. */
 function staffRequestsNavigate(
   embedded: boolean,
   navigate: ReturnType<typeof useNavigate>,
@@ -867,7 +871,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
   }, [params.id, searchParams, navigate]);
 
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>(initialStatusFromUrl);
-  const [pageSize, setPageSize] = useState(50);
+  const [inboxPage, setInboxPage] = useState(1);
   /** null = All Requests; otherwise a dashboard widget lane id (e.g. team_medical_service). */
   const [activeLaneId, setActiveLaneId] = useState<string | null>(null);
   const [detailKind, setDetailKind] = useState<DetailKind>(initialDetailKind);
@@ -876,6 +880,18 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
   const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Tell Miya which status tab, lane and filters of the inbox are on screen.
+  useEffect(() => {
+    const filters: Record<string, string> = {};
+    if (debouncedSearch) filters.q = debouncedSearch;
+    if (activePriority) filters.priority = activePriority;
+    publishUiContext({
+      tab: String(activeStatus),
+      category: activeLaneId || undefined,
+      view: "staff-requests",
+      filters: Object.keys(filters).length ? filters : undefined,
+    });
+  }, [activeStatus, activeLaneId, debouncedSearch, activePriority]);
   const deepLinkAppliedRef = useRef(false);
   const initialDeepLinkRef = useRef<StaffRequestsDeepLink>(
     captureStaffRequestsDeepLink(searchParams),
@@ -887,6 +903,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
   );
 
   const filterCategories = activeLane?.categories ?? [];
+  const filterCategoriesKey = filterCategories.join(",");
   const isInvoiceDetail = detailKind === "invoice";
   const isDashboardDetail = detailKind === "dashboard" || detailKind === "scheduling";
 
@@ -962,9 +979,9 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
       activePriority,
       debouncedSearch,
       assignedToMe,
-      pageSize,
+      inboxPage,
     ],
-    queryFn: async (): Promise<StaffRequest[]> => {
+    queryFn: async (): Promise<{ rows: StaffRequest[]; totalPages: number }> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
       if (filterCategories.length > 0) {
@@ -974,21 +991,19 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
       if (debouncedSearch) qs.set("search", debouncedSearch);
       if (assignedToMe) qs.set("assigned_to_me", "1");
       if (activeLaneId) qs.set("lane", activeLaneId);
-      // Inbox list pulls a lean payload from the backend (no comments,
-      // no nested staff profile); we can show 50 per page comfortably.
-      qs.set("page_size", String(pageSize));
-      if (activePriority) qs.set("priority", activePriority);
+      qs.set("limit", String(INBOX_PAGE_SIZE));
+      qs.set("page", String(inboxPage));
       const data = await apiGet<unknown>(`/staff/requests/?${qs.toString()}`);
       const rows = parseStaffRequestListResponse<StaffRequest>(data);
-      // The backend doesn't currently filter by priority server-side,
-      // so we re-filter here to honour the deep-link from the dashboard
-      // Urgent widget. Cheap because the inbox page caps at 50 rows.
+      const totalPages = Math.max(1, Number((data as { total_pages?: number } | null)?.total_pages) || 1);
+      // Priority is not filtered server-side; re-filter here for the dashboard's Urgent widget deep-link.
       if (activePriority) {
-        return rows.filter(
-          (r) => String(r.priority || "").toUpperCase() === activePriority,
-        );
+        return {
+          rows: rows.filter((r) => String(r.priority || "").toUpperCase() === activePriority),
+          totalPages,
+        };
       }
-      return rows;
+      return { rows, totalPages };
     },
     // Keep the previous results visible while revalidating so switching tabs /
     // typing in search doesn't flash "Loading…".
@@ -1028,11 +1043,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
         params.set("category", lane.categories.join(","));
         if (assignedToMe) params.set("assigned_to_me", "1");
         const data = await apiGet<any>(`/staff/requests/counts/?${params.toString()}`);
-        const counts: Record<string, number> = data?.counts || {};
-        const n: number =
-          activeStatus === "ALL"
-            ? Object.values(counts).reduce((sum, v) => sum + (Number(v) || 0), 0)
-            : counts[activeStatus] || 0;
+        const n: number = data?.counts?.[activeStatus] || 0;
         return [lane.lane_id, n] as const;
       });
       const settled = await Promise.all(tasks);
@@ -1116,7 +1127,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
   ]);
 
   const dashboardStatusMutation = useMutation({
-    mutationFn: (nextStatus: DashboardTaskDemandItem["status"]) => {
+    mutationFn: (nextStatus: DashboardTaskDemandItem["status"] | "GOT_IT" | "NEED_HELP") => {
       if (!selectedId) throw new Error("No task selected");
       return api.updateDashboardTaskStatus(selectedId, nextStatus);
     },
@@ -1149,7 +1160,11 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
     },
   });
 
-  const requests = useMemo(() => (Array.isArray(listQuery.data) ? listQuery.data : []), [listQuery.data]);
+  const requests = useMemo(() => listQuery.data?.rows ?? [], [listQuery.data]);
+  useEffect(() => {
+    setInboxPage(1);
+  }, [activeStatus, activeLaneId, filterCategoriesKey, activePriority, debouncedSearch, assignedToMe]);
+  const inboxTotalPages = listQuery.data?.totalPages ?? 1;
   const selected = selectedQuery.data || null;
 
   // Align the status tab with the open request when it loads or its status
@@ -1262,17 +1277,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
     const params = new URLSearchParams();
     if (activeLaneId) params.set("lane", activeLaneId);
     params.set("status", activeStatus);
-    const qs = params.toString();
-    const p = new URLSearchParams(qs);
-    if (embedded) {
-      p.set("view", "requests");
-      p.set("request", id);
-    }
-    if (embedded) {
-      staffRequestsDetailNavigate(true, navigate, id, p);
-    } else {
-      navigate(`/dashboard/staff-requests/${id}?${qs}`);
-    }
+    staffRequestsDetailNavigate(embedded, navigate, id, params);
   };
 
   const onStatusTabChange = (next: StaffRequestStatus) => {
@@ -1280,17 +1285,11 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
     // Leaving a status bucket clears the open detail so the list and
     // detail never show mismatched filters (e.g. Pending list + In progress pane).
     if (selected && selected.status !== next) {
-      const p = new URLSearchParams();
-      if (activeLaneId) p.set("lane", activeLaneId);
-      p.set("status", next);
-      if (embedded) {
-        p.set("view", "requests");
-        p.delete("request");
-        staffRequestsNavigate(true, navigate, p);
-      } else {
-        const qs = p.toString();
-        navigate(`/dashboard/staff-requests?${qs}`);
-      }
+      const params = new URLSearchParams();
+      if (activeLaneId) params.set("lane", activeLaneId);
+      params.set("status", next);
+      if (embedded) params.delete("request");
+      staffRequestsNavigate(embedded, navigate, params);
     }
   };
 
@@ -1375,7 +1374,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
   const openFinanceCategoryRow = (row: DashboardTaskDemandItem) => {
     const kind = row.kind || "dashboard";
     if (kind === "invoice") {
-      navigate(`/dashboard/staff-requests/${row.id}?kind=invoice`);
+      staffRequestsDetailNavigate(embedded, navigate, row.id, new URLSearchParams({ kind: "invoice" }));
       return;
     }
     if (kind === "staff_request") {
@@ -1535,7 +1534,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                   <button
                     key={inv.id}
                     type="button"
-                    onClick={() => navigate(`/dashboard/staff-requests/${inv.id}?kind=invoice`)}
+                    onClick={() => staffRequestsDetailNavigate(embedded, navigate, inv.id, new URLSearchParams({ kind: "invoice" }))}
                     className="w-full text-left rounded-xl border p-4 transition-all hover:border-primary/40 hover:bg-muted/30"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -1584,20 +1583,9 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
     <>
       <Tabs value={activeStatus} onValueChange={(v) => onStatusTabChange(v as StaffRequestStatus)}>
         <div className={cn(MIZAN_TOOLBAR, operationsChrome && "gap-3 rounded-xl border border-border/60 bg-muted/20 p-3")}>
-          <TabsList
-            className={cn(
-              HUB_TABS_LIST,
-              operationsChrome
-                ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-7"
-                : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-7",
-            )}
-          >
+          <TabsList className={cn(HUB_TABS_LIST, "grid-cols-2 sm:grid-cols-4 lg:grid-cols-7")}>
             {STATUSES.map((s) => {
-              const countsMap: Record<string, number> | undefined = countsQuery.data?.counts;
-              const count =
-                s.key === "ALL" && countsMap
-                  ? Object.values(countsMap).reduce((sum, v) => sum + (Number(v) || 0), 0)
-                  : countsMap?.[s.key];
+              const count = countsQuery.data?.counts?.[s.key];
               return (
                 <TabsTrigger key={s.key} value={s.key} className={cn(HUB_TABS_TRIGGER_GRID, "gap-1.5 text-xs sm:text-sm")}>
                   <span>{t(s.labelKey)}</span>
@@ -1628,6 +1616,8 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                 {t("staff.requests.clear")}
               </Button>
             ) : null}
+            {/* Operations chrome hides the page header, so "Assigned to me" lives in the toolbar. */}
+            {embedded && operationsChrome ? assignedToMeButton : null}
           </div>
 
           <div className="border-t border-border/50 pt-4">
@@ -1895,10 +1885,24 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                     </div>
                   )}
                 </ScrollArea>
-                {requests.length >= pageSize ? (
-                  <div className="shrink-0 border-t border-border/50 p-2 text-center">
-                    <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setPageSize((n) => n + 50)}>
-                      {t("staff.requests.show_more")}
+                {inboxTotalPages > 1 ? (
+                  <div className="flex items-center justify-between gap-2 border-t border-border/50 px-4 py-2 text-xs text-muted-foreground">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={inboxPage <= 1}
+                      onClick={() => setInboxPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                    </Button>
+                    <span>{t("staff.requests.page_of", { page: inboxPage, total: inboxTotalPages })}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={inboxPage >= inboxTotalPages}
+                      onClick={() => setInboxPage((p) => Math.min(inboxTotalPages, p + 1))}
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
                     </Button>
                   </div>
                 ) : null}
@@ -2091,12 +2095,6 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                               {t("staff.requests.unassigned_hint")}
                             </div>
                           )}
-                          <AssignmentTrail
-                            className="mt-2"
-                            createdBy={selected.created_by}
-                            trail={selected.assignee_trail}
-                            sourceLabel={selected.staff_display_name || selected.staff_name}
-                          />
                         </div>
                         <Button
                           variant="outline"
@@ -2109,6 +2107,8 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                           {t("staff.requests.reassign")}
                         </Button>
                       </div>
+
+                      <AssigneeTrail createdBy={selected.created_by} trail={selected.assignee_trail} />
 
                       <div>
                         <div className="flex items-center gap-3 mb-3">
@@ -2330,11 +2330,9 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <h2 className="text-lg font-semibold tracking-tight">{pageTitle}</h2>
-              {pageSubtitle ? (
-                <p className="text-sm text-muted-foreground">{pageSubtitle}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t("staff.requests.default_subtitle")}</p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                {pageSubtitle || t("staff.requests.default_subtitle")}
+              </p>
             </div>
             {assignedToMeButton}
           </div>

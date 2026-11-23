@@ -291,9 +291,7 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
                       <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                         {[r.phone, r.email].filter(Boolean).join(" · ") || "-"}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {"table" in r && r.table ? String(r.table) : "-"}
-                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{r.table || "-"}</TableCell>
                       <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
                         {r.notes || "-"}
                       </TableCell>

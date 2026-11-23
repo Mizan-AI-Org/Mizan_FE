@@ -184,13 +184,13 @@ export function resolveCommandReviewRoute(signal: CommandSignal): string {
     return "/dashboard/suppliers/procurement?tab=needs";
   }
   if (category === "compliance") {
-    return "/dashboard/operations/live?view=compliance";
+    return COMMAND_ROUTES.compliance;
   }
   if (category === "tasks" || category === "workload") {
     const id = String(signal.id || "").trim();
     return id
-      ? `/dashboard/operations?task=${encodeURIComponent(id)}`
-      : "/dashboard/operations";
+      ? `${COMMAND_ROUTES.operations}?task=${encodeURIComponent(id)}`
+      : COMMAND_ROUTES.operations;
   }
   if (category === "finance" || signal.kind === "invoice") {
     return "/dashboard/operations/approvals";
@@ -198,7 +198,7 @@ export function resolveCommandReviewRoute(signal: CommandSignal): string {
   if (category === "attendance") {
     return "/dashboard/employees/attendance";
   }
-  return "/dashboard/operations";
+  return COMMAND_ROUTES.operations;
 }
 
 export function signalsForFilter(

@@ -21,6 +21,6 @@ describe("command tiles", () => {
   it("falls back to the default three tiles for an empty or unknown choice", () => {
     expect(sanitizeSelection(undefined)).toEqual(["operations", "performance", "incidents"]);
     expect(sanitizeSelection(["nope"])).toEqual(["operations", "performance", "incidents"]);
-    expect(sanitizeSelection(["orders", "nope"])).toEqual(["orders"]);
+    expect(sanitizeSelection(["performance", "nope"])).toEqual(["performance"]);
   });
 });

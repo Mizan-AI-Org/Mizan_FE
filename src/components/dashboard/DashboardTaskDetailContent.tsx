@@ -11,7 +11,6 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { TaskAssigneePicker } from "@/components/dashboard/TaskAssigneePicker";
-import { AssignmentTrail } from "@/components/staff/AssignmentTrail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -290,12 +289,6 @@ export function DashboardTaskDetailContent({
                 </p>
               )}
             </div>
-            <AssignmentTrail
-              className="mt-2"
-              createdBy={task.created_by}
-              trail={task.assignee_trail}
-              sourceLabel={task.source_label || undefined}
-            />
             {task.group_mode === "all" && task.assignees?.length ? (
               <div className="mt-1.5 text-[11px] text-muted-foreground">
                 <div>
@@ -434,9 +427,6 @@ export function DashboardTaskDetailContent({
       <div className="shrink-0 space-y-2 border-t border-border/60 pt-4">
         {task.kind === "invoice" || !onStatusChange ? null : (
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" disabled={isUpdating || isSaving} onClick={() => onStatusChange("GOT_IT")}>Got it</Button>
-          <Button variant="outline" disabled={isUpdating || isSaving} onClick={() => onStatusChange("NEED_HELP")}>Need help</Button>
-          <Button disabled={isUpdating || isSaving} onClick={() => onStatusChange("COMPLETED")}>Done</Button>
           {primaryAction ? (
             <Button
               className="flex-1 sm:flex-none gap-1.5"

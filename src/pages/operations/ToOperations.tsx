@@ -46,7 +46,8 @@ export function StaffRequestToOperations() {
   const location = useLocation();
   const current = new URLSearchParams(location.search);
   current.set("view", "requests");
-  current.delete("category");
+  // Only the old "staff_requests" bucket goes; lane/category deep links (?category=HR) still pick their lane.
+  if ((current.get("category") || "").startsWith("staff_request")) current.delete("category");
   if (id) current.set("request", id);
   return <Navigate to={{ pathname: "/dashboard/operations/live", search: current.toString() }} replace />;
 }

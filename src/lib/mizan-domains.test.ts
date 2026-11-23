@@ -33,8 +33,8 @@ describe("operations nav (Cursor's design)", () => {
 });
 
 describe("command centre tiles", () => {
-  it("offers Cursor's six tiles", () => {
-    expect(COMMAND_TILES.map((t) => t.id)).toEqual(["operations", "performance", "calendar", "orders", "incidents", "attendance"]);
+  it("offers Cursor's three tiles (calendar, orders and attendance retired)", () => {
+    expect(COMMAND_TILES.map((t) => t.id)).toEqual(["operations", "performance", "incidents"]);
   });
 
   it("defaults to operations, performance, incidents; empty or invalid choices fall back to it", () => {
@@ -43,7 +43,7 @@ describe("command centre tiles", () => {
     expect(sanitizeSelection([])).toEqual(DEFAULT_TILE_IDS);
     expect(sanitizeSelection(["accountability", "progress"])).toEqual(DEFAULT_TILE_IDS);
     expect(sanitizeSelection("nope")).toEqual(DEFAULT_TILE_IDS);
-    expect(sanitizeSelection(["orders", "bogus"])).toEqual(["orders"]);
+    expect(sanitizeSelection(["incidents", "bogus"])).toEqual(["incidents"]);
   });
 
   it("routes to Live Operations", () => {

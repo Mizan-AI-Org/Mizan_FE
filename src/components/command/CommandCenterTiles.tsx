@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 
 type TileDef = { id: string; href: string; moduleId?: ModuleKey; count?: "active_work" | "open_incidents" };
 
+/** Cursor's shortcuts (Nov 22: Google Calendar, Orders and Attendance retired). Nothing Accountability- or Progress-like belongs here. */
+
 /** Shortcut tiles. Routes live in COMMAND_ROUTES; billable modules hide their tile when switched off. */
 export const COMMAND_TILES: TileDef[] = [
   { id: "operations", href: COMMAND_ROUTES.operations, count: "active_work" },
@@ -98,7 +100,7 @@ export function CommandCenterTiles({
           </button>
         ))}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {shown.map((tile) => {
           const n = tile.count ? counts[tile.count] : undefined;
           return (

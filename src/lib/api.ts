@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { shrinkPhoto } from "@/lib/image";
+import type { User as AuthUser } from "@/contexts/AuthContext.types";
 import {
   User,
+  AccountabilityScorecard,
+  NeedsAttentionItem,
   InventorySummary,
   StockCountReport,
   ReorderSuggestions,
@@ -67,7 +70,6 @@ import {
   ApprovalsListResponse,
   ApprovalRule,
   ApprovalRulesResponse,
-  NeedsAttentionItem,
 } from "./types"; // Updated import path
 import { unwrapEnvelope } from "./envelope";
 
@@ -121,28 +123,10 @@ const explicitBackend = import.meta.env.VITE_BACKEND_URL;
 export const BACKEND_URL =
   explicitBackend ?? (import.meta.env.PROD ? "https://api.heymizan.ai" : "");
 
-/** In dev, Django may emit http://127.0.0.1:8000/media/...; route via Vite /media proxy on the app port. */
-function devProxiedMediaPath(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (!/^https?:$/i.test(u.protocol)) return null;
-    const host = u.hostname.toLowerCase();
-    const isLocal =
-      host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
-    if (!isLocal || !u.pathname.startsWith("/media/")) return null;
-    if (BACKEND_URL) return null;
-    return `${u.pathname}${u.search}`;
-  } catch {
-    return null;
-  }
-}
-
 /** Resolve a stored media path or presigned URL for display/download. */
 export function resolveMediaUrl(path: string | null | undefined): string {
-  let raw = (path || "").trim();
+  const raw = (path || "").trim();
   if (!raw) return "";
-  const proxied = devProxiedMediaPath(raw);
-  if (proxied) raw = proxied;
   const base = BACKEND_URL || "";
   // Short-lived S3 presigns expire; rewrite to durable /media/{key} on the API host.
   if (/^https?:\/\//i.test(raw) && (/\.s3[.-]/i.test(raw) || /s3\.amazonaws\.com/i.test(raw))) {
@@ -427,6 +411,27 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   return response;
 }
 
+export type ReservationInput = {
+  name: string;
+  phone?: string;
+  party_size: number;
+  starts_at: string;
+  table?: string;
+  notes?: string;
+};
+
+async function assertReservationOk(response: Response, fallback: string): Promise<void> {
+  if (response.ok) return;
+  const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+  throw new Error(data?.error || data?.detail || fallback);
+}
+
+/**
+ * PATCH /auth/me/language/ body. business=true also makes it the business default (owners / settings managers);
+ * businessOnly=true changes only the business default (the person's own language stays; 403 without settings rights).
+ */
+export type UpdateMyLanguageInput = { language: "en" | "fr" | "ar"; business?: boolean; businessOnly?: boolean };
+
 // ── Audience (who a task / process reaches) ──────────────────────────────────
 export type AudienceMode = "first" | "all" | "each";
 export interface AudienceSpec {
@@ -699,12 +704,13 @@ export class BackendService {
     }
   }
 
-  async requestPasswordReset(email: string): Promise<{ message: string }> {
+  /** `identifier`: the account's email or WhatsApp number; the answer never says whether an account matched. */
+  async requestPasswordReset(identifier: string): Promise<{ message: string }> {
     try {
       const response = await fetch(`${API_BASE}/password-reset-request/`, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(identifier.includes("@") ? { email: identifier } : { identifier }),
       });
 
       // Read raw text first to handle non-JSON responses gracefully
@@ -753,7 +759,8 @@ export class BackendService {
       if (!response.ok) {
         const message = (parsed && (parsed.error || parsed.message || parsed.detail))
           || `Password reset failed (${response.status})`;
-        throw new Error(message);
+        const { accountErrorText } = await import("@/lib/accountErrors");
+        throw new Error(accountErrorText(parsed?.code, message));
       }
 
       if (parsed) {
@@ -953,6 +960,7 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/operations-live/${qs ? `?${qs}` : ""}`);
   }
 
+  /** Operations page: one merged list (tasks, processes, checklists, requests, incidents, agency) + the counters. */
   async getOperationsOverview(params?: {
     category?: string;
     focus?: string;
@@ -966,59 +974,44 @@ export class BackendService {
     pageSize?: number;
   }): Promise<import("@/pages/operations/contract").OperationsOverview> {
     const search = new URLSearchParams();
-    if (params?.category && params.category !== "all") search.set("category", params.category);
-    if (params?.focus) search.set("focus", params.focus);
-    if (params?.staff) search.set("staff", params.staff);
-    if (params?.priority) search.set("priority", params.priority);
-    if (params?.q) search.set("q", params.q);
-    if (params?.dateFrom) search.set("date_from", params.dateFrom);
-    if (params?.dateTo) search.set("date_to", params.dateTo);
-    if (params?.item) search.set("item", params.item);
-    if (params?.page != null) search.set("page", String(params.page));
-    if (params?.pageSize != null) search.set("page_size", String(params.pageSize));
+    const put = (key: string, value?: string | number) => {
+      const text = String(value ?? "").trim();
+      if (text) search.set(key, text);
+    };
+    put("category", params?.category);
+    put("focus", params?.focus);
+    put("staff", params?.staff);
+    put("priority", params?.priority);
+    put("q", params?.q);
+    put("date_from", params?.dateFrom);
+    put("date_to", params?.dateTo);
+    put("item", params?.item);
+    put("page", params?.page);
+    put("page_size", params?.pageSize);
     const qs = search.toString();
     return unwrapApiPayload(await this.fetchWithError(`/operations/overview/${qs ? `?${qs}` : ""}`));
   }
 
-  async getResponsibilities(): Promise<{ areas: import("@/components/responsibilities/types").ResponsibilityArea[] }> {
-    return unwrapApiPayload(await this.fetchWithError("/responsibilities/"));
-  }
-
-  async updateResponsibilityArea(areaId: string, body: { venue_description?: string; is_enabled?: boolean }) {
-    return unwrapApiPayload(await this.fetchWithError(`/responsibilities/areas/${areaId}/`, { method: "PATCH", body: JSON.stringify(body) }));
-  }
-
-  async setResponsibilityAssignments(
-    itemId: string,
-    body: { executor: string | null; read_only: string[]; is_enabled?: boolean },
-  ) {
+  /** "Je prends" from the web: the first tap wins; `won` is false when someone was faster. */
+  async claimOperationsItem(
+    kind: string,
+    id: string,
+  ): Promise<{ won: boolean; message: string; claimedBy: { id: string; name: string } | null }> {
     return unwrapApiPayload(
-      await this.fetchWithError(`/responsibilities/items/${itemId}/assignments/`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      }),
+      await this.fetchWithError(`/operations/overview/claim/`, { method: "POST", body: JSON.stringify({ kind, id }) }),
     );
   }
 
-  async getResponsibilityGaps(): Promise<{ gaps: { item_id: string; key: string; label: string; area: string }[]; count: number }> {
-    return unwrapApiPayload(await this.fetchWithError("/responsibilities/diagnostics/"));
-  }
-
-  async applyResponsibilityDefaults() {
-    return unwrapApiPayload(await this.fetchWithError("/responsibilities/apply-defaults/", { method: "POST", body: "{}" }));
-  }
-
-  async getStaffResponsibilities(staffId: string): Promise<{ staff_id: string; items: { item_id: string; label: string; area: string; role: string | null; is_enabled: boolean }[] }> {
-    return unwrapApiPayload(await this.fetchWithError(`/staff/${staffId}/responsibilities/`));
-  }
-
-  async saveStaffResponsibilities(staffId: string, assignments: { item_id: string; role: string | null }[]) {
-    return unwrapApiPayload(
-      await this.fetchWithError(`/staff/${staffId}/responsibilities/`, {
-        method: "PUT",
-        body: JSON.stringify({ assignments }),
-      }),
-    );
+  /** Manager review of finished work: approve (validate) or send it back with a reason. */
+  async reviewDashboardTask(
+    taskId: string,
+    approve: boolean,
+    note = "",
+  ): Promise<{ success: boolean; validation_label?: string }> {
+    return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, {
+      method: "POST",
+      body: JSON.stringify({ approve, ...(note.trim() ? { note: note.trim() } : {}) }),
+    });
   }
 
   async getDashboardMyTasks(status = "open", limit = 25): Promise<{ success: boolean; tasks: DashboardTaskDemandItem[]; count: number }> {
@@ -1047,6 +1040,28 @@ export class BackendService {
       method: "PUT",
       body: JSON.stringify({ owners }),
     });
+  }
+
+  /** Opt-in "follow this area": each person manages only their own list; levels are none | critical. */
+  async getMyWatches(): Promise<{ success?: boolean; watches: Array<{ id: string; slug: string; level: "none" | "critical"; branch_id: string | null }>; levels?: string[] }> {
+    return this.fetchWithError("/settings/watches/");
+  }
+
+  async setMyWatch(slug: string, level: "none" | "critical", branchId?: string | null): Promise<unknown> {
+    return this.fetchWithError("/settings/watches/", {
+      method: "POST",
+      body: JSON.stringify({ slug, level, branch_id: branchId || null }),
+    });
+  }
+
+  async removeMyWatch(slug: string, branchId?: string | null): Promise<unknown> {
+    const qs = `?slug=${encodeURIComponent(slug)}${branchId ? `&branch_id=${encodeURIComponent(branchId)}` : ""}`;
+    return this.fetchWithError(`/settings/watches/${qs}`, { method: "DELETE" });
+  }
+
+  /** Managers only (403 otherwise): who follows which area. Read-only. */
+  async getWatchesOverview(): Promise<{ success?: boolean; watches: Array<{ id: string; slug: string; level: "none" | "critical"; branch_id: string | null; user_id: string; user_name: string }> }> {
+    return this.fetchWithError("/settings/watches/overview/");
   }
 
   async getDashboardTaskDemand(taskId: string): Promise<DashboardTaskDemandItem> {
@@ -1336,17 +1351,80 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/staff-daily-progress/history/?days=${days}`);
   }
 
-  async validateDashboardTask(
-    taskId: string,
-    decision: "approve" | "reject" = "approve",
-  ): Promise<{ success: boolean; validation_label?: string }> {
-    return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, {
-      method: "POST",
-      body: JSON.stringify({
-        approve: decision === "approve",
-        note: decision === "reject" ? "Needs another look" : "",
-      }),
-    });
+  async getOperationsProgressSummary(opts: { date?: string; days?: number } = {}): Promise<{
+    date: string;
+    startDate: string;
+    days: number;
+    taskCompletionPct: number;
+    tasksCompleted: number;
+    tasksOpen: number;
+    tasksOverdueOpen: number;
+    checklistCompletionPct: number;
+    checklistStepsDone: number;
+    checklistStepsTotal: number;
+    attentionNeeded: number;
+    generatedAt: string;
+    definitions?: Record<string, string>;
+  }> {
+    const params = new URLSearchParams();
+    if (opts.date) params.set("date", opts.date);
+    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.fetchWithError(`/operations/progress/summary/${qs}`);
+  }
+
+  async getOperationsProgressByStaff(opts: { date?: string; days?: number } = {}): Promise<{
+    staff: Array<{
+      staffId: string;
+      name: string;
+      role: string;
+      tasks: {
+        total: number;
+        completed: number;
+        open: number;
+        overdueOpen: number;
+        completionPct: number | null;
+        onTimePct: number | null;
+        avgCompletionMinutes: number | null;
+      };
+      checklists: {
+        total: number;
+        done: number;
+        open: number;
+        completionPct: number | null;
+        avgCompletionMinutes: number | null;
+      };
+    }>;
+  }> {
+    const params = new URLSearchParams();
+    if (opts.date) params.set("date", opts.date);
+    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.fetchWithError(`/operations/progress/by-staff/${qs}`);
+  }
+
+  async getOperationsProgressByCategory(opts: { date?: string; days?: number } = {}): Promise<{
+    categories: Array<{
+      bucket: string;
+      labelKey: string;
+      total: number;
+      completed: number;
+      open: number;
+      completionPct: number;
+      onTimePct: number | null;
+      avgCompletionMinutes: number | null;
+      overdueOpen: number;
+    }>;
+  }> {
+    const params = new URLSearchParams();
+    if (opts.date) params.set("date", opts.date);
+    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.fetchWithError(`/operations/progress/by-category/${qs}`);
+  }
+
+  async validateDashboardTask(taskId: string): Promise<{ success: boolean; validation_label?: string }> {
+    return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, { method: "POST", body: "{}" });
   }
 
   /** Send WhatsApp follow-up to assignee ("Update now"). */
@@ -2462,6 +2540,12 @@ export class BackendService {
     });
   }
 
+  // ── Accountability (operations execution loop) ─────────────────────────
+
+  async getAccountability(days = 30): Promise<AccountabilityScorecard> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/operations/accountability/?days=${days}`);
+  }
+
   async getModuleCatalog(vertical: string): Promise<ModuleCatalogResponse> {
     const res = await fetch(`${API_BASE}/modules/catalog/?vertical=${encodeURIComponent(vertical)}`);
     if (!res.ok) throw new Error("Request failed");
@@ -2532,7 +2616,8 @@ export class BackendService {
 
   async previewCancelSubscription(): Promise<import("./types").CancelPreview> {
     return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/cancel/", {
-      method: "GET",
+      method: "POST",
+      body: JSON.stringify({ preview: true }),
     });
   }
 
@@ -3936,6 +4021,7 @@ export class BackendService {
       phone?: string;
       email?: string;
       notes?: string;
+      table?: string;
     }>;
     count?: number;
     error?: string;
@@ -3971,6 +4057,41 @@ export class BackendService {
       reservations: data.reservations || [],
       count: data.count ?? (data.reservations || []).length,
     };
+  }
+
+  /** Manual reservations (create / edit / status), Mizan_BE apps/operations/reservation_views.py. */
+  async createReservation(accessToken: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
+  }
+
+  async updateReservation(accessToken: string, id: string, input: ReservationInput): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/`, {
+      method: "PATCH",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(input),
+    });
+    await assertReservationOk(response, "Could not save the reservation");
+  }
+
+  async setReservationStatus(
+    accessToken: string,
+    id: string,
+    status: "booked" | "seated" | "completed" | "cancelled" | "no_show"
+  ): Promise<void> {
+    const response = await fetch(`${API_BASE}/reservations/${id}/status/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      const data = parseJsonSafe(await response.text()) as { error?: string; detail?: string } | null;
+      throw new Error(data?.error || data?.detail || "Could not update the reservation");
+    }
   }
 
   async postEatNowDiscover(
@@ -5827,6 +5948,21 @@ export class BackendService {
     });
   }
 
+  /**
+   * The person's own language (web app, Miya, WhatsApp): PATCH /auth/me/language/. Returns the refreshed
+   * login/me user payload (top-level `language` = theirs, `restaurant_data.language` = the business default).
+   */
+  async updateMyLanguage(body: UpdateMyLanguageInput): Promise<AuthUser | null> {
+    const data = (await this.fetchWithError("/auth/me/language/", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    })) as { data?: AuthUser; user?: AuthUser } | AuthUser | null;
+    if (!data || typeof data !== "object") return null;
+    const wrapped = data as { data?: AuthUser; user?: AuthUser };
+    const user = wrapped.user ?? wrapped.data ?? (data as AuthUser);
+    return user && typeof user === "object" && "id" in user ? user : null;
+  }
+
   /** CSV staff import preview (POST /staff/import/): each row's resolved role + the titles nobody recognised. */
   async previewStaffImport(csv: string): Promise<StaffImportPreview> {
     const data = (await this.fetchWithError("/staff/import/", {
@@ -5845,7 +5981,7 @@ export class BackendService {
 }
 
 /** Roles a job title can map to (apps/accounts/job_titles.py TITLE_ROLES), highest first. */
-export const JOB_TITLE_ROLES = ["ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "STAFF"] as const;
+export const JOB_TITLE_ROLES = ["ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "DISHWASHER", "CASHIER", "KITCHEN_HELP", "CLEANER", "RECEPTIONIST", "SECURITY", "STAFF"] as const;
 
 /** A job title on an import that no role matched: everyone with it was added as STAFF, title kept. */
 export type UnmatchedTitle = {
