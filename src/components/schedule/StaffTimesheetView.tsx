@@ -6,7 +6,9 @@ import { Button as UIButton } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format as dfFormat, parseISO } from "date-fns";
+import { dateFnsLocale, formatClockTime } from "@/lib/localeTag";
+import type { Language } from "@/contexts/LanguageContext.types";
 import { cn, getStaffColor } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import type { Shift } from "@/types/schedule";
@@ -110,17 +112,8 @@ function getStaffShiftStyle(staffId: string): React.CSSProperties {
   };
 }
 
-function formatTime(timeStr: string): string {
-  if (!timeStr) return "";
-  const [h, m] = timeStr.split(":");
-  const hour = parseInt(h, 10);
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const h12 = hour % 12 || 12;
-  return `${h12}:${m || "00"}${ampm}`;
-}
-
-function timeRange(start: string, end: string): string {
-  return `${formatTime(start)}-${formatTime(end)}`;
+function timeRange(start: string, end: string, language: Language): string {
+  return `${formatClockTime(start, language)}-${formatClockTime(end, language)}`;
 }
 
 export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
@@ -132,7 +125,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
   onCreateShift,
   isLoading = false,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const format = (d: Date, f: string) => dfFormat(d, f, { locale: dateFnsLocale(language) });
 
   const getWeekStart = (date: Date) => {
     const d = new Date(date);
@@ -245,7 +239,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
           <thead>
             <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
               <th className="text-left py-3 px-4 w-48 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-r border-gray-200 dark:border-slate-700">
-                Staff / Role
+                {t("schedule.timesheet.staff_role")}
               </th>
               {weekDates.map((d) => {
                 const isToday = dateStr(d) === format(new Date(), "yyyy-MM-dd");
@@ -316,10 +310,10 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                                         onEditShift && "cursor-pointer"
                                       )}
                                       style={{ ...staffStyle, borderWidth: "1px" }}
-                                      title={`${shift.title || "Shift"} ${timeRange(shift.start, shift.end)}`}
+                                      title={`${shift.title || "Shift"} ${timeRange(shift.start, shift.end, language)}`}
                                     >
                                       <span className="font-bold shrink-0">{roleInitial}</span>
-                                      <span className="truncate min-w-0 ml-1">{timeRange(shift.start, shift.end)}</span>
+                                      <span className="truncate min-w-0 ml-1">{timeRange(shift.start, shift.end, language)}</span>
                                     </div>
                                   );
                                 })

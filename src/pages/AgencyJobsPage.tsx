@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { safeMediaUrl } from "@/lib/safeUrl";
+import { formatDateTime } from "@/lib/localeTag";
 
 /** Facility agency: the jobs from the restaurants it services (Mizan_BE apps/agencies). Most of the work happens on
  * WhatsApp (dispatch, "on my way", done with a photo); this board is the coordinators' overview. */
@@ -335,7 +336,7 @@ function JobDialog({ job, onClose }: { job: AgencyJob; onClose: () => void }) {
             <ul className="space-y-1 text-xs text-muted-foreground">
               {job.events.map((e, i) => (
                 <li key={i}>
-                  {new Date(e.at).toLocaleString()} · {t(`agency.event.${e.kind}`, { defaultValue: e.kind })}
+                  {formatDateTime(new Date(e.at))} · {t(`agency.event.${e.kind}`, { defaultValue: e.kind })}
                   {e.by ? ` · ${e.by}` : ""}
                   {e.note ? ` — ${e.note}` : ""}
                 </li>

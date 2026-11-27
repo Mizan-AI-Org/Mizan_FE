@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useLanguage } from "@/hooks/use-language";
+import { formatDateTime } from "@/lib/localeTag";
 
 type AvailabilityTask = {
   id: string;
@@ -187,7 +188,7 @@ const AdminEmergencyAvailability: React.FC = () => {
                     <Checkbox checked={selectedIds.includes(task.id)} onCheckedChange={() => toggleSelect(task.id)} aria-label={t('admin_emergency_availability.select_task')} />
                     <div>
                       <CardTitle className="text-base">{task.title || t('admin_emergency_availability.task_fallback')}</CardTitle>
-                      <CardDescription className="text-sm">{task.staff?.name || '-'} • {task.submitted_at ? new Date(task.submitted_at).toLocaleString() : '-'}</CardDescription>
+                      <CardDescription className="text-sm">{task.staff?.name || '-'} • {task.submitted_at ? formatDateTime(new Date(task.submitted_at)) : '-'}</CardDescription>
                     </div>
                   </div>
                   <Badge variant={task.priority === 'CRITICAL' ? 'destructive' : (task.priority === 'HIGH' ? 'secondary' : 'outline')} className="text-xs">{priorityLabel(task.priority)}</Badge>

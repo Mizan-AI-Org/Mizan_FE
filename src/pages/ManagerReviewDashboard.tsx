@@ -44,7 +44,7 @@ import {
   Search,
 } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
-import { localeTag } from "@/lib/localeTag";
+import { formatDate, formatDateTime, formatTime, localeTag } from "@/lib/localeTag";
 import { HUB_TABS_TRIGGER, MIZAN_HERO, MIZAN_SURFACE_CARD, MIZAN_TOOLBAR } from "@/lib/mizan-ui";
 import {
   Select,
@@ -1432,7 +1432,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             <TableCell className="text-sm">{s.submitted_by?.name || "-"}</TableCell>
                             <TableCell className="text-sm whitespace-nowrap">
                               {s.submitted_at
-                                ? new Date(s.submitted_at).toLocaleString(undefined, {
+                                ? formatDateTime(new Date(s.submitted_at), undefined, {
                                     month: "short",
                                     day: "numeric",
                                     hour: "2-digit",
@@ -1575,7 +1575,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         <div className="text-xs text-muted-foreground truncate">
                           {r.submitted_by?.name || "-"}
                           {r.submitted_at
-                            ? ` · ${new Date(r.submitted_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                            ? ` · ${formatDateTime(new Date(r.submitted_at), undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
                             : ""}
                         </div>
                       </div>
@@ -1763,7 +1763,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             dataKey="date"
                             tick={{ fill: 'currentColor', className: 'text-slate-500 dark:text-slate-400 text-xs' }}
                             tickFormatter={(v) => {
-                              try { return new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return v; }
+                              try { return formatDate(new Date(v), undefined, { month: "short", day: "numeric" }); } catch { return v; }
                             }}
                           />
                           <YAxis allowDecimals={false} tick={{ fill: 'currentColor', className: 'text-slate-500 dark:text-slate-400 text-xs' }} />
@@ -1771,7 +1771,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             contentStyle={{ backgroundColor: 'var(--color-background, #fff)', border: '1px solid var(--color-border, #e2e8f0)', borderRadius: '0.5rem', color: 'var(--color-foreground, #0f172a)' }}
                             formatter={(val: number | string) => [val, "Submissions"]}
                             labelFormatter={(label: string) => {
-                              try { return new Date(label).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); } catch { return String(label); }
+                              try { return formatDate(new Date(label), undefined, { weekday: "short", month: "short", day: "numeric" }); } catch { return String(label); }
                             }}
                           />
                           <Area type="monotone" dataKey="count" stroke="#16a34a" strokeWidth={2} fill="url(#colorCount)" />
@@ -1840,7 +1840,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             <div className="text-muted-foreground line-clamp-2">{n.description}</div>
                           </div>
                           <div className="shrink-0 text-muted-foreground whitespace-nowrap">
-                            {new Date(n.timestamp).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            {formatDateTime(new Date(n.timestamp), undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </div>
                       ))}
@@ -2076,7 +2076,7 @@ const ManagerReviewDashboard: React.FC = () => {
                           </TableCell>
                           <TableCell className="text-sm whitespace-nowrap">
                             {incident.created_at
-                              ? new Date(incident.created_at).toLocaleString(localeTag(language), {
+                              ? formatDateTime(new Date(incident.created_at), language, {
                                   month: "short",
                                   day: "numeric",
                                   hour: "2-digit",
@@ -2216,13 +2216,13 @@ const ManagerReviewDashboard: React.FC = () => {
                         <dt className="text-muted-foreground">{t("manager_review.incident.reported", "Reported")}</dt>
                         <dd className="font-medium">
                           {incidentDetail.created_at
-                            ? new Date(incidentDetail.created_at).toLocaleString()
+                            ? formatDateTime(new Date(incidentDetail.created_at))
                             : "-"}
                         </dd>
                         <dt className="text-muted-foreground">{t("manager_review.incident.occurred", "Occurred")}</dt>
                         <dd className="font-medium">
                           {incidentDetail.occurred_at
-                            ? new Date(incidentDetail.occurred_at).toLocaleString()
+                            ? formatDateTime(new Date(incidentDetail.occurred_at))
                             : "-"}
                         </dd>
                       </dl>
@@ -2309,7 +2309,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         </div>
                         <div className="font-medium">
                           {incidentDetail.resolved_at
-                            ? new Date(incidentDetail.resolved_at).toLocaleString()
+                            ? formatDateTime(new Date(incidentDetail.resolved_at))
                             : "-"}
                         </div>
                       </div>
@@ -2450,7 +2450,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     <div className="text-sm text-muted-foreground mt-0.5">
                       {summary.submitted_by?.name || "-"}
                       {summary.submitted_at
-                        ? ` · ${new Date(summary.submitted_at).toLocaleString()}`
+                        ? ` · ${formatDateTime(new Date(summary.submitted_at))}`
                         : ""}
                       {summary.source_type === "shift_progress" ? " · WhatsApp" : ""}
                     </div>
@@ -2538,16 +2538,16 @@ const ManagerReviewDashboard: React.FC = () => {
                           {(exec as any).shift ? (
                             <div className="text-xs text-muted-foreground">
                               Shift: {(exec as any).shift.shift_date || '-'}{' '}
-                              {(exec as any).shift.start_time ? `(${new Date((exec as any).shift.start_time).toLocaleTimeString()}` : ''}
-                              {(exec as any).shift.end_time ? ` - ${new Date((exec as any).shift.end_time).toLocaleTimeString()})` : (exec as any).shift.start_time ? ')' : ''}
+                              {(exec as any).shift.start_time ? `(${formatTime(new Date((exec as any).shift.start_time))}` : ''}
+                              {(exec as any).shift.end_time ? ` - ${formatTime(new Date((exec as any).shift.end_time))})` : (exec as any).shift.start_time ? ')' : ''}
                               {(exec as any).shift.role ? ` • ${t("manager_review.submission.role", { value: (exec as any).shift.role })}` : ''}
                               {(exec as any).channel ? ` • ${t("manager_review.submission.channel", { value: (exec as any).channel })}` : ''}
                             </div>
                           ) : exec.assigned_shift_info ? (
                             <div className="text-xs text-muted-foreground">
                               Shift: {exec.assigned_shift_info.shift_date || '-'}{' '}
-                              {exec.assigned_shift_info.start_time ? `(${new Date(exec.assigned_shift_info.start_time).toLocaleTimeString()}` : ''}
-                              {exec.assigned_shift_info.end_time ? ` - ${new Date(exec.assigned_shift_info.end_time).toLocaleTimeString()})` : exec.assigned_shift_info.start_time ? ')' : ''}
+                              {exec.assigned_shift_info.start_time ? `(${formatTime(new Date(exec.assigned_shift_info.start_time))}` : ''}
+                              {exec.assigned_shift_info.end_time ? ` - ${formatTime(new Date(exec.assigned_shift_info.end_time))})` : exec.assigned_shift_info.start_time ? ')' : ''}
                               {exec.assigned_shift_info.role ? ` • ${t("manager_review.submission.role", { value: exec.assigned_shift_info.role })}` : ''}
                               {exec.assigned_shift_info.department ? ` • ${t("manager_review.submission.dept", { value: exec.assigned_shift_info.department })}` : ''}
                             </div>

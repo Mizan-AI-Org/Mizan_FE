@@ -6,6 +6,7 @@ import { API_BASE, authFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import type { AgencyJob } from "@/pages/AgencyJobsPage";
 import { safeMediaUrl } from "@/lib/safeUrl";
+import { formatDateTime } from "@/lib/localeTag";
 
 /** On a restaurant's incident: where the avenue's agency is on it (Mizan_BE apps/agencies). Nothing when the
  * incident is the team's own (the endpoint answers 404). */
@@ -55,7 +56,7 @@ export default function IncidentAgencyStatus({ incidentId }: { incidentId?: stri
         </span>
       </div>
       {job.assignedTo ? <div>{job.assignedTo.name}</div> : null}
-      {job.fixBy && open ? <div>{t("agency.fix")} {new Date(job.fixBy).toLocaleString()}</div> : null}
+      {job.fixBy && open ? <div>{t("agency.fix")} {formatDateTime(new Date(job.fixBy))}</div> : null}
       {proofHref ? (
         <a href={proofHref} target="_blank" rel="noreferrer" className="underline">
           📷 {t("agency.status.DONE")}

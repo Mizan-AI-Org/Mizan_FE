@@ -27,6 +27,7 @@ import { CalendarIcon, Send, Clock, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ListSkeleton } from "@/components/skeletons";
+import { formatPattern } from "@/lib/localeTag";
 
 interface AnnouncementFormData {
   title: string;
@@ -789,7 +790,7 @@ const StaffAnnouncements: React.FC = () => {
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {expirationDate
-                        ? format(expirationDate, "PPP")
+                        ? formatPattern(expirationDate, "PPP")
                         : t("announcements.select_expiration")}
                     </Button>
                   </PopoverTrigger>
@@ -818,7 +819,7 @@ const StaffAnnouncements: React.FC = () => {
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {scheduleDate
-                        ? format(scheduleDate, "PPP")
+                        ? formatPattern(scheduleDate, "PPP")
                         : t("announcements.send_immediately")}
                     </Button>
                   </PopoverTrigger>

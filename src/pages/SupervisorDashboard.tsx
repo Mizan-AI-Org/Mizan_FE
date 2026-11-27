@@ -1,10 +1,12 @@
 import React from 'react';
+import { useLanguage } from "@/hooks/use-language";
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, LayoutDashboard, ShoppingCart, Utensils } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { API_BASE } from "@/lib/api";
+import { formatDateTime } from "@/lib/localeTag";
 
 
 interface OrderItem {
@@ -34,6 +36,7 @@ interface Table {
 
 const SupervisorDashboard: React.FC = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
 
     const { data: restaurantOrders = [], isLoading: isLoadingOrders, error: ordersError } = useQuery<Order[]>({
         queryKey: ['restaurantOrders', user?.restaurant],
@@ -94,7 +97,7 @@ const SupervisorDashboard: React.FC = () => {
     }
 
     if (!user || (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(user.role))) {
-        return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
+        return <div className="text-center py-8 text-gray-500">{t("generic.no_access_description")}</div>;
     }
 
     const getOrderStatusColor = (status: string) => {
@@ -149,7 +152,7 @@ const SupervisorDashboard: React.FC = () => {
                                             {order.table_number && <p>Table: {order.table_number}</p>}
                                             {order.customer_name && <p>Customer: {order.customer_name}</p>}
                                             <p className="font-bold">Total: ${order.total_amount.toFixed(2)}</p>
-                                            <p className="text-xs text-muted-foreground">{format(parseISO(order.created_at), 'MMM d, hh:mm a')}</p>
+                                            <p className="text-xs text-muted-foreground">{formatDateTime(parseISO(order.created_at), undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                                         </CardContent>
                                     </Card>
                                 ))}

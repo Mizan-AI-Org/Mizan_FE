@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { API_BASE, api } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
+import { formatPattern, formatTime } from "@/lib/localeTag";
 
 
 interface Break {
@@ -151,7 +152,7 @@ const AttendanceHistory: React.FC = () => {
                         <ChevronLeft className="w-6 h-6 text-gray-700" />
                     </Button>
                     <h3 className="text-xl font-semibold text-gray-700 flex-1">
-                        {format(currentDate, 'MMMM yyyy')}
+                        {formatPattern(currentDate, 'MMMM yyyy')}
                     </h3>
                     <Button onClick={goToNextMonth} variant="ghost" size="icon">
                         <ChevronRight className="w-6 h-6 text-gray-700" />
@@ -212,7 +213,7 @@ const AttendanceHistory: React.FC = () => {
                         .map((record) => (
                         <Card key={record.clock_in} className="shadow-sm">
                             <CardHeader className="flex-row items-center justify-between">
-                                <CardTitle className="text-lg">{format(parseISO(record.date), 'PPP')}</CardTitle>
+                                <CardTitle className="text-lg">{formatPattern(parseISO(record.date), 'PPP')}</CardTitle>
                                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${record.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                     {record.status === 'active' ? t('attendance_history.status_clocked_in') : record.status === 'completed' ? t('attendance_history.status_completed') : t('attendance_history.status_incomplete')}
                                 </span>
@@ -220,11 +221,11 @@ const AttendanceHistory: React.FC = () => {
                             <CardContent className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <p className="flex items-center text-gray-700"><Clock className="w-4 h-4 mr-2" /> {t('attendance_history.clock_in')}</p>
-                                    <p>{format(parseISO(record.clock_in), 'hh:mm:ss a')}</p>
+                                    <p>{formatTime(parseISO(record.clock_in), undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <p className="flex items-center text-gray-700"><Clock className="w-4 h-4 mr-2" /> {t('attendance_history.clock_out')}</p>
-                                    <p>{record.clock_out ? format(parseISO(record.clock_out), 'hh:mm:ss a') : '-'}</p>
+                                    <p>{record.clock_out ? formatTime(parseISO(record.clock_out), undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}</p>
                                 </div>
                                 <Separator />
                                 <div className="flex items-center justify-between font-semibold">
@@ -239,8 +240,8 @@ const AttendanceHistory: React.FC = () => {
                                             {record.breaks.map((b, idx) => (
                                                 <div key={idx} className="flex justify-between text-sm text-gray-600">
                                                     <span>
-                                                        {format(parseISO(b.start), 'hh:mm a')} -
-                                                        {b.end ? format(parseISO(b.end), 'hh:mm a') : t('attendance_history.break_active')}
+                                                        {formatTime(parseISO(b.start), undefined, { hour: '2-digit', minute: '2-digit' })} -
+                                                        {b.end ? formatTime(parseISO(b.end), undefined, { hour: '2-digit', minute: '2-digit' }) : t('attendance_history.break_active')}
                                                     </span>
                                                     <span>({t('attendance_history.break_mins', { mins: b.duration_minutes.toFixed(1) })})</span>
                                                 </div>
