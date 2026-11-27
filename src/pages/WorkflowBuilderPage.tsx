@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { unwrapList } from "@/lib/envelope";
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
@@ -47,6 +48,7 @@ import {
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { formatDate } from "@/lib/localeTag";
 
 // ── Types ───────────────────────────────────────────────────────────
 type TriggerType = "event" | "schedule" | "manual" | "threshold";
@@ -155,7 +157,7 @@ export default function WorkflowBuilderPage() {
     queryFn: async () => {
       const res = await authFetch(`${API_BASE}/core/workflows/`);
       if (!res.ok) throw new Error("Failed to fetch workflows");
-      return res.json();
+      return unwrapList<WorkflowDefinition>(await res.json());
     },
   });
 
@@ -356,7 +358,7 @@ export default function WorkflowBuilderPage() {
                       </p>
                       {wf.last_run_at && (
                         <p className="text-xs text-muted-foreground/60">
-                          Last: {new Date(wf.last_run_at).toLocaleDateString()}
+                          Last: {formatDate(new Date(wf.last_run_at))}
                         </p>
                       )}
                     </div>

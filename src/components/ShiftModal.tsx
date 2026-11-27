@@ -63,6 +63,7 @@ import { format, parseISO } from "date-fns";
 import { cn, getStaffColor } from "@/lib/utils";
 import { isPersistedShift, resolveStaffForShiftId, staffDisplayName } from "@/lib/shiftDisplay";
 import { shiftTaskPriorityLabel, shiftTaskPriorityStyles } from "@/lib/shiftTaskPriority";
+import { formatPattern } from "@/lib/localeTag";
 
 /** Staff dropdown only — main modal uses a single scroll container. */
 const STAFF_LIST_SCROLL =
@@ -496,7 +497,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{t("common.date")}</p>
                                 <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     {shiftData.date
-                                        ? format(parseISO(shiftData.date), "EEE, MMM d, yyyy")
+                                        ? formatPattern(parseISO(shiftData.date), "EEE, MMM d, yyyy")
                                         : "—"}
                                 </p>
                             </div>
@@ -518,7 +519,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                             <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{t("generic.recurring")}</p>
                             <p className="mt-1 text-sm font-medium text-gray-800 dark:text-gray-200">
                                 {isRecurring
-                                    ? `${t(`shift_modal.freq_${String(frequency).toLowerCase()}`, String(frequency))}${recurringEndDate ? ` · ${t("shift_modal.until_date", { date: format(parseISO(recurringEndDate), "MMM d, yyyy") })}` : ""}`
+                                    ? `${t(`shift_modal.freq_${String(frequency).toLowerCase()}`, String(frequency))}${recurringEndDate ? ` · ${t("shift_modal.until_date", { date: formatPattern(parseISO(recurringEndDate), "MMM d, yyyy") })}` : ""}`
                                     : t("common.no", "No")}
                             </p>
                         </section>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { downloadBuyListPdf, getBuyList, type BuyGroup, type BuyPlan } from "@/lib/salesApi";
 import { useLanguage } from "@/hooks/use-language";
+import { formatDate } from "@/lib/localeTag";
 
 const FLAG_KEYS: Record<string, string> = {
   "estimated recipes": "buy.flag.estimated",
@@ -34,7 +35,7 @@ function SupplierGroup({ group, currency }: { group: BuyGroup; currency: string 
           <Truck className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
           <span className="font-semibold">{group.supplier || t("buy.market")}</span>
           <span className="text-xs text-muted-foreground basis-full sm:basis-auto">
-            {t("buy.arrives", { day: arrival.toLocaleDateString(undefined, { weekday: "long", day: "numeric" }) })}
+            {t("buy.arrives", { day: formatDate(arrival, undefined, { weekday: "long", day: "numeric" }) })}
             {" · "}
             {t("buy.covers_days", { count: group.coverDays.length })}
           </span>
@@ -85,7 +86,7 @@ function SupplierGroup({ group, currency }: { group: BuyGroup; currency: string 
                     <div className="text-xs font-normal text-rose-700 dark:text-rose-400 whitespace-normal">
                       {t("buy.short_meanwhile", {
                         qty: `${qty(line.shortBeforeDelivery)} ${line.unit}`,
-                        day: new Date(`${line.runsOutOn}T12:00:00`).toLocaleDateString(undefined, { weekday: "long" }),
+                        day: formatDate(new Date(`${line.runsOutOn}T12:00:00`), undefined, { weekday: "long" }),
                       })}
                     </div>
                   )}

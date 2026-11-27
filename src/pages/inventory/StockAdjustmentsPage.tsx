@@ -45,8 +45,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 
 import { useLanguage } from "@/hooks/use-language";
+import { dateFnsLocale } from "@/lib/localeTag";
 export default function StockAdjustmentsPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
@@ -97,7 +98,7 @@ export default function StockAdjustmentsPage() {
             });
         },
         onError: (err) => {
-            toast.error(`Failed to create adjustment: ${err.message}`);
+            toast.error(`${t("inventory.adjustments.err_create")}: ${err.message}`);
         },
     });
 
@@ -111,7 +112,7 @@ export default function StockAdjustmentsPage() {
             setSelectedAdjustment(null);
         },
         onError: (err) => {
-            toast.error(`Failed to update adjustment: ${err.message}`);
+            toast.error(`${t("inventory.adjustments.err_update")}: ${err.message}`);
         },
     });
 
@@ -123,7 +124,7 @@ export default function StockAdjustmentsPage() {
             toast.success(t("generic.toast.stock_adjustment_deleted_successfully"));
         },
         onError: (err) => {
-            toast.error(`Failed to delete adjustment: ${err.message}`);
+            toast.error(`${t("inventory.adjustments.err_delete")}: ${err.message}`);
         },
     });
 
@@ -166,19 +167,19 @@ export default function StockAdjustmentsPage() {
         }
     };
 
-    if (isLoading) return <div>Loading stock adjustments...</div>;
-    if (isLoading) return <div className="p-6 text-muted-foreground">Loading stock adjustments...</div>;
+    if (isLoading) return <div>{t("inventory.adjustments.loading")}</div>;
+    if (isLoading) return <div className="p-6 text-muted-foreground">{t("inventory.adjustments.loading")}</div>;
 
     return (
         <div className="space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold">Stock Adjustments</h1>
-                    <p className="text-muted-foreground">Record and manage changes to inventory stock levels.</p>
+                    <h1 className="text-3xl font-bold">{t("inventory.adjustments.title")}</h1>
+                    <p className="text-muted-foreground">{t("inventory.adjustments.subtitle")}</p>
                 </div>
                 <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-gradient-primary hover:bg-primary/90">
                     <Plus className="w-4 h-4 mr-2" />
-                    Add New Adjustment
+                    {t("inventory.adjustments.add_new")}
                 </Button>
             </div>
 
@@ -189,7 +190,7 @@ export default function StockAdjustmentsPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search adjustments by item, reason, or type..."
+                                    placeholder={t("inventory.adjustments.search")}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="pl-10"
@@ -198,11 +199,11 @@ export default function StockAdjustmentsPage() {
                         </div>
                         <Select onValueChange={(value) => setNewAdjustment({ ...newAdjustment, adjustment_type: value as StockAdjustment["adjustment_type"] })} value={newAdjustment.adjustment_type}>
                             <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filter by Type" />
+                                <SelectValue placeholder={t("inventory.adjustments.filter_type")} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="ADD">ADD</SelectItem>
-                                <SelectItem value="REMOVE">REMOVE</SelectItem>
+                                <SelectItem value="ADD">{t("inventory.adjustments.type_add")}</SelectItem>
+                                <SelectItem value="REMOVE">{t("inventory.adjustments.type_remove")}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -212,35 +213,35 @@ export default function StockAdjustmentsPage() {
                             <TableRow>
                                 <TableHead onClick={() => handleSort("inventory_item")}>
                                     <div className="flex items-center">
-                                        Item <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory.adjustments.col_item")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("adjustment_type")}>
                                     <div className="flex items-center">
-                                        Type <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory.adjustments.col_type")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("quantity")}>
                                     <div className="flex items-center justify-end">
-                                        Quantity <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory.adjustments.col_quantity")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("reason")}>
                                     <div className="flex items-center">
-                                        Reason <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory.adjustments.col_reason")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("adjusted_by")}>
                                     <div className="flex items-center">
-                                        Adjusted By <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory.adjustments.col_by")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("created_at")}>
                                     <div className="flex items-center">
-                                        Date <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory.adjustments.col_date")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">{t("inventory.adjustments.col_actions")}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -249,31 +250,31 @@ export default function StockAdjustmentsPage() {
                                     <TableCell className="font-medium">{adjustment.inventory_item_info?.name || "N/A"}</TableCell>
                                     <TableCell>
                                         <Badge variant={adjustment.adjustment_type === "ADD" ? "default" : "secondary"}>
-                                            {adjustment.adjustment_type}
+                                            {adjustment.adjustment_type === "ADD" ? t("inventory.adjustments.type_add") : adjustment.adjustment_type === "REMOVE" ? t("inventory.adjustments.type_remove") : adjustment.adjustment_type}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">{adjustment.quantity}</TableCell>
                                     <TableCell>{adjustment.reason}</TableCell>
                                     <TableCell>{adjustment.adjusted_by_info?.first_name} {adjustment.adjusted_by_info?.last_name}</TableCell>
-                                    <TableCell>{format(new Date(adjustment.created_at), "PPP")}</TableCell>
+                                    <TableCell>{format(new Date(adjustment.created_at), "PPP", { locale: dateFnsLocale(language) })}</TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" className="h-8 w-8 p-0">
-                                                    <span className="sr-only">Open menu</span>
+                                                    <span className="sr-only">{t("inventory.adjustments.open_menu")}</span>
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuLabel>{t("inventory.adjustments.col_actions")}</DropdownMenuLabel>
                                                 <DropdownMenuItem onClick={() => {
                                                     setSelectedAdjustment(adjustment);
                                                     setIsEditDialogOpen(true);
                                                 }}>
-                                                    <Edit className="mr-2 h-4 w-4" /> Edit
+                                                    <Edit className="mr-2 h-4 w-4" /> {t("inventory.adjustments.edit")}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => deleteMutation.mutate(adjustment.id)} className="text-destructive focus:text-destructive">
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                    <Trash2 className="mr-2 h-4 w-4" /> {t("inventory.adjustments.delete")}
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -289,16 +290,16 @@ export default function StockAdjustmentsPage() {
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>Add New Stock Adjustment</DialogTitle>
-                        <DialogDescription>Fill in the details for the new stock adjustment.</DialogDescription>
+                        <DialogTitle>{t("inventory.adjustments.dialog_add_title")}</DialogTitle>
+                        <DialogDescription>{t("inventory.adjustments.dialog_add_desc")}</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreateSubmit}>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="inventory_item" className="text-right">Inventory Item</Label>
+                                <Label htmlFor="inventory_item" className="text-right">{t("inventory.adjustments.col_item_long")}</Label>
                                 <Select onValueChange={(value) => setNewAdjustment({ ...newAdjustment, inventory_item: value })} value={newAdjustment.inventory_item || ""}>
                                     <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Select an item" />
+                                        <SelectValue placeholder={t("inventory.adjustments.select_item")} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {inventoryItems?.map((item) => (
@@ -310,29 +311,29 @@ export default function StockAdjustmentsPage() {
                                 </Select>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="adjustment_type" className="text-right">Adjustment Type</Label>
+                                <Label htmlFor="adjustment_type" className="text-right">{t("inventory.adjustments.col_type_long")}</Label>
                                 <Select onValueChange={(value) => setNewAdjustment({ ...newAdjustment, adjustment_type: value as StockAdjustment["adjustment_type"] })} value={newAdjustment.adjustment_type}>
                                     <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Select type" />
+                                        <SelectValue placeholder={t("inventory.adjustments.select_type")} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="ADD">ADD</SelectItem>
-                                        <SelectItem value="REMOVE">REMOVE</SelectItem>
+                                        <SelectItem value="ADD">{t("inventory.adjustments.type_add")}</SelectItem>
+                                        <SelectItem value="REMOVE">{t("inventory.adjustments.type_remove")}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="quantity" className="text-right">Quantity</Label>
+                                <Label htmlFor="quantity" className="text-right">{t("inventory.adjustments.col_quantity")}</Label>
                                 <Input id="quantity" type="number" value={newAdjustment.quantity} onChange={(e) => setNewAdjustment({ ...newAdjustment, quantity: parseFloat(e.target.value) })} className="col-span-3" required />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="reason" className="text-right">Reason</Label>
+                                <Label htmlFor="reason" className="text-right">{t("inventory.adjustments.col_reason")}</Label>
                                 <Textarea id="reason" value={newAdjustment.reason || ""} onChange={(e) => setNewAdjustment({ ...newAdjustment, reason: e.target.value })} className="col-span-3" />
                             </div>
                         </div>
                         <DialogFooter>
                             <Button type="submit" disabled={createMutation.isPending}>
-                                {createMutation.isPending ? "Creating..." : "Create Adjustment"}
+                                {createMutation.isPending ? t("inventory.adjustments.creating") : t("inventory.adjustments.create")}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -343,17 +344,17 @@ export default function StockAdjustmentsPage() {
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>Edit Stock Adjustment</DialogTitle>
-                        <DialogDescription>Update the details for the stock adjustment.</DialogDescription>
+                        <DialogTitle>{t("inventory.adjustments.dialog_edit_title")}</DialogTitle>
+                        <DialogDescription>{t("inventory.adjustments.dialog_edit_desc")}</DialogDescription>
                     </DialogHeader>
                     {selectedAdjustment && (
                         <form onSubmit={handleEditSubmit}>
                             <div className="grid gap-4 py-4">
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="edit-inventory_item" className="text-right">Inventory Item</Label>
+                                    <Label htmlFor="edit-inventory_item" className="text-right">{t("inventory.adjustments.col_item_long")}</Label>
                                     <Select onValueChange={(value) => setSelectedAdjustment({ ...selectedAdjustment, inventory_item: value })} value={selectedAdjustment.inventory_item || ""}>
                                         <SelectTrigger className="col-span-3">
-                                            <SelectValue placeholder="Select an item" />
+                                            <SelectValue placeholder={t("inventory.adjustments.select_item")} />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {inventoryItems?.map((item) => (
@@ -365,29 +366,29 @@ export default function StockAdjustmentsPage() {
                                     </Select>
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="edit-adjustment_type" className="text-right">Adjustment Type</Label>
+                                    <Label htmlFor="edit-adjustment_type" className="text-right">{t("inventory.adjustments.col_type_long")}</Label>
                                     <Select onValueChange={(value) => setSelectedAdjustment({ ...selectedAdjustment, adjustment_type: value as StockAdjustment["adjustment_type"] })} value={selectedAdjustment.adjustment_type}>
                                         <SelectTrigger className="col-span-3">
-                                            <SelectValue placeholder="Select type" />
+                                            <SelectValue placeholder={t("inventory.adjustments.select_type")} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="ADD">ADD</SelectItem>
-                                            <SelectItem value="REMOVE">REMOVE</SelectItem>
+                                            <SelectItem value="ADD">{t("inventory.adjustments.type_add")}</SelectItem>
+                                            <SelectItem value="REMOVE">{t("inventory.adjustments.type_remove")}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="edit-quantity" className="text-right">Quantity</Label>
+                                    <Label htmlFor="edit-quantity" className="text-right">{t("inventory.adjustments.col_quantity")}</Label>
                                     <Input id="edit-quantity" type="number" value={selectedAdjustment.quantity} onChange={(e) => setSelectedAdjustment({ ...selectedAdjustment, quantity: parseFloat(e.target.value) })} className="col-span-3" required />
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="edit-reason" className="text-right">Reason</Label>
+                                    <Label htmlFor="edit-reason" className="text-right">{t("inventory.adjustments.col_reason")}</Label>
                                     <Textarea id="edit-reason" value={selectedAdjustment.reason || ""} onChange={(e) => setSelectedAdjustment({ ...selectedAdjustment, reason: e.target.value })} className="col-span-3" />
                                 </div>
                             </div>
                             <DialogFooter>
                                 <Button type="submit" disabled={updateMutation.isPending}>
-                                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                                    {updateMutation.isPending ? t("inventory.adjustments.saving") : t("inventory.adjustments.save")}
                                 </Button>
                             </DialogFooter>
                         </form>

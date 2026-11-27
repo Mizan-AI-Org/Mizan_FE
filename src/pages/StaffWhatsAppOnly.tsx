@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { MessageCircle, Shield } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/hooks/use-language";
+import { roleDisplayName } from "@/lib/roleDisplayName";
 import { DEFAULT_STAFF_WHATSAPP_URL } from "@/lib/operationalCommandRoles";
 
 type LocationState = {
@@ -14,6 +16,7 @@ type LocationState = {
  * Landing for CHEF / WAITER / STAFF / etc. — they work on WhatsApp, not the web app.
  */
 export default function StaffWhatsAppOnly() {
+  const { t } = useLanguage();
   const location = useLocation();
   const state = (location.state || {}) as LocationState;
 
@@ -45,32 +48,28 @@ export default function StaffWhatsAppOnly() {
           <MessageCircle className="h-6 w-6" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-xl font-semibold tracking-tight">WhatsApp only</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{t("staff_whatsapp.title")}</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
             {role ? (
               <>
-                Your role (<span className="font-medium text-foreground">{role}</span>) uses
-                WhatsApp to clock in, finish tasks, and talk to Mizan.
+                {t("staff_whatsapp.role_prefix")} (<span className="font-medium text-foreground">{roleDisplayName(role, t)}</span>) {t("staff_whatsapp.role_suffix")}
               </>
             ) : (
-              <>
-                Front-of-house and kitchen staff use WhatsApp — not the web dashboard.
-                Managers and owners sign in here on the web.
-              </>
+              <>{t("staff_whatsapp.generic")}</>
             )}
           </p>
         </div>
         <Button asChild className="w-full gap-2 bg-emerald-500 hover:bg-emerald-600 text-white">
           <a href={url} target="_blank" rel="noopener noreferrer">
             <MessageCircle className="h-4 w-4" />
-            Open WhatsApp
+            {t("staff_whatsapp.open")}
           </a>
         </Button>
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
           <Shield className="h-3.5 w-3.5" />
-          Manager or owner?{" "}
+          {t("staff_whatsapp.manager_q")}{" "}
           <Link to="/auth" className="font-medium text-emerald-600 hover:underline dark:text-emerald-400">
-            Sign in on the web
+            {t("staff_whatsapp.sign_in")}
           </Link>
         </p>
       </div>

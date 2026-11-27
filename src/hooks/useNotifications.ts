@@ -4,6 +4,7 @@ import { useAuth } from './use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { API_BASE, WS_BASE } from "@/lib/api";
 import { mapNotification } from "@/lib/mapNotification";
+import { formatDate } from "@/lib/localeTag";
 
 interface Notification {
     id: string;
@@ -50,7 +51,7 @@ function formatNotificationMessage(message: string): string {
     out = out.replace(isoDateRe, (match) => {
         const d = new Date(match + 'T12:00:00Z');
         if (isNaN(d.getTime())) return match;
-        return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+        return formatDate(d, undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
     });
     return out;
 }

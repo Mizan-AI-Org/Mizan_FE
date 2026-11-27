@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import i18n from '@/i18n';
+import { formatDate as fmtDate, formatTime as fmtTime } from "@/lib/localeTag";
+import type { Language } from "@/contexts/LanguageContext.types";
 
 interface LiveDateTimeProps {
     showDate?: boolean;
     showTime?: boolean;
 }
 
-const getLocale = (): string => {
+const getLocale = (): Language => {
     const lng = i18n.language || 'en';
-    return lng === 'ma' ? 'ar-MA' : lng;
+    if (lng === 'ma' || lng.startsWith('ar')) return 'ar';
+    return lng.startsWith('fr') ? 'fr' : 'en';
 };
 
 export const LiveDateTime: React.FC<LiveDateTimeProps> = ({
@@ -28,7 +31,7 @@ export const LiveDateTime: React.FC<LiveDateTimeProps> = ({
     }, []);
 
     const formatDate = (date: Date): string => {
-        return date.toLocaleDateString(locale, {
+        return fmtDate(date, locale, {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
@@ -37,7 +40,7 @@ export const LiveDateTime: React.FC<LiveDateTimeProps> = ({
     };
 
     const formatTime = (date: Date): string => {
-        return date.toLocaleTimeString(locale, {
+        return fmtTime(date, locale, {
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit'

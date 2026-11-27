@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { useLanguage } from "@/hooks/use-language";
+import { formatDateTime } from "@/lib/localeTag";
 
 function statusBadge(status: string, label: string) {
     const value = status.toLowerCase();
@@ -155,7 +156,7 @@ export default function PurchaseOrdersPage() {
                                         <TableCell>{order.quantity}</TableCell>
                                         <TableCell>{statusBadge(order.status, t(`deliveries.status.${order.status.toLowerCase()}`, { defaultValue: order.status || t("deliveries.status.ordered") }))}</TableCell>
                                         <TableCell className="text-muted-foreground whitespace-nowrap">
-                                            {order.createdAt ? new Date(order.createdAt).toLocaleString(language) : "—"}
+                                            {order.createdAt ? formatDateTime(new Date(order.createdAt), language) : "—"}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             {order.status.toLowerCase() !== "received" && (

@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { openDashboardTaskSheet } from '@/lib/dashboard-task-sheet';
 import { useQuery } from '@tanstack/react-query';
 import { useLanguage } from '@/hooks/use-language';
+import { localeTag } from '@/lib/localeTag';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +125,7 @@ export default function TaskManagementBoard({
 }: {
   onOpenTemplates?: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -329,10 +330,10 @@ export default function TaskManagementBoard({
     if (norm === "COMPLETED")
       return { cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", label: t("generic.done") };
     if (norm === "IN_PROGRESS")
-      return { cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300", label: "In progress" };
+      return { cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300", label: t("generic.in_progress") };
     if (norm === "CANCELLED")
       return { cls: "bg-slate-100 text-slate-500 line-through dark:bg-slate-800 dark:text-slate-400", label: t("generic.cancelled") };
-    return { cls: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300", label: "Not started" };
+    return { cls: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300", label: t("tasks.board.not_started") };
   };
 
   const formatAssignees = (task: ScheduledTask): string => {
@@ -351,7 +352,7 @@ export default function TaskManagementBoard({
     try {
       const d = new Date(iso);
       if (Number.isNaN(d.getTime())) return iso;
-      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      return d.toLocaleDateString(localeTag(language), { month: "short", day: "numeric" });
     } catch {
       return iso;
     }

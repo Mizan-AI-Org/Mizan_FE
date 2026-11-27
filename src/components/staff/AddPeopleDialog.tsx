@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { roleDisplayName } from "@/lib/roleDisplayName";
 import { toast } from "sonner";
 import { Loader2, MessageCircle, UserPlus, Users } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
@@ -213,7 +214,7 @@ export function AddPeopleDialog({
                         {role && (
                           <span className={`shrink-0 rounded px-1.5 py-0.5 ${unmatched ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" : "bg-muted"}`}
                             title={unmatched ? t("staff.job_titles.unmatched_badge") : undefined}>
-                            {t(`staff.add_people.roles.${role.toLowerCase()}`)}{unmatched ? " ?" : ""}
+                            {roleDisplayName(role, t)}{unmatched ? " ?" : ""}
                           </span>
                         )}
                       </div>
@@ -230,7 +231,7 @@ export function AddPeopleDialog({
             <div className="grid gap-1">
               <Label>{mode === "one" ? t("staff.add_people.role") : t("staff.add_people.default_role")}</Label>
               <select className={selectClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                {ROLES.map((r) => <option key={r} value={r}>{t(`staff.add_people.roles.${r.toLowerCase()}`)}</option>)}
+                {ROLES.map((r) => <option key={r} value={r}>{roleDisplayName(r, t)}</option>)}
               </select>
             </div>
             {locations.length > 1 && (

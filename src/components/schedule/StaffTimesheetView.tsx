@@ -5,7 +5,9 @@ import { Button as UIButton } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { format } from "date-fns";
+import { format as dfFormat } from "date-fns";
+import { dateFnsLocale, formatClockTime } from "@/lib/localeTag";
+import type { Language } from "@/contexts/LanguageContext.types";
 import { cn, getStaffColor } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import type { Shift } from "@/types/schedule";
@@ -36,21 +38,8 @@ function prettyRole(role: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatTime(timeStr: string): { clock: string; period: string } {
-  if (!timeStr) return { clock: "", period: "" };
-  const [h, m] = timeStr.split(":");
-  const hour = parseInt(h, 10);
-  const period = hour >= 12 ? "PM" : "AM";
-  const h12 = hour % 12 || 12;
-  return { clock: `${h12}:${m || "00"}`, period };
-}
-
-function timeRange(start: string, end: string): string {
-  const from = formatTime(start);
-  const to = formatTime(end);
-  if (!from.clock || !to.clock) return "";
-  if (from.period === to.period) return `${from.clock}–${to.clock} ${to.period}`;
-  return `${from.clock} ${from.period}–${to.clock} ${to.period}`;
+function timeRange(start: string, end: string, language: Language): string {
+  return `${formatClockTime(start, language)}-${formatClockTime(end, language)}`;
 }
 
 function StaffTimesheetViewSkeleton() {
@@ -124,7 +113,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
   onCreateShift,
   isLoading = false,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const format = (d: Date, f: string) => dfFormat(d, f, { locale: dateFnsLocale(language) });
 
   const getWeekStart = (date: Date) => {
     const d = new Date(date);
@@ -370,7 +360,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                             ) : (
                               <div className="flex flex-col gap-1">
                                 {dayShifts.map((shift) => {
-                                  const label = timeRange(shift.start, shift.end);
+                                  const label = timeRange(shift.start, shift.end, language);
                                   return (
                                     <button
                                       key={shift.id}
@@ -385,7 +375,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                                         borderColor: `${color}55`,
                                         color,
                                       }}
-                                      title={`${shift.title || "Shift"} ${label}`}
+                                      title={shift.title ? `${shift.title} ${label}` : label}
                                     >
                                       <span className="w-full truncate text-[11px] font-bold leading-tight">
                                         {label}

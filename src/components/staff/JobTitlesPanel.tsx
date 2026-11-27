@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { roleDisplayName } from "@/lib/roleDisplayName";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertTriangle, Briefcase, Loader2 } from "lucide-react";
@@ -25,7 +26,7 @@ type CustomRole = { id: string; name: string };
 
 function useRoleLabel() {
   const { t } = useLanguage();
-  return (role: string) => t(`staff.add_people.roles.${role.toLowerCase()}`);
+  return (role: string) => roleDisplayName(role, t);
 }
 
 /** Role picker: the title roles, then the business's own custom titles (value `CUSTOM:<id>`). */

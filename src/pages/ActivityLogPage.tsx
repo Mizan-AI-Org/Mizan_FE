@@ -24,6 +24,7 @@ import { unwrapEnvelope } from '@/lib/envelope';
 import { PAGE_SHELL } from '@/lib/page-shell';
 import { useAuth } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
+import { formatDate, formatTime } from "@/lib/localeTag";
 
 interface AuditRow {
     id: string;
@@ -85,7 +86,7 @@ const formatWhen = (iso: string | null): string => {
     if (!iso) return '-';
     try {
         const d = new Date(iso);
-        return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], {
+        return `${formatDate(d)} ${formatTime(d, undefined, {
             hour: '2-digit',
             minute: '2-digit',
         })}`;

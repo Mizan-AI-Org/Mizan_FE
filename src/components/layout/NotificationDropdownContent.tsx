@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/localeTag";
 
 const NOTIFICATION_PREVIEW_LIMIT = 4;
 
@@ -85,7 +86,7 @@ function formatRelativeTime(iso: string): string {
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatDate(new Date(iso), undefined, { month: "short", day: "numeric" });
 }
 
 function MarkReadButton({

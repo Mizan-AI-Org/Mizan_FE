@@ -45,6 +45,7 @@ function asList(payload: unknown): any[] {
 
 
 import { useLanguage } from "@/hooks/use-language";
+import { formatDateTime, formatPattern, formatTime } from "@/lib/localeTag";
 
 // Toasts and labels here were calling a `t` that was never defined (ReferenceError at runtime): translate with the
 // app's i18n instance, which follows the current language like useLanguage().
@@ -152,13 +153,13 @@ const ManagerSwapRequests: React.FC = () => {
                                         {t(`swap_requests.status.${request.status.toLowerCase()}`, request.status)}
                                     </span>
                                 </CardTitle>
-                                <p className="text-sm text-muted-foreground">{t("swap_requests.requested_on", { date: format(new Date(request.created_at), 'PPP p') })}</p>
+                                <p className="text-sm text-muted-foreground">{t("swap_requests.requested_on", { date: formatDateTime(new Date(request.created_at), undefined, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) })}</p>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div>
                                     <p className="font-semibold">{t("swap_requests.shift_to_swap")}</p>
                                     <p className="text-sm text-gray-700">
-                                        {format(new Date(request.shift_to_swap_info.shift_date), 'PPP')} {format(new Date(`2000-01-01T${request.shift_to_swap_info.start_time}`), 'hh:mm a')} - {format(new Date(`2000-01-01T${request.shift_to_swap_info.end_time}`), 'hh:mm a')}
+                                        {formatPattern(new Date(request.shift_to_swap_info.shift_date), 'PPP')} {formatTime(new Date(`2000-01-01T${request.shift_to_swap_info.start_time}`), undefined, { hour: '2-digit', minute: '2-digit' })} - {formatTime(new Date(`2000-01-01T${request.shift_to_swap_info.end_time}`), undefined, { hour: '2-digit', minute: '2-digit' })}
                                         ({request.shift_to_swap_info.role})
                                     </p>
                                     <p className="text-sm text-gray-600">{t("swap_requests.original_staff", { name: `${request.shift_to_swap_info.staff_info.first_name} ${request.shift_to_swap_info.staff_info.last_name}` })}</p>

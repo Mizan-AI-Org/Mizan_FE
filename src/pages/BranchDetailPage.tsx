@@ -51,6 +51,8 @@ import {
   formatPortfolioMoney,
   translateTopConcern,
 } from "@/lib/locations-i18n";
+import { formatDate as fmtDate, formatTime as fmtTime } from "@/lib/localeTag";
+import type { Language } from "@/contexts/LanguageContext.types";
 
 /**
  * Full branch hub - opened from Locations Overview.
@@ -181,7 +183,7 @@ export default function BranchDetailPage() {
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">
                 {t("locations_overview.updated", {
-                  time: new Date(data.generated_at).toLocaleTimeString(language),
+                  time: fmtTime(new Date(data.generated_at), language),
                 })}
               </span>
               <Button
@@ -1189,7 +1191,7 @@ function UpcomingCoverageCard({
                   )}
                 >
                   <div className="text-xs text-muted-foreground">
-                    {date.toLocaleDateString(language, {
+                    {fmtDate(date, language as Language, {
                       weekday: "short",
                       day: "numeric",
                     })}
@@ -1351,7 +1353,7 @@ function formatDay(iso: string): string {
   try {
     const d = new Date(iso);
     if (d.toDateString() === new Date().toDateString()) return formatTime(iso);
-    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+    return fmtDate(d, undefined, { month: "short", day: "numeric" });
   } catch {
     return "";
   }
@@ -1359,7 +1361,7 @@ function formatDay(iso: string): string {
 
 function formatTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleTimeString([], {
+    return fmtTime(new Date(iso), undefined, {
       hour: "2-digit",
       minute: "2-digit",
     });

@@ -538,14 +538,14 @@ function LaneTab({
       aria-selected={active}
       onClick={onSelect}
       className={cn(
-        "inline-flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+        "inline-flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-xs font-medium leading-tight transition sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm",
         active
           ? "bg-emerald-600 text-white shadow-sm"
           : "text-muted-foreground hover:bg-card hover:text-foreground",
         isOver && !active && "ring-2 ring-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/40",
       )}
     >
-      <span className="truncate">{label}</span>
+      <span className="max-w-full text-center sm:truncate">{label}</span>
       <span
         className={cn(
           "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums font-semibold",
