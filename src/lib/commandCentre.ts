@@ -107,6 +107,7 @@ export type CommandCentrePayload = {
     watching: number;
   };
   generated_at?: string;
+  day_sheet?: CommandDaySheet;
   domain_attention?: Array<{
     domain: string;
     title: string;
@@ -117,6 +118,26 @@ export type CommandCentrePayload = {
     severity?: string;
   }>;
   briefing?: CommandBriefingSnapshot;
+};
+
+export type CommandDaySheetLine = {
+  kind: "event" | "reminder" | "birthday";
+  text: string;
+  href: string;
+};
+
+export type CommandDaySheet = {
+  lines: CommandDaySheetLine[];
+  presence: { in: number; expected: number };
+  approvals_pending: number;
+  services: Array<{ label: "lunch" | "dinner"; start: string; end: string }>;
+  calendar: {
+    connected: boolean;
+    href: string;
+    /** Next meeting or shift at or after now. */
+    upcoming?: { title: string; minutes: number; starts_at?: string } | null;
+  };
+  incidents_new: number;
 };
 
 export type CommandBriefingSnapshot = {

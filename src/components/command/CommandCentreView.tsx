@@ -10,14 +10,84 @@ import { useBranchScope } from "@/contexts/BranchScopeContext";
 import { useCommandCentre } from "@/hooks/use-command-centre";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
-import { COMMAND_ROUTES, localizedCommandGreeting, localizedOpsHealth, type CommandSignal } from "@/lib/commandCentre";
-import type { DashboardTaskDemandItem } from "@/lib/types";
+import {
+  COMMAND_ROUTES,
+  localizedCommandGreeting,
+  localizedOpsHealth,
+  type CommandDaySheet,
+  type CommandSignal,
+} from "@/lib/commandCentre";
+import type { DashboardTaskDemandItem, MeetingReminderItem } from "@/lib/types";
 import { MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 import { DashboardWidgetById, type DashboardWidgetBundleProps } from "@/pages/dashboard/DashboardWidgets";
 
 const ALL_OPERATIONS = "/dashboard/operations/live";
+const COMMAND_MEETINGS_HREF = "/dashboard#command-meetings";
 const COMMAND_WIDGETS = ["meetings_reminders", "staff_daily_progress", "urgent_top"] as const;
+
+type UpcomingCalendar = NonNullable<CommandDaySheet["calendar"]["upcoming"]>;
+
+/** Calendar tile only surfaces what's starting in the next 30 minutes. */
+const CALENDAR_IMMINENT_MS = 30 * 60_000;
+
+function nextMeetingFromWidget(items: MeetingReminderItem[] | undefined): UpcomingCalendar | null {
+  if (!items?.length) return null;
+  const now = Date.now();
+  const latest = now + CALENDAR_IMMINENT_MS;
+  let best: { ms: number; title: string } | null = null;
+  for (const item of items) {
+    const title = (item.title || "").trim();
+    if (!title) continue;
+    const ms = Date.parse(item.start);
+    if (Number.isNaN(ms) || ms < now - 30_000 || ms > latest) continue;
+    if (best === null || ms < best.ms) best = { ms, title };
+  }
+  if (!best) return null;
+  return {
+    title: best.title,
+    minutes: Math.max(0, Math.floor((best.ms - now) / 60_000)),
+    starts_at: new Date(best.ms).toISOString(),
+  };
+}
+
+function soonerUpcoming(a: UpcomingCalendar | null | undefined, b: UpcomingCalendar | null | undefined): UpcomingCalendar | null {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  const aMs = a.starts_at ? Date.parse(a.starts_at) : NaN;
+  const bMs = b.starts_at ? Date.parse(b.starts_at) : NaN;
+  if (!Number.isNaN(aMs) && !Number.isNaN(bMs)) return aMs <= bMs ? a : b;
+  if (!Number.isNaN(aMs)) return a;
+  if (!Number.isNaN(bMs)) return b;
+  return a.minutes <= b.minutes ? a : b;
+}
+
+function imminentCalendarUpcoming(upcoming: UpcomingCalendar | null | undefined): UpcomingCalendar | null {
+  if (!upcoming) return null;
+  const now = Date.now();
+  if (upcoming.starts_at) {
+    const ms = Date.parse(upcoming.starts_at);
+    if (Number.isNaN(ms) || ms < now - 30_000 || ms > now + CALENDAR_IMMINENT_MS) return null;
+    return {
+      title: upcoming.title,
+      starts_at: upcoming.starts_at,
+      minutes: Math.max(0, Math.floor((ms - now) / 60_000)),
+    };
+  }
+  if (upcoming.minutes > 30) return null;
+  return upcoming;
+}
+
+function formatImminentCalendarValue(
+  upcoming: UpcomingCalendar,
+  t: (key: string, opts?: Record<string, string | number>) => string,
+): string {
+  const title = upcoming.title;
+  if (upcoming.minutes <= 0) {
+    return t("command.day.upcoming_now", { title });
+  }
+  return t("command.day.upcoming_min", { title, minutes: upcoming.minutes });
+}
 
 function whenLabel(iso: string | undefined, language: string): { weekday: string; time: string } {
   if (!iso) return { weekday: "", time: "" };
@@ -122,6 +192,8 @@ export function CommandCentreView({ className }: { className?: string }) {
           </span>
         </p>
       </header>
+
+      {data.day_sheet ? <DaySheet sheet={data.day_sheet} /> : null}
 
       <section
         className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-2.5"
@@ -382,9 +454,119 @@ function CommandWidgets({
   return (
     <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-3">
       {COMMAND_WIDGETS.map((id) => (
-        <DashboardWidgetById key={id} id={id} props={bundle} />
+        <div key={id} id={id === "meetings_reminders" ? "command-meetings" : undefined} className="min-w-0">
+          <DashboardWidgetById id={id} props={bundle} />
+        </div>
       ))}
     </div>
+  );
+}
+
+function CalendarFact({ fallback }: { fallback: CommandDaySheet["calendar"] }) {
+  const { t } = useLanguage();
+  const { data } = useQuery({
+    queryKey: ["dashboard", "meetings-reminders", "day-sheet"],
+    queryFn: () => api.getDashboardMeetingsReminders(8),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const upcoming = imminentCalendarUpcoming(
+    soonerUpcoming(nextMeetingFromWidget(data?.items), fallback.upcoming ?? null),
+  );
+  const value = upcoming
+    ? formatImminentCalendarValue(upcoming, t)
+    : t("command.day.calendar_clear_30", { defaultValue: "All clear for the next 30 min" });
+  return <Fact href={COMMAND_MEETINGS_HREF} label={t("command.day.calendar")} value={value} />;
+}
+
+function DaySheet({ sheet }: { sheet: CommandDaySheet }) {
+  const { t } = useLanguage();
+  const presence =
+    sheet.presence.expected > 0
+      ? `${sheet.presence.in}/${sheet.presence.expected}`
+      : String(sheet.presence.in);
+  const facts: Array<{ key: string; href: string; label: string; value?: string; external?: boolean }> = [
+    { key: "presence", href: "/dashboard/employees/attendance", label: t("command.day.presence"), value: presence },
+    {
+      key: "approvals",
+      href: "/dashboard/operations/approvals",
+      label: t("command.day.approvals", { count: sheet.approvals_pending }),
+    },
+    ...sheet.services.map((service) => ({
+      key: service.label,
+      href: "/dashboard/employees/shifts",
+      label: t(`command.day.${service.label}`),
+      value: `${service.start}–${service.end}`,
+    })),
+    {
+      key: "incidents",
+      href: COMMAND_ROUTES.incidents,
+      label: t("command.day.incidents"),
+      value: t("command.day.incidents_new", { count: sheet.incidents_new }),
+    },
+  ];
+  return (
+    <section aria-label={t("command.day.title")} className={cn(MIZAN_ELEVATED_CARD, "overflow-hidden")}>
+      {sheet.lines.length > 0 ? (
+        <ul className="space-y-1 border-b border-slate-200/70 px-4 py-3 dark:border-border">
+          {sheet.lines.map((line, index) => (
+            <li key={`${line.kind}-${index}`}>
+              <Link to={line.href} className="block truncate text-sm font-medium hover:text-primary">
+                {line.kind === "birthday" ? t("command.day.birthday", { name: line.text }) : line.text}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="grid w-full grid-cols-2 gap-px bg-slate-200/70 sm:grid-cols-none sm:auto-cols-fr sm:grid-flow-col dark:bg-border">
+        {facts.map((fact) => (
+          <Fact key={fact.key} href={fact.href} label={fact.label} value={fact.value} external={fact.external} />
+        ))}
+        <CalendarFact fallback={sheet.calendar} />
+      </div>
+    </section>
+  );
+}
+
+function Fact({
+  href,
+  label,
+  value,
+  placeholder,
+  external = false,
+}: {
+  href: string;
+  label: string;
+  value?: string;
+  placeholder?: string;
+  external?: boolean;
+}) {
+  const className =
+    "flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 bg-white px-3 py-3 text-center transition-colors hover:bg-slate-50 dark:bg-card dark:hover:bg-white/5";
+  const showValue = Boolean(value || placeholder);
+  const body = (
+    <>
+      <span className={showValue ? "text-xs text-muted-foreground" : "text-sm font-medium text-foreground"}>
+        {label}
+      </span>
+      {value ? (
+        <span className="line-clamp-2 text-sm font-semibold text-foreground">{value}</span>
+      ) : placeholder ? (
+        <span className="line-clamp-2 text-xs font-medium text-muted-foreground">{placeholder}</span>
+      ) : null}
+    </>
+  );
+  if (external) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={className}>
+        {body}
+      </a>
+    );
+  }
+  return (
+    <Link to={href} className={className}>
+      {body}
+    </Link>
   );
 }
 
