@@ -75,6 +75,11 @@ import {
     type DashboardWidgetId,
 } from "@/pages/dashboard/DashboardWidgets";
 import BusinessSetupStep from "@/components/onboarding/BusinessSetupStep";
+import {
+    OnboardingNavProvider,
+    OnboardingStepActions,
+    type OnboardingStepActionsProps,
+} from "@/components/onboarding/OnboardingStepActions";
 import PreferencesStep from "@/components/onboarding/PreferencesStep";
 import { SectorPicker } from "@/components/onboarding/SectorPicker";
 import { ModulePicker } from "@/components/onboarding/ModulePicker";
@@ -655,6 +660,12 @@ const OnboardingWizard: React.FC = () => {
 
             {/* Step body - fills remaining viewport */}
             <div className="flex-1 min-h-0 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                <OnboardingNavProvider
+                    value={{
+                        goBack,
+                        backDisabled: currentIdx <= 1,
+                    }}
+                >
                 <div
                     key={animKey}
                     className={cn(
@@ -854,28 +865,16 @@ const OnboardingWizard: React.FC = () => {
                     )}
                 </div>
 
-                {/* Footer nav for intermediate steps (welcome + done hide it) */}
                 {step !== "welcome" && step !== "done" && (
-                    <div className="mt-4 shrink-0 flex items-center justify-between pt-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={goBack}
-                            disabled={currentIdx <= 1}
-                            className="gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                            {t("onboarding.back", "Back")}
-                        </Button>
-                        <div className="text-xs font-medium text-slate-400 dark:text-slate-500 tabular-nums">
-                            {t("onboarding.step_of", {
-                                defaultValue: "Step {{cur}} of {{total}}",
-                                cur: currentIdx,
-                                total: totalWizardSteps - 2,
-                            })}
-                        </div>
+                    <div className="mt-3 shrink-0 text-center text-xs font-medium text-slate-400 dark:text-slate-500 tabular-nums">
+                        {t("onboarding.step_of", {
+                            defaultValue: "Step {{cur}} of {{total}}",
+                            cur: currentIdx,
+                            total: totalWizardSteps - 2,
+                        })}
                     </div>
                 )}
+                </OnboardingNavProvider>
             </div>
         </div>
     );
@@ -1234,17 +1233,12 @@ const IndustryStep: React.FC<{
                 </div>
             </div>
 
-            <StepActions>
-                <Button
-                    variant="ghost"
-                    type="button"
-                    onClick={() => {
-                        void onSkip();
-                    }}
-                    disabled={saving}
-                >
-                    {t("onboarding.skip_step", "Skip for now")}
-                </Button>
+            <StepActions
+                onSkip={() => {
+                    void onSkip();
+                }}
+                skipDisabled={saving}
+            >
                 <Button
                     onClick={() => {
                         void save();
@@ -1346,10 +1340,7 @@ const ModulesStep: React.FC<{
                     "You can change this later under Settings → General Settings → Modules. Turning one off hides it; nothing is deleted.",
                 )}
             </p>
-            <StepActions>
-                <Button variant="ghost" type="button" onClick={onSkip} disabled={saving}>
-                    {t("onboarding.skip_step", "Skip for now")}
-                </Button>
+            <StepActions onSkip={onSkip} skipDisabled={saving}>
                 <Button
                     onClick={() => {
                         void save();
@@ -1633,10 +1624,7 @@ const StaffCsvStep: React.FC<{
                     </Button>
                 </StepActions>
             ) : (
-            <StepActions>
-                <Button variant="ghost" onClick={onSkip} disabled={upload.isPending}>
-                    {t("onboarding.skip_step", "Skip for now")}
-                </Button>
+            <StepActions onSkip={onSkip} skipDisabled={upload.isPending}>
                 <Button
                     onClick={() => upload.mutate()}
                     disabled={rows.length === 0 || upload.isPending}
@@ -1758,37 +1746,30 @@ const WidgetsStep: React.FC<{
                 })}
             </div>
 
-            <StepActions>
-                <Button
-                    variant="ghost"
-                    type="button"
-                    onClick={() => {
-                        void onSkip();
-                    }}
-                    disabled={saving}
-                >
-                    {t("onboarding.skip_step", "Skip for now")}
-                </Button>
-                <div className="flex items-center gap-3 ml-auto">
-                    <div className="text-xs text-muted-foreground">
-                        {t("onboarding.widgets.selected_count", {
-                            defaultValue: "{{count}} selected",
-                            count: widgetChoices.filter((id) => selected.has(id)).length,
-                        })}
-                    </div>
-                    <Button
-                        onClick={save}
-                        disabled={saving}
-                        className="gap-2 bg-emerald-500 hover:bg-emerald-600"
-                    >
-                        {saving ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <ArrowRight className="h-4 w-4" />
-                        )}
-                        {t("onboarding.continue", "Continue")}
-                    </Button>
+            <StepActions
+                onSkip={() => {
+                    void onSkip();
+                }}
+                skipDisabled={saving}
+            >
+                <div className="text-xs text-muted-foreground">
+                    {t("onboarding.widgets.selected_count", {
+                        defaultValue: "{{count}} selected",
+                        count: widgetChoices.filter((id) => selected.has(id)).length,
+                    })}
                 </div>
+                <Button
+                    onClick={save}
+                    disabled={saving}
+                    className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+                >
+                    {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <ArrowRight className="h-4 w-4" />
+                    )}
+                    {t("onboarding.continue", "Continue")}
+                </Button>
             </StepActions>
         </StepShell>
     );
@@ -1945,24 +1926,20 @@ const PermissionsStep: React.FC<{
                 })}
             </div>
 
-            <StepActions>
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        onClick={() => {
-                            const everyone: Record<string, string[]> = {};
-                            DASHBOARD_WIDGET_IDS.forEach((id) => {
-                                everyone[id] = ROLE_CHOICES.map((r) => r.id);
-                            });
-                            setVisibility(everyone);
-                        }}
-                    >
-                        {t("onboarding.perms.all_everyone", "Let everyone see everything")}
-                    </Button>
-                    <Button variant="ghost" onClick={skipWithCurrentVisibility} disabled={saving}>
-                        {t("onboarding.skip_step", "Skip for now")}
-                    </Button>
-                </div>
+            <StepActions onSkip={skipWithCurrentVisibility} skipDisabled={saving}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                        const everyone: Record<string, string[]> = {};
+                        DASHBOARD_WIDGET_IDS.forEach((id) => {
+                            everyone[id] = ROLE_CHOICES.map((r) => r.id);
+                        });
+                        setVisibility(everyone);
+                    }}
+                >
+                    {t("onboarding.perms.all_everyone", "Let everyone see everything")}
+                </Button>
                 <Button
                     onClick={save}
                     disabled={saving}
@@ -2037,28 +2014,19 @@ const OwnersStep: React.FC<{
                 </div>
             )}
 
-            <StepActions>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        onClick={save}
-                        disabled={saving}
-                    >
-                        {t("onboarding.skip_step", "Skip for now")}
-                    </Button>
-                    <Button
-                        onClick={save}
-                        disabled={saving || !hasStaff}
-                        className="gap-2 bg-emerald-500 hover:bg-emerald-600"
-                    >
-                        {saving ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <ArrowRight className="h-4 w-4" />
-                        )}
-                        {t("onboarding.continue", "Continue")}
-                    </Button>
-                </div>
+            <StepActions onSkip={save} skipDisabled={saving}>
+                <Button
+                    onClick={save}
+                    disabled={saving || !hasStaff}
+                    className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+                >
+                    {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <ArrowRight className="h-4 w-4" />
+                    )}
+                    {t("onboarding.continue", "Continue")}
+                </Button>
             </StepActions>
         </StepShell>
     );
@@ -2157,14 +2125,7 @@ const GoogleCalendarStep: React.FC<{
                 )}
             </div>
 
-            <StepActions>
-                <Button variant="ghost" onClick={skip} disabled={skipping || connecting}>
-                    {skipping ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                        t("onboarding.gcal.skip", "Skip for now")
-                    )}
-                </Button>
+            <StepActions onSkip={() => void skip()} skipDisabled={skipping || connecting}>
                 <Button
                     onClick={connect}
                     disabled={connecting || skipping}
@@ -2326,10 +2287,6 @@ const StepShell: React.FC<{
     );
 };
 
-const StepActions: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <div className="pt-4 mt-auto shrink-0 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3 flex-wrap">
-        {children}
-    </div>
-);
+const StepActions: React.FC<OnboardingStepActionsProps> = (props) => <OnboardingStepActions {...props} />;
 
 export default OnboardingWizard;

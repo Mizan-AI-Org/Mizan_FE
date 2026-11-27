@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { API_BASE, api, authFetch } from "@/lib/api";
 import { useMyLanguage } from "@/hooks/use-my-language";
 import { cn } from "@/lib/utils";
+import type { OnboardingStepActionsProps } from "@/components/onboarding/OnboardingStepActions";
 
 type Lang = "en" | "fr" | "ar";
 
@@ -23,7 +24,16 @@ type ShellProps = {
   alreadyDoneBadge?: boolean;
 };
 
-type Beat = 0 | 1 | 2 | 3;
+type Beat = 0 | 1 | 2;
+
+function ColumnHeading({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
 
 async function saveFloorFlag(body: Record<string, boolean>) {
   const res = await authFetch(`${API_BASE}/settings/unified/`, {
@@ -44,7 +54,7 @@ export default function PreferencesStep({
   onSkip,
 }: {
   Shell: React.ComponentType<ShellProps>;
-  Actions: React.ComponentType<{ children: React.ReactNode }>;
+  Actions: React.ComponentType<OnboardingStepActionsProps>;
   alreadyDone?: boolean;
   onSaved: () => Promise<void> | void;
   onSkip: () => Promise<void> | void;
@@ -93,14 +103,11 @@ export default function PreferencesStep({
   const saveBeat = async () => {
     if (beat === 0) {
       await changeLanguage(mine);
-      return;
-    }
-    if (beat === 1) {
       const lng = business === "same" ? mine : business;
       await api.updateMyLanguage({ language: lng, businessOnly: true });
       return;
     }
-    if (beat === 2) {
+    if (beat === 1) {
       if (autoClockOut === null) throw new Error("pick");
       await saveFloorFlag({ automatic_clock_out: autoClockOut });
       return;
@@ -110,7 +117,7 @@ export default function PreferencesStep({
   };
 
   const needsChoice =
-    (beat === 2 && autoClockOut === null) || (beat === 3 && checklistWithoutClockIn === null);
+    (beat === 1 && autoClockOut === null) || (beat === 2 && checklistWithoutClockIn === null);
 
   const forward = async () => {
     if (needsChoice) {
@@ -120,7 +127,7 @@ export default function PreferencesStep({
     setSaving(true);
     try {
       await saveBeat();
-      if (beat < 3) {
+      if (beat < 2) {
         setBeat((beat + 1) as Beat);
         return;
       }
@@ -144,15 +151,27 @@ export default function PreferencesStep({
         : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
     );
 
+  const shellTitle =
+    beat === 0
+      ? t("onboarding.preferences.language_step_title", "Languages")
+      : questions[beat + 1].title;
+  const shellSubtitle =
+    beat === 0
+      ? t(
+          "onboarding.preferences.language_step_subtitle",
+          "Your language and the default for everyone else on the team.",
+        )
+      : questions[beat + 1].hint;
+
   return (
     <Shell
       icon={<Languages className="h-6 w-6" />}
-      title={questions[beat].title}
-      subtitle={questions[beat].hint}
+      title={shellTitle}
+      subtitle={shellSubtitle}
       alreadyDoneBadge={alreadyDone}
     >
       <div className="flex items-center gap-1.5" aria-hidden>
-        {[0, 1, 2, 3].map((index) => (
+        {[0, 1, 2].map((index) => (
           <span
             key={index}
             className={cn(
@@ -164,39 +183,51 @@ export default function PreferencesStep({
       </div>
 
       {beat === 0 ? (
-        <div className="grid gap-2 sm:grid-cols-3">
-          {LANGS.map((row) => (
-            <button key={row.id} type="button" className={choiceClass(mine === row.id)} onClick={() => setMine(row.id)}>
-              {row.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {beat === 1 ? (
-        <div className="grid gap-2">
-          <button type="button" className={choiceClass(business === "same")} onClick={() => setBusiness("same")}>
-            {t("onboarding.preferences.same", "Yes — same as mine")}
-          </button>
-          <p className="pt-1 text-xs text-muted-foreground">
-            {t("onboarding.preferences.different", "Or pick the team default")}
-          </p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {LANGS.map((row) => (
+        <div className="grid gap-6 md:grid-cols-2 md:gap-8">
+          <div className="space-y-3">
+            <ColumnHeading title={questions[0].title} hint={questions[0].hint} />
+            <div className="grid gap-2">
+              {LANGS.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className={choiceClass(mine === row.id)}
+                  onClick={() => setMine(row.id)}
+                >
+                  {row.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-3 md:border-s md:border-slate-200 md:ps-8 dark:md:border-slate-700">
+            <ColumnHeading title={questions[1].title} hint={questions[1].hint} />
+            <div className="grid gap-2">
               <button
-                key={row.id}
                 type="button"
-                className={choiceClass(business === row.id)}
-                onClick={() => setBusiness(row.id)}
+                className={choiceClass(business === "same")}
+                onClick={() => setBusiness("same")}
               >
-                {row.label}
+                {t("onboarding.preferences.same", "Yes — same as mine")}
               </button>
-            ))}
+              <p className="text-xs text-muted-foreground">
+                {t("onboarding.preferences.different", "Or pick the team default")}
+              </p>
+              {LANGS.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className={choiceClass(business === row.id)}
+                  onClick={() => setBusiness(row.id)}
+                >
+                  {row.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}
 
-      {beat === 2 ? (
+      {beat === 1 ? (
         <div className="grid gap-2 sm:grid-cols-2">
           <button type="button" className={choiceClass(autoClockOut === true)} onClick={() => setAutoClockOut(true)}>
             {t("onboarding.preferences.yes", "Yes")}
@@ -207,7 +238,7 @@ export default function PreferencesStep({
         </div>
       ) : null}
 
-      {beat === 3 ? (
+      {beat === 2 ? (
         <div className="grid gap-2 sm:grid-cols-2">
           <button
             type="button"
@@ -226,28 +257,36 @@ export default function PreferencesStep({
         </div>
       ) : null}
 
-      <Actions>
-        <div className="flex items-center gap-2">
-          {beat > 0 ? (
-            <Button type="button" variant="ghost" disabled={saving} onClick={() => setBeat((beat - 1) as Beat)}>
-              <ArrowLeft className="mr-1.5 h-4 w-4" />
+      <Actions
+        onSkip={() => {
+          void onSkip();
+        }}
+        skipDisabled={saving}
+        hideWizardBack={beat > 0}
+        backOverride={
+          beat > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={saving}
+              onClick={() => setBeat((beat - 1) as Beat)}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
               {t("onboarding.back", "Back")}
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={saving}
-            onClick={() => {
-              void onSkip();
-            }}
-          >
-            {t("onboarding.skip_step", "Skip for now")}
-          </Button>
-        </div>
-        <Button type="button" disabled={saving} className="gap-2 bg-emerald-500 hover:bg-emerald-600" onClick={() => void forward()}>
+          ) : undefined
+        }
+      >
+        <Button
+          type="button"
+          disabled={saving}
+          className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+          onClick={() => void forward()}
+        >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-          {beat === 3 ? t("onboarding.continue", "Continue") : t("onboarding.preferences.next", "Next")}
+          {beat === 2 ? t("onboarding.continue", "Continue") : t("onboarding.preferences.next", "Next")}
         </Button>
       </Actions>
     </Shell>

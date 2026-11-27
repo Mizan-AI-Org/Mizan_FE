@@ -1187,6 +1187,8 @@
   "onboarding.steps.google_calendar.chip": "Calendrier",
   "onboarding.steps.industry.chip": "Secteur",
   "onboarding.steps.preferences.chip": "Préférences",
+  "onboarding.preferences.language_step_title": "Langues",
+  "onboarding.preferences.language_step_subtitle": "Ta langue et celle par défaut pour le reste de l'équipe.",
   "onboarding.preferences.q_language": "Dans quelle langue je te parle ?",
   "onboarding.preferences.q_language_hint": "C'est la langue de l'application, de WhatsApp et de Miya pour toi.",
   "onboarding.preferences.q_business": "Le reste de l'équipe doit-il avoir la même langue par défaut ?",

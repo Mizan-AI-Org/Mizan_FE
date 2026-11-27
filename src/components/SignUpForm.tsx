@@ -7,7 +7,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { ArrowRight, Loader2, User, Mail, Lock, Building2, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { DIAL_COUNTRIES, LEGAL_VERSION, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
+import { LEGAL_VERSION, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
+import { dialForCountryCode } from "@/lib/dialCountries";
+import { DialCountrySelect } from "@/components/settings/DialCountrySelect";
 import { useLanguage } from "@/hooks/use-language";
 import type { SignupData } from "@/lib/types";
 import { normalizeAppLanguage } from "@/lib/userLanguage";
@@ -44,7 +46,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
     }
     const fullName = (formData.get("fullName") as string).trim();
     const email = (formData.get("email") as string).trim();
-    const dial = DIAL_COUNTRIES.find((c) => c.code === country)?.dial || "212";
+    const dial = dialForCountryCode(country);
     const whatsappPhone = composeWhatsAppNumber(formData.get("whatsappPhone") as string, dial);
     if (!isPlausibleWhatsApp(whatsappPhone)) {
       setError(t("auth.signup.errors.whatsapp_invalid"));
@@ -162,20 +164,15 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 WA
               </span>
             </div>
-            <div className="flex gap-2">
-              <select
-                aria-label={t("auth.signup.whatsapp_country")}
+            <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-2">
+              <DialCountrySelect
+                compact
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className={`h-10 shrink-0 rounded-md px-2 text-sm ${authFieldClass}`}
-              >
-                {DIAL_COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code} className="bg-[#0A0D10] text-white">
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <div className="group relative min-w-0 flex-1">
+                onChange={setCountry}
+                aria-label={t("auth.signup.whatsapp_country")}
+                className={`h-10 shrink-0 border-white/[0.08] bg-black/30 text-white hover:bg-black/40 hover:text-white ${authFieldClass}`}
+              />
+              <div className="group relative min-w-0">
                 <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
                 <Input
                   id="signup-whatsapp"
@@ -183,10 +180,11 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
+                  dir="ltr"
                   placeholder={t("auth.signup.whatsapp_placeholder")}
                   required
                   aria-describedby="signup-whatsapp-hint"
-                  className={`h-10 pl-9 text-sm ${authFieldClass}`}
+                  className={`h-10 w-full pl-9 text-sm ${authFieldClass}`}
                 />
               </div>
             </div>

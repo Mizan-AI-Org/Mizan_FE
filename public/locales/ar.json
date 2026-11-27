@@ -1187,6 +1187,8 @@
   "onboarding.steps.google_calendar.chip": "التقويم",
   "onboarding.steps.industry.chip": "القطاع",
   "onboarding.steps.preferences.chip": "التفضيلات",
+  "onboarding.preferences.language_step_title": "اللغات",
+  "onboarding.preferences.language_step_subtitle": "لغتك واللغة الافتراضية لبقية الفريق.",
   "onboarding.preferences.q_language": "بأي لغة أكلّمك؟",
   "onboarding.preferences.q_language_hint": "هذه لغة التطبيق وواتساب وميّا معك.",
   "onboarding.preferences.q_business": "هل تكون هذه لغة الفريق الافتراضية أيضًا؟",
