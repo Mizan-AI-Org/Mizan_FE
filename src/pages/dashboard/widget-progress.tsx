@@ -1,5 +1,6 @@
 import type { DashboardTaskDemandItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/hooks/use-language";
 
 export type WorkCounts = {
   open?: number;
@@ -70,7 +71,9 @@ export function WidgetPercentChip({
   /** When false, renders the legacy compact chip (e.g. dense toolbars). */
   prominent?: boolean;
 }) {
+  const { t } = useLanguage();
   if (pct == null) return null;
+  const doneLabel = t("dashboard.widget.percent_done", { pct });
   if (!prominent) {
     return (
       <span
@@ -82,7 +85,7 @@ export function WidgetPercentChip({
               ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
               : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300",
         )}
-        title={`${pct}% done`}
+        title={doneLabel}
       >
         {pct}%
       </span>
@@ -94,8 +97,8 @@ export function WidgetPercentChip({
         "shrink-0 text-right text-2xl font-black tabular-nums leading-none tracking-tight",
         percentToneClass(pct),
       )}
-      title={`${pct}% done`}
-      aria-label={`${pct}% done`}
+      title={doneLabel}
+      aria-label={doneLabel}
     >
       {pct}
       <span className="ms-px text-sm font-bold">%</span>

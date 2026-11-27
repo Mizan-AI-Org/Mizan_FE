@@ -1,6 +1,16 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -165,6 +175,7 @@ function AreaCard({
   nested?: boolean;
 }) {
   const [addingChild, setAddingChild] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const primaryId = node.primary?.id ? [node.primary.id] : [];
   const informedIds = (node.informed || []).map((row) => row.id).filter((id) => id !== node.primary?.id);
 
@@ -187,13 +198,30 @@ function AreaCard({
             type="button"
             className="text-muted-foreground hover:text-destructive"
             aria-label={t("cursorUi.resp.delete_area", "Delete")}
-            onClick={() => {
-              if (window.confirm(t("cursorUi.resp.delete_confirm", "Delete this area?"))) onDelete(node.id);
-            }}
+            onClick={() => setConfirmDelete(true)}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         ) : null}
+        <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("cursorUi.resp.delete_title")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("cursorUi.resp.delete_confirm", "Delete this area?")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmDelete(false);
+                  onDelete(node.id);
+                }}
+              >
+                {t("common.delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
       <textarea
         className="min-h-[2.5rem] resize-y rounded-md border border-slate-200 bg-background px-2 py-1 text-xs dark:border-slate-700"

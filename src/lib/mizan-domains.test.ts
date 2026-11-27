@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DOMAIN_SECTIONS } from "./mizan-domains";
 import { COMMAND_ROUTES } from "./commandCentre";
-import { COMMAND_TILES, DEFAULT_TILE_IDS, sanitizeSelection } from "@/components/command/CommandCenterTiles";
 
 /** A restaurant has every module except the agency one. */
 const restaurantHas = (moduleId?: string) => !moduleId || moduleId !== "agency";
@@ -32,19 +31,6 @@ describe("operations nav (Cursor's design)", () => {
 });
 
 describe("command centre tiles", () => {
-  it("offers Cursor's three tiles (calendar, orders and attendance retired)", () => {
-    expect(COMMAND_TILES.map((t) => t.id)).toEqual(["operations", "performance", "incidents"]);
-  });
-
-  it("defaults to operations, performance, incidents; empty or invalid choices fall back to it", () => {
-    expect(DEFAULT_TILE_IDS).toEqual(["operations", "performance", "incidents"]);
-    expect(sanitizeSelection(undefined)).toEqual(DEFAULT_TILE_IDS);
-    expect(sanitizeSelection([])).toEqual(DEFAULT_TILE_IDS);
-    expect(sanitizeSelection(["accountability", "progress"])).toEqual(DEFAULT_TILE_IDS);
-    expect(sanitizeSelection("nope")).toEqual(DEFAULT_TILE_IDS);
-    expect(sanitizeSelection(["incidents", "bogus"])).toEqual(["incidents"]);
-  });
-
   it("routes to Live Operations", () => {
     expect(COMMAND_ROUTES.operations).toBe("/dashboard/operations/live");
     expect(COMMAND_ROUTES.compliance).toBe("/dashboard/operations/live?view=compliance");

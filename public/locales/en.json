@@ -7285,5 +7285,10 @@
   "inventory.adjustments.err_update": "Failed to update adjustment",
   "inventory.adjustments.err_delete": "Failed to delete adjustment",
   "inventory.adjustments.type_add": "Add",
-  "inventory.adjustments.type_remove": "Remove"
+  "inventory.adjustments.type_remove": "Remove",
+  "dashboard.widget.percent_done": "{{pct}}% done",
+  "dashboard.meetings_reminders.video_call": "Video call",
+  "cursorUi.resp.replace_primary_title": "Replace the Primary?",
+  "cursorUi.resp.replace_primary_action": "Replace",
+  "cursorUi.resp.delete_title": "Delete area"
 }

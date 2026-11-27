@@ -7285,5 +7285,10 @@
   "inventory.adjustments.err_update": "تعذّر تحديث التعديل",
   "inventory.adjustments.err_delete": "تعذّر حذف التعديل",
   "inventory.adjustments.type_add": "إضافة",
-  "inventory.adjustments.type_remove": "سحب"
+  "inventory.adjustments.type_remove": "سحب",
+  "dashboard.widget.percent_done": "{{pct}}٪ مكتمل",
+  "dashboard.meetings_reminders.video_call": "مكالمة فيديو",
+  "cursorUi.resp.replace_primary_title": "استبدال المسؤول الأساسي؟",
+  "cursorUi.resp.replace_primary_action": "استبدال",
+  "cursorUi.resp.delete_title": "حذف المنطقة"
 }

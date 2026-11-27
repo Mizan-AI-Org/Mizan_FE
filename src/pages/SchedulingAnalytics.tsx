@@ -10,7 +10,7 @@ import { arSA, enUS, fr } from "date-fns/locale";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { useBranchScope } from "@/contexts/BranchScopeContext";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
 import { unwrapEnvelope } from "@/lib/envelope";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
@@ -277,26 +277,11 @@ const SchedulingAnalytics: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     : "—";
 
   const handleExportReport = async () => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      toast.error(t("analytics.export_failed"));
-      return;
-    }
     setExporting(true);
     try {
       const fmt = reportType === "excel" ? "excel" : "pdf";
-      const res = await fetch(`${API_BASE}/analytics/scheduling-export/?format=${fmt}&${rangeQs}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        throw new Error(t("analytics.export_failed"));
-      }
-      const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition");
-      const match = disposition?.match(/filename="?([^";]+)"?/);
-      const filename = match
-        ? match[1]
-        : `scheduling_analytics_${startDate}_${endDate}.${fmt === "pdf" ? "pdf" : "xlsx"}`;
+      const { blob, filename: serverName } = await api.downloadSchedulingExport(fmt, rangeQs);
+      const filename = serverName ?? `scheduling_analytics_${startDate}_${endDate}.${fmt === "pdf" ? "pdf" : "xlsx"}`;
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = filename;
@@ -306,7 +291,7 @@ const SchedulingAnalytics: React.FC<{ embedded?: boolean }> = ({ embedded = fals
       URL.revokeObjectURL(link.href);
       toast.success(t("analytics.export_success"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("analytics.export_failed"));
+      toast.error(t("analytics.export_failed"));
     } finally {
       setExporting(false);
     }

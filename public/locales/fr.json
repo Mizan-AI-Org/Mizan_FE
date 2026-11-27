@@ -7285,5 +7285,10 @@
   "inventory.adjustments.err_update": "Échec de la mise à jour de l'ajustement",
   "inventory.adjustments.err_delete": "Échec de la suppression de l'ajustement",
   "inventory.adjustments.type_add": "Ajout",
-  "inventory.adjustments.type_remove": "Retrait"
+  "inventory.adjustments.type_remove": "Retrait",
+  "dashboard.widget.percent_done": "{{pct}} % terminé",
+  "dashboard.meetings_reminders.video_call": "Appel vidéo",
+  "cursorUi.resp.replace_primary_title": "Remplacer le responsable principal ?",
+  "cursorUi.resp.replace_primary_action": "Remplacer",
+  "cursorUi.resp.delete_title": "Supprimer la zone"
 }
