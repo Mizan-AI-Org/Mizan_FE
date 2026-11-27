@@ -5167,7 +5167,7 @@
   "modules.hr.name": "HR & staff files",
   "modules.hr.desc": "Staff files, absences with justification, time off, payslips and certificates.",
   "modules.accountability.name": "Accountability",
-  "modules.accountability.desc": "Photo proof, \"I can't\" with a reason, escalation when work slips, validation and a team scorecard.",
+  "modules.accountability.desc": "Proof of work, \"I can't\" with a reason, escalation, manager validation, and a morning and evening scorecard from Miya on WhatsApp.",
   "modules.incidents.name": "Staff Incident Reporting",
   "modules.incidents.desc": "Staff report problems from WhatsApp; each gets a criticality, a deadline, an owner and follow-up until it is fixed (maintenance included).",
   "modules.operations.name": "Operations & Miya",

@@ -5167,7 +5167,7 @@
   "modules.hr.name": "RH & dossiers du personnel",
   "modules.hr.desc": "Dossiers du personnel, absences justifiées, congés, bulletins de paie et attestations.",
   "modules.accountability.name": "Suivi d'exécution",
-  "modules.accountability.desc": "Preuve photo, « je ne peux pas » avec motif, escalade en cas de retard, validation et tableau de performance.",
+  "modules.accountability.desc": "Preuve du travail, « je ne peux pas » avec la raison, escalade, validation par le manager, et un bilan matin et soir de Miya sur WhatsApp.",
   "modules.incidents.name": "Signalement d'incidents",
   "modules.incidents.desc": "Le personnel signale les problèmes sur WhatsApp ; chacun reçoit une criticité, une échéance, un responsable et un suivi jusqu'à la résolution (maintenance incluse).",
   "modules.operations.name": "Opérations & Miya",
