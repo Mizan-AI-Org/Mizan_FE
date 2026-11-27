@@ -7,10 +7,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, Calendar } from "lucide-react";
 import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 import { arSA, enUS, fr } from "date-fns/locale";
+import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
+import { useBranchScope } from "@/contexts/BranchScopeContext";
 import { API_BASE } from "@/lib/api";
 import { unwrapEnvelope } from "@/lib/envelope";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { cn } from "@/lib/utils";
 import { DEFAULT_CURRENCY } from "@/lib/regional";
 import {
   BarChart,
@@ -189,50 +192,58 @@ const PieChartComponent = ({ data }: { data: Array<{ name: string; value: number
   </ResponsiveContainer>
 );
 
-const SchedulingAnalytics: React.FC = () => {
+const SchedulingAnalytics: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t, language } = useLanguage();
+  const { selected } = useBranchScope();
   const dateLocale = language === "fr" ? fr : language === "ar" ? arSA : enUS;
   const numberLocale = language === "ar" ? "ar" : language;
   const [dateRange, setDateRange] = useState<string>("week");
   const [reportType, setReportType] = useState<string>("pdf");
+  const [exporting, setExporting] = useState(false);
 
   const today = new Date();
-  const startDate =
+  const rangeStart =
     dateRange === "week"
-      ? startOfWeek(today).toISOString().split("T")[0]
+      ? startOfWeek(today)
       : dateRange === "month"
-        ? new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0]
-        : subDays(today, 90).toISOString().split("T")[0];
-
-  const endDate =
+        ? new Date(today.getFullYear(), today.getMonth(), 1)
+        : subDays(today, 90);
+  const rangeEnd =
     dateRange === "week"
-      ? endOfWeek(today).toISOString().split("T")[0]
+      ? endOfWeek(today)
       : dateRange === "month"
-        ? new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0]
-        : today.toISOString().split("T")[0];
+        ? new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        : today;
+  const startDate = format(rangeStart, "yyyy-MM-dd");
+  const endDate = format(rangeEnd, "yyyy-MM-dd");
+  const location = selected && selected !== "all" ? selected : "";
 
-  const rangeQs = `start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+  const rangeQs = `start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}${
+    location ? `&location=${encodeURIComponent(location)}` : ""
+  }`;
 
   const { data: staffPayload, isLoading: staffLoading, isError: staffError } = useQuery({
-    queryKey: ["staff-performance", startDate, endDate],
+    queryKey: ["staff-performance", startDate, endDate, location],
     queryFn: () => fetchAnalyticsJson<StaffPerformancePayload>(`/analytics/staff-performance/?${rangeQs}`),
   });
 
   const { data: taskPayload, isLoading: taskLoading, isError: taskError } = useQuery({
-    queryKey: ["task-completion", startDate, endDate],
+    queryKey: ["task-completion", startDate, endDate, location],
     queryFn: () => fetchAnalyticsJson<TaskCompletionPayload>(`/analytics/task-completion/?${rangeQs}`),
   });
 
   const { data: laborCostsData, isLoading: laborLoading, isError: laborError } = useQuery({
-    queryKey: ["labor-costs", startDate, endDate],
+    queryKey: ["labor-costs", startDate, endDate, location],
     queryFn: () => fetchAnalyticsJson<LaborCostsPayload>(`/analytics/labor-costs/?${rangeQs}`),
   });
 
   const { data: salesLaborRec, isLoading: salesLaborLoading } = useQuery({
-    queryKey: ["sales-labor-recommendation", startDate],
+    queryKey: ["sales-labor-recommendation", startDate, endDate, location],
     queryFn: () =>
       fetchAnalyticsJson<SalesLaborRec>(
-        `/reporting/labor/sales-recommendation/?week_start=${encodeURIComponent(startDate)}`,
+        `/reporting/labor/sales-recommendation/?week_start=${encodeURIComponent(startDate)}&week_end=${encodeURIComponent(endDate)}${
+          location ? `&location=${encodeURIComponent(location)}` : ""
+        }`,
       ),
   });
 
@@ -265,22 +276,56 @@ const SchedulingAnalytics: React.FC = () => {
     ? laborChartData.find((d) => d.value === topRoleCost)?.name ?? "—"
     : "—";
 
-  const handleExportReport = () => {
-    // Export generation is not wired yet — avoid fake success.
-    window.alert(
-      t("analytics.export_unavailable", {
-        format: reportType.toUpperCase(),
-        range: t(`analytics.range.${dateRange}`),
-      }),
-    );
+  const handleExportReport = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      toast.error(t("analytics.export_failed"));
+      return;
+    }
+    setExporting(true);
+    try {
+      const fmt = reportType === "excel" ? "excel" : "pdf";
+      const res = await fetch(`${API_BASE}/analytics/scheduling-export/?format=${fmt}&${rangeQs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error(t("analytics.export_failed"));
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^";]+)"?/);
+      const filename = match
+        ? match[1]
+        : `scheduling_analytics_${startDate}_${endDate}.${fmt === "pdf" ? "pdf" : "xlsx"}`;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      toast.success(t("analytics.export_success"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("analytics.export_failed"));
+    } finally {
+      setExporting(false);
+    }
   };
 
   const dash = "—";
 
   return (
-    <div className={`${PAGE_SHELL_PADDED} space-y-6 min-w-0`}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+    <div className={cn(embedded ? "space-y-6 min-w-0" : `${PAGE_SHELL_PADDED} space-y-6 min-w-0`)}>
+      {embedded ? null : (
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("analytics.title")}</h1>
+      )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center">
+          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {format(rangeStart, "d MMMM yyyy", { locale: dateLocale })} – {format(rangeEnd, "d MMMM yyyy", { locale: dateLocale })}
+          </span>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-[180px]">
@@ -303,21 +348,14 @@ const SchedulingAnalytics: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <Button onClick={handleExportReport}>
+          <Button onClick={handleExportReport} disabled={exporting}>
             <Download className="h-4 w-4 mr-2" /> {t("analytics.export")}
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center justify-center">
-        <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">
-          {format(new Date(startDate), "d MMMM yyyy", { locale: dateLocale })} – {format(new Date(endDate), "d MMMM yyyy", { locale: dateLocale })}
-        </span>
-      </div>
-
       <Tabs defaultValue="staff" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 gap-3 bg-transparent p-0">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3 gap-2 bg-transparent p-0">
           <TabsTrigger value="staff">{t("analytics.tab.staff")}</TabsTrigger>
           <TabsTrigger value="tasks">{t("analytics.tab.tasks")}</TabsTrigger>
           <TabsTrigger value="labor">{t("analytics.tab.labor")}</TabsTrigger>

@@ -28,6 +28,7 @@ import { formatMoney } from "@/components/onboarding/ModulePicker";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
+import { MIZAN_ELEVATED_CARD, MIZAN_ELEVATED_INSET, MIZAN_SETTINGS_BLOCK } from "@/lib/mizan-ui";
 import { PRIVILEGED_ROLES } from "@/lib/operationalCommandRoles";
 import { cn } from "@/lib/utils";
 import type { BillingInvoiceRow, BillingOverview, BillingState, ModuleKey, PlanChangePreview } from "@/lib/types";
@@ -94,7 +95,7 @@ function AccountHero({ data }: { data: BillingOverview }) {
                   ? t("billing.hero.inactive_detail")
                   : t("billing.hero.managed");
   return (
-    <section className={cn("rounded-2xl border p-5 sm:p-6", STATE_TONE[data.state])}>
+    <section className={cn(MIZAN_ELEVATED_CARD, "space-y-4 p-5 sm:p-6", STATE_TONE[data.state])}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
           <Icon className="mt-0.5 h-6 w-6 shrink-0" aria-hidden />
@@ -130,7 +131,7 @@ function WhatYouPay({ data }: { data: BillingOverview }) {
   });
   const per = q.interval === "year" ? t("billing.per_year") : t("billing.per_month");
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <section className={MIZAN_SETTINGS_BLOCK}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
@@ -160,7 +161,7 @@ function WhatYouPay({ data }: { data: BillingOverview }) {
         </div>
       </header>
 
-      <ul className="divide-y divide-border rounded-xl border border-border">
+      <ul className={cn("divide-y divide-border", MIZAN_ELEVATED_INSET)}>
         {q.lines.map((line) => (
           <li key={line.key} className="flex items-start justify-between gap-4 px-4 py-3">
             <div className="min-w-0">
@@ -337,7 +338,10 @@ function ToPay({ data }: { data: BillingOverview }) {
   const reference = transferReferenceOf(data.openInvoices);
   if (!data.openInvoices.length) return null;
   return (
-    <section className="space-y-4 rounded-2xl border border-amber-200 bg-card p-5 dark:border-amber-900/40 sm:p-6" id="to-pay">
+    <section
+      className={cn(MIZAN_ELEVATED_CARD, "space-y-4 border-amber-200 p-5 dark:border-amber-900/40 sm:p-6")}
+      id="to-pay"
+    >
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
           <Landmark className="h-4 w-4 text-amber-600" aria-hidden />
@@ -524,7 +528,7 @@ function SubscriptionActions({ data }: { data: BillingOverview }) {
   if (!privileged || !data.moduleBilling) return null;
   const canceled = data.state === "canceled";
   return (
-    <section className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <section className={cn(MIZAN_ELEVATED_CARD, "space-y-3 p-5 sm:p-6")}>
       <h3 className="text-base font-bold text-foreground">{t("billing.subscription")}</h3>
       {data.cancelAtPeriodEnd ? (
         <p className="text-sm text-amber-700 dark:text-amber-300">{t("billing.cancel_sub.scheduled", { date: fmtDate(data.cancelEffectiveAt) })}</p>
@@ -555,7 +559,7 @@ function SubscriptionActions({ data }: { data: BillingOverview }) {
 function History({ data }: { data: BillingOverview }) {
   const { t } = useLanguage();
   return (
-    <section className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <section className={cn(MIZAN_ELEVATED_CARD, "space-y-3 p-5 sm:p-6")}>
       <h3 className="text-base font-bold text-foreground">{t("billing.invoices")}</h3>
       {data.invoices.length ? (
         <div className="overflow-x-auto">
@@ -620,14 +624,14 @@ export default function BillingSettings() {
   const overview = useBillingOverview();
   if (overview.isLoading) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
+      <div className={cn(MIZAN_ELEVATED_CARD, "flex items-center gap-2 p-6 text-sm text-muted-foreground")}>
         <Loader2 className="h-4 w-4 animate-spin" /> {t("billing.loading")}
       </div>
     );
   }
   if (overview.isError || !overview.data) {
     return (
-      <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-6 text-sm">
+      <div className={cn(MIZAN_ELEVATED_CARD, "flex items-center justify-between p-6 text-sm")}>
         <span className="text-muted-foreground">{t("billing.load_error")}</span>
         <Button size="sm" variant="outline" onClick={() => overview.refetch()}>{t("billing.retry")}</Button>
       </div>

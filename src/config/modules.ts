@@ -72,7 +72,7 @@ export const MODULES: ModuleMeta[] = [
     key: "incidents",
     icon: AlertTriangle,
     bundle: "execution",
-    routes: ["/dashboard/operations/incidents", "/dashboard/operational-issues"],
+    routes: ["/dashboard/operations/live", "/dashboard/operational-issues"],
   },
   {
     key: "sales",

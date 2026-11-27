@@ -526,37 +526,50 @@ function AgentCollapsedRail({
   /** Only pulse the glow when the agent is actively working — not as a fake "live task". */
   isBusy?: boolean;
 }) {
+  const urgent = isBusy || signalBadge > 0;
   return (
     <button
       type="button"
       className={cn(
-        "mizan-agent-rail-tab group relative flex h-full w-full flex-col items-center justify-center gap-4 px-1 py-8",
-        "transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "mizan-agent-rail-tab group relative flex h-full w-full flex-col items-center justify-center gap-5 px-1 py-8",
+        "transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
       )}
       aria-label={agentLabel}
       onClick={onOpen}
     >
       <div className="relative z-10">
+        <span
+          className={cn("mizan-agent-ping-ring", urgent && "mizan-agent-ping-urgent")}
+          aria-hidden
+        />
+        <span
+          className={cn("mizan-agent-ping-ring mizan-agent-ping-ring-delay", urgent && "mizan-agent-ping-urgent")}
+          aria-hidden
+        />
         <div
           className={cn(
-            "relative rounded-full",
-            isBusy || signalBadge > 0 ? "mizan-agent-glow-ring" : "mizan-agent-glow-ring-idle",
+            "relative rounded-full transition-transform duration-300 group-hover:scale-110",
+            urgent ? "mizan-agent-glow-ring" : "mizan-agent-glow-ring-idle",
           )}
         >
-          <AgentAvatar size="lg" ring className="relative z-[1] ring-primary/50 ring-offset-2 ring-offset-background" />
+          <AgentAvatar
+            size="xl"
+            ring
+            className="relative z-[1] shadow-md ring-border ring-offset-2 ring-offset-background"
+          />
         </div>
         {signalBadge > 0 ? (
-          <span className="absolute -end-1 -top-1 z-[2] flex h-5 min-w-5 items-center justify-center rounded-full bg-high px-1 text-[10px] font-bold text-high-foreground shadow-md ring-2 ring-background">
+          <span className="mizan-agent-badge-pulse absolute -end-1.5 -top-1.5 z-[2] flex h-6 min-w-6 items-center justify-center rounded-full bg-high px-1.5 text-[11px] font-bold text-high-foreground shadow-lg ring-2 ring-background">
             {signalBadge > 9 ? "9+" : signalBadge}
           </span>
         ) : (
           <span
-            className="absolute bottom-0 end-0 z-[2] h-3 w-3 rounded-full border-2 border-background bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
+            className="absolute bottom-0.5 end-0.5 z-[2] h-3.5 w-3.5 rounded-full border-2 border-background bg-foreground"
             aria-hidden
           />
         )}
       </div>
-      <span className="mizan-agent-tab-label relative z-10 text-[10px] font-bold uppercase tracking-widest text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.45)] group-hover:text-primary">
+      <span className="mizan-agent-tab-label relative z-10 text-[11px] font-extrabold uppercase tracking-[0.22em] text-foreground">
         {agentLabel}
       </span>
     </button>
@@ -917,10 +930,10 @@ export const AgentChatPanel: React.FC = () => {
       {isDesktop ? (
         <aside
           className={cn(
-            "mizan-agent-rail mizan-agent-rail-captivate relative fixed end-0 z-[1600] hidden flex-col overflow-hidden border-s border-border/80 bg-card lg:flex",
+            "mizan-agent-rail relative fixed end-0 z-[1600] hidden flex-col border-s border-border bg-card lg:flex",
             open
-              ? "mizan-agent-rail-open w-[var(--mizan-agent-width)]"
-              : "mizan-agent-rail-tab w-[var(--mizan-agent-tab-width)]",
+              ? "mizan-agent-rail-open w-[var(--mizan-agent-width)] overflow-hidden"
+              : "mizan-agent-rail-tab w-[var(--mizan-agent-tab-width)] overflow-visible",
           )}
           aria-label={t("ai.chat_title")}
         >
@@ -941,13 +954,20 @@ export const AgentChatPanel: React.FC = () => {
         type="button"
         size="lg"
         className={cn(
-          "mizan-agent-fab-glow fixed bottom-20 end-4 z-[2500] h-14 w-14 overflow-hidden rounded-full border-2 border-primary/30 p-0 lg:hidden",
+          "mizan-agent-fab-glow relative fixed bottom-20 end-4 z-[2500] h-16 w-16 overflow-visible rounded-full border-2 border-border p-0 lg:hidden",
           open && "hidden",
         )}
         aria-label={t("ai.chat_button")}
         onClick={() => setOpen(true)}
       >
-        <AgentAvatar size="xl" className="h-14 w-14" alt="" />
+        <span className="mizan-agent-ping-ring" aria-hidden />
+        <span className="mizan-agent-ping-ring mizan-agent-ping-ring-delay" aria-hidden />
+        <AgentAvatar size="xl" className="h-16 w-16" alt="" />
+        {signalBadge > 0 ? (
+          <span className="mizan-agent-badge-pulse absolute -end-1 -top-1 z-[2] flex h-6 min-w-6 items-center justify-center rounded-full bg-high px-1.5 text-[11px] font-bold text-high-foreground shadow-lg ring-2 ring-background">
+            {signalBadge > 9 ? "9+" : signalBadge}
+          </span>
+        ) : null}
       </Button>
 
       <Sheet open={open && !isDesktop} onOpenChange={setOpen}>

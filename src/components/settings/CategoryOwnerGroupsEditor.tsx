@@ -4,6 +4,7 @@ import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
 import { CATEGORY_OWNER_GROUPS, type CategoryOwnerGroup } from "@/lib/categoryOwners";
 import type { StaffPickerRow } from "@/lib/staffPicker";
 import { cn } from "@/lib/utils";
+import { MIZAN_ELEVATED_INSET } from "@/lib/mizan-ui";
 
 type Props = {
   categoryOwners: Record<string, string[]>;
@@ -25,8 +26,10 @@ function gridClassForGroup(group: CategoryOwnerGroup): string {
   return "grid grid-cols-1 gap-3 md:grid-cols-2";
 }
 
-const categoryCardClassName =
-  "flex min-h-[5.25rem] flex-col gap-2 rounded-xl border border-slate-200/80 bg-slate-50/50 px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900/30";
+const categoryCardClassName = cn(
+  "flex min-h-[5.25rem] flex-col gap-2 px-3.5 py-3",
+  MIZAN_ELEVATED_INSET,
+);
 
 export function CategoryOwnerGroupsEditor({
   categoryOwners,

@@ -1,21 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 import { useLanguage } from "@/hooks/use-language";
-
-function SignalCardSkeleton() {
-  return (
-    <div className="rounded-panel border border-border/80 bg-card px-4 py-3.5 shadow-xs">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-2">
-          <Skeleton className="h-5 w-24 rounded-full" />
-          <Skeleton className="h-5 w-full max-w-md" />
-          <Skeleton className="h-4 w-full max-w-sm" />
-        </div>
-        <Skeleton className="h-9 w-32 shrink-0 rounded-md" />
-      </div>
-    </div>
-  );
-}
 
 export function CommandCentreSkeleton({ className }: { className?: string }) {
   const { t } = useLanguage();
@@ -38,28 +24,19 @@ export function CommandCentreSkeleton({ className }: { className?: string }) {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="rounded-lg border border-border/50 bg-card/80 px-3 py-2.5">
-            <Skeleton className="mb-2 h-3 w-16" />
-            <Skeleton className="h-7 w-10" />
+      <div className={cn(MIZAN_ELEVATED_CARD, "space-y-3 p-5")}>
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-4 w-full max-w-lg" />
+        <Skeleton className="h-4 w-full max-w-md" />
+      </div>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className={cn(MIZAN_ELEVATED_CARD, "p-5")}>
+            <Skeleton className="mb-2 h-4 w-24" />
+            <Skeleton className="h-8 w-12" />
           </div>
         ))}
-      </section>
-
-      <Skeleton className="h-48 w-full rounded-2xl" />
-
-      <Skeleton className="h-4 w-32" />
-
-      <nav className="flex flex-wrap gap-2" aria-hidden>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-8 w-24 rounded-full" />
-        ))}
-      </nav>
-
-      <section className="space-y-3">
-        <SignalCardSkeleton />
-        <SignalCardSkeleton />
       </section>
 
       <p className="sr-only">{t("command.preparing")}</p>

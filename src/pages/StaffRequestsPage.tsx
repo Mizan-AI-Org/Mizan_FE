@@ -46,7 +46,7 @@ import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL, PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { MizanPageShell } from "@/components/os/MizanPageShell";
-import { HUB_TABS_LIST, HUB_TABS_TRIGGER_GRID, MIZAN_TOOLBAR } from "@/lib/mizan-ui";
+import { HUB_TABS_LIST, HUB_TABS_TRIGGER_GRID, MIZAN_ELEVATED_INSET, MIZAN_TOOLBAR } from "@/lib/mizan-ui";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { AttachmentList } from "@/components/ui/attachment-preview";
 import { api, BACKEND_URL } from "@/lib/api";
@@ -153,12 +153,26 @@ function getAuthToken() {
   return localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
 }
 
-function priorityBadge(priority?: string) {
-  const p = String(priority || "").toUpperCase();
-  if (p === "URGENT") return "bg-red-600 text-white border-red-600";
-  if (p === "HIGH") return "bg-amber-500 text-white border-amber-500";
-  if (p === "LOW") return "bg-slate-200 text-slate-900 border-slate-200";
-  return "bg-blue-600 text-white border-blue-600";
+function priorityBadge(priority?: string, prominent = false) {
+  const p = String(priority || "MEDIUM").toUpperCase();
+  const color =
+    p === "URGENT"
+      ? "bg-red-600 text-white border-red-500 dark:border-red-500"
+      : p === "HIGH"
+        ? "bg-amber-500 text-white border-amber-500"
+        : p === "LOW"
+          ? "bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+          : "bg-blue-600 text-white border-blue-500";
+  if (prominent) {
+    return cn(
+      color,
+      "border-0 text-[10px] font-black uppercase tracking-wide shadow-sm",
+      "rounded-md px-2 py-0.5",
+      p === "URGENT" && "shadow-red-500/20 ring-1 ring-red-400/40",
+      p === "HIGH" && "shadow-amber-500/15 ring-1 ring-amber-400/35",
+    );
+  }
+  return color;
 }
 
 function statusBadge(status?: string) {
@@ -622,7 +636,7 @@ function InvoiceDetailPanel({
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-border/40 bg-background p-4">
+      <div className={cn(MIZAN_ELEVATED_INSET, "p-4")}>
         <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
           <FileText className="w-3.5 h-3.5" />
           {t("staff.requests.invoice_document")}
@@ -637,7 +651,7 @@ function InvoiceDetailPanel({
       </div>
 
       {proofUrl ? (
-        <div className="rounded-2xl border border-border/40 bg-background p-4 space-y-3">
+        <div className={cn(MIZAN_ELEVATED_INSET, "p-4 space-y-3")}>
           <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             {t("staff.requests.invoice_proof_of_payment", { defaultValue: "Proof of payment" })}
           </div>
@@ -652,7 +666,7 @@ function InvoiceDetailPanel({
       ) : null}
 
       {canUploadProof ? (
-        <div className="rounded-2xl border border-border/40 bg-background p-4 space-y-3">
+        <div className={cn(MIZAN_ELEVATED_INSET, "p-4 space-y-3")}>
           <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             {t("staff.requests.invoice_upload_proof", { defaultValue: "Upload proof of payment" })}
           </div>
@@ -681,7 +695,7 @@ function InvoiceDetailPanel({
       ) : null}
 
       {canMarkPaid ? (
-        <div className="rounded-2xl border border-border/40 bg-background p-4 space-y-3">
+        <div className={cn(MIZAN_ELEVATED_INSET, "p-4 space-y-3")}>
           <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             {t("staff.requests.invoice_record_payment", { defaultValue: "Record payment" })}
           </div>
@@ -709,7 +723,7 @@ function InvoiceDetailPanel({
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-border/40 bg-background p-4">
+      <div className={cn(MIZAN_ELEVATED_INSET, "p-4")}>
         <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5" />
           {t("staff.requests.invoice_timeline", { defaultValue: "Activity timeline" })}
@@ -1720,9 +1734,9 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
               <CardContent className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
                 <ScrollArea className="h-full flex-1 px-3 py-3">
                   {listQuery.isLoading ? (
-                    <div className="space-y-2 py-2">
+                    <div className="space-y-1.5 py-2">
                       {[0, 1, 2, 3].map((i) => (
-                        <div key={i} className="h-[88px] rounded-xl bg-muted/50 animate-pulse" />
+                        <div key={i} className="h-[4.25rem] rounded-lg bg-muted/50 animate-pulse" />
                       ))}
                     </div>
                   ) : listQuery.isError ? (
@@ -1730,7 +1744,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                   ) : requests.length === 0 && !showPinnedDashboardTask ? (
                     emptyState
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {showPinnedDashboardTask && dashboardTask ? (
                         <button
                           type="button"
@@ -1775,20 +1789,20 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                             type="button"
                             onClick={() => onSelectInboxRow(r)}
                             className={cn(
-                              "w-full text-left rounded-xl border p-3.5 transition-all duration-200 group relative overflow-hidden",
+                              "w-full text-left rounded-lg border px-2.5 py-2 transition-all duration-200 group relative overflow-hidden",
                               isSelected
                                 ? "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
                                 : "border-border/80 bg-background hover:border-border hover:bg-muted/40",
                             )}
                           >
-                            {isUrgent && !isSelected && (
-                              <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
-                            )}
+                            {isUrgent && !isSelected ? (
+                              <div className="absolute inset-y-0 left-0 w-0.5 bg-red-500" aria-hidden />
+                            ) : null}
 
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-center gap-2.5">
                               <div
                                 className={cn(
-                                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold tracking-wide",
+                                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tracking-wide",
                                   isSelected
                                     ? "bg-primary text-primary-foreground"
                                     : "bg-emerald-700/90 text-white dark:bg-emerald-600",
@@ -1798,85 +1812,79 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                                 {requesterInitials(requester)}
                               </div>
 
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <div className="text-[15px] font-bold leading-tight text-foreground truncate">
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="min-w-0 flex items-center gap-1.5 truncate">
+                                    <span className="truncate text-sm font-semibold text-foreground">
                                       {requester}
-                                    </div>
-                                    {showPhoneUnderName ? (
-                                      <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-muted-foreground tabular-nums">
-                                        <Phone className="h-3 w-3 shrink-0" />
-                                        {requesterPhone}
-                                      </div>
+                                    </span>
+                                    {isNew ? (
+                                      <Badge className="h-4 shrink-0 px-1 text-[8px] font-bold uppercase bg-blue-500 hover:bg-blue-600">
+                                        {t("staff.requests.new_badge")}
+                                      </Badge>
                                     ) : null}
                                   </div>
-                                  <div className="flex flex-col items-end gap-1 shrink-0">
-                                    {isNew && (
-                                      <Badge className="h-4 px-1.5 text-[9px] bg-blue-500 hover:bg-blue-600">{t("staff.requests.new_badge")}</Badge>
-                                    )}
-                                    <div
-                                      className="text-[10px] text-muted-foreground flex items-center gap-1"
-                                      title={formatAbsoluteDateTime(r.created_at)}
-                                    >
-                                      <Clock className="w-3 h-3" />
-                                      {formatRelativeTime(r.created_at, t)}
-                                    </div>
-                                  </div>
+                                  <span
+                                    className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
+                                    title={formatAbsoluteDateTime(r.created_at)}
+                                  >
+                                    {formatRelativeTime(r.created_at, t)}
+                                  </span>
                                 </div>
 
-                                <div className="mt-1.5 flex items-center gap-1.5 min-w-0">
+                                <div className="flex min-w-0 items-center gap-1 text-sm font-medium leading-tight text-foreground/90">
                                   {getSourceIcon(r.source)}
-                                  <div className="font-medium text-sm leading-snug line-clamp-2 text-foreground/90">
+                                  <span className="truncate">
                                     {r.subject || t("staff.requests.default_subject")}
-                                  </div>
+                                  </span>
                                   {r.voice_audio_url ? (
-                                    <span
-                                      className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 h-4 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 shrink-0"
+                                    <Mic
+                                      className="h-3 w-3 shrink-0 text-purple-600 dark:text-purple-400"
                                       title={t("staff.requests.voice_title")}
-                                    >
-                                      <Mic className="w-2.5 h-2.5" />
-                                      {t("staff.requests.voice_badge")}
-                                    </span>
+                                      aria-hidden
+                                    />
                                   ) : null}
                                 </div>
 
-                                <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
-                                  <span className="inline-flex items-center gap-1 uppercase tracking-wide">
+                                <div className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
+                                  <span className="inline-flex min-w-0 items-center gap-0.5 truncate uppercase tracking-wide">
                                     {getCategoryIcon(r.category)}
-                                    {r.category}
+                                    <span className="truncate">{r.category}</span>
                                   </span>
-                                  <span className="text-border">·</span>
+                                  <span className="text-border shrink-0">·</span>
                                   {getAssigneeName(r) ? (
-                                    <span className="inline-flex items-center gap-1 truncate max-w-[100px]">
-                                      <UserCircle2 className="w-3 h-3 shrink-0" />
-                                      {getAssigneeName(r)}
+                                    <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
+                                      <UserCircle2 className="h-3 w-3 shrink-0" aria-hidden />
+                                      <span className="truncate">{getAssigneeName(r)}</span>
                                     </span>
                                   ) : (
-                                    <span className="italic text-muted-foreground/70">{t("staff.requests.unassigned")}</span>
+                                    <span className="truncate italic text-muted-foreground/70">
+                                      {t("staff.requests.unassigned")}
+                                    </span>
                                   )}
+                                  {showPhoneUnderName ? (
+                                    <>
+                                      <span className="text-border shrink-0">·</span>
+                                      <span className="inline-flex shrink-0 items-center gap-0.5 tabular-nums">
+                                        <Phone className="h-2.5 w-2.5" aria-hidden />
+                                        {requesterPhone}
+                                      </span>
+                                    </>
+                                  ) : null}
                                 </div>
+                              </div>
 
-                                {r.description ? (
-                                  <div className="text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-                                    {r.description}
-                                  </div>
-                                ) : null}
-
-                                <div className="flex items-center justify-between mt-2">
-                                  <Badge
-                                    variant="outline"
-                                    className={cn("text-[9px] font-bold px-1.5 py-0", priorityBadge(r.priority))}
-                                  >
-                                    {String(r.priority || "MEDIUM").toUpperCase()}
-                                  </Badge>
-                                  <ChevronRight
-                                    className={cn(
-                                      "w-3.5 h-3.5 text-muted-foreground/60 transition-transform",
-                                      isSelected ? "translate-x-0.5 text-primary" : "group-hover:translate-x-0.5",
-                                    )}
-                                  />
-                                </div>
+                              <div className="flex shrink-0 flex-col items-end justify-center gap-1 self-stretch py-0.5">
+                                <Badge variant="outline" className={cn("shrink-0", priorityBadge(r.priority, true))}>
+                                  {String(r.priority || "MEDIUM").toUpperCase()}
+                                </Badge>
+                                <ChevronRight
+                                  className={cn(
+                                    "h-3.5 w-3.5 text-muted-foreground/50 transition-transform",
+                                    isSelected ? "text-primary" : "group-hover:translate-x-0.5 group-hover:text-muted-foreground",
+                                  )}
+                                  aria-hidden
+                                />
                               </div>
                             </div>
                           </button>
@@ -2073,7 +2081,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                         </div>
                       ) : null}
 
-                      <div className="rounded-2xl border border-border/50 bg-background p-4 flex items-center gap-3">
+                      <div className={cn(MIZAN_ELEVATED_INSET, "flex items-center gap-3 p-4")}>
                         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted shrink-0">
                           <UserCircle2 className="w-6 h-6 text-muted-foreground" />
                         </div>

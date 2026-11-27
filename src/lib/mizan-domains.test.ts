@@ -7,14 +7,12 @@ import { COMMAND_TILES, DEFAULT_TILE_IDS, sanitizeSelection } from "@/components
 const restaurantHas = (moduleId?: string) => !moduleId || moduleId !== "agency";
 
 describe("operations nav (Cursor's design)", () => {
-  it("shows exactly the six leaves to a restaurant, in order", () => {
+  it("shows exactly the four leaves to a restaurant, in order", () => {
     const hrefs = DOMAIN_SECTIONS.operations.filter((l) => restaurantHas(l.moduleId)).map((l) => l.href);
     expect(hrefs).toEqual([
       "/dashboard/operations/live",
-      "/dashboard/operations/live?view=requests",
-      "/dashboard/operations/live?view=compliance",
-      "/dashboard/operations/incidents",
       "/dashboard/operations/approvals",
+      "/dashboard/employees/tasks",
       "/dashboard/operations/checklists",
     ]);
   });
@@ -28,7 +26,8 @@ describe("operations nav (Cursor's design)", () => {
     const all = [...DOMAIN_SECTIONS.operations, ...DOMAIN_SECTIONS.employees].map((l) => `${l.labelKey} ${l.href}`).join(" ");
     expect(all).not.toMatch(/accountab|progress|overview/i);
     expect(DOMAIN_SECTIONS.employees.some((l) => l.href === "/dashboard/staff-requests")).toBe(false);
-    expect(DOMAIN_SECTIONS.employees.some((l) => l.href === "/dashboard/employees/tasks")).toBe(true);
+    expect(DOMAIN_SECTIONS.employees.some((l) => l.href === "/dashboard/employees/tasks")).toBe(false);
+    expect(DOMAIN_SECTIONS.operations.some((l) => l.href === "/dashboard/employees/tasks")).toBe(true);
   });
 });
 

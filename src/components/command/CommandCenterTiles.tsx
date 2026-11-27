@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranchScope } from "@/contexts/BranchScopeContext";
 import { useLanguage } from "@/hooks/use-language";
 import { useModules } from "@/hooks/use-modules";
 import type { ModuleKey } from "@/lib/types";
 import { COMMAND_ROUTES } from "@/lib/commandCentre";
 import { cn } from "@/lib/utils";
+import { MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 
 type TileDef = { id: string; href: string; moduleId?: ModuleKey; count?: "active_work" | "open_incidents" };
 
@@ -50,10 +52,11 @@ export function CommandCenterTiles({
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { selected: branchId } = useBranchScope();
   const { isEnabled } = useModules();
   const key = storageKey(user?.id);
   const overview = useQuery({
-    queryKey: ["operations-overview", "tiles"],
+    queryKey: ["operations-overview", "tiles", branchId],
     queryFn: () => api.getOperationsOverview({ pageSize: 1 }),
     staleTime: 30_000,
   });
@@ -107,7 +110,7 @@ export function CommandCenterTiles({
             <Link
               key={tile.id}
               to={tile.href}
-              className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm hover:border-primary/40"
+              className={cn(MIZAN_ELEVATED_CARD, "block p-5 transition-colors hover:border-primary/40")}
             >
               <div className="text-lg font-semibold">{t(`cursorUi.cmd.tiles.${tile.id}`)}</div>
               <div className="mt-2 text-sm text-muted-foreground">

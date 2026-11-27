@@ -265,7 +265,7 @@ export async function fetchAllDrfPages<T>(
   const rows: T[] = [];
   let page = 1;
 
-  for (;;) {
+  for (; ;) {
     const response = await fetch(buildUrl(page), {
       headers,
       credentials: "include",
@@ -494,6 +494,65 @@ export interface TaskScheduleRow {
   recentRuns?: { date: string; taskIds: string[]; people: number; note?: string }[];
 }
 export type TaskSchedulePayload = Partial<Omit<TaskScheduleRow, "id" | "audienceLabel" | "rule" | "nextDates" | "lastRunOn" | "branchName" | "recentRuns">>;
+export type ResponsibilityPerson = {
+  id: string;
+  name: string;
+  active?: boolean;
+};
+
+export type ResponsibilityAreaNode = {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string;
+  routing_hints?: string;
+  kind: "system" | "custom";
+  group?: string;
+  parent_id?: string | null;
+  primary: ResponsibilityPerson | null;
+  informed: ResponsibilityPerson[];
+  children: ResponsibilityAreaNode[];
+};
+
+export type ResponsibilityTreeResponse = {
+  success?: boolean;
+  areas: ResponsibilityAreaNode[];
+  staff_directory?: Record<
+    string,
+    { id: string; first_name: string; last_name: string; email: string; role?: string }
+  >;
+  gaps?: Array<{ id: string; slug: string; title: string }>;
+};
+
+export type StaffWorkTask = {
+  id: string;
+  title: string;
+  status: string;
+  due_at: string | null;
+  overdue: boolean;
+  priority?: string;
+};
+
+export type StaffWorkPayload = {
+  success?: boolean;
+  staff_id: string;
+  pending: StaffWorkTask[];
+  active: StaffWorkTask[];
+  completed: StaffWorkTask[];
+  overdue: StaffWorkTask[];
+  processes: Array<{ id: string; name: string; frequency?: string }>;
+  schedules: Array<{ id: string; title: string; frequency?: string }>;
+  history: Array<{ id: string; kind: string; entity_id: string; reason: string; created_at: string }>;
+  areas: Array<{ slug: string; title: string; role: string }>;
+};
+
+export type ProcessTemplateRow = {
+  id: string;
+  name: string;
+  frequency?: string | null;
+  standing_assignees?: string[];
+};
+
 export interface CreateTaskPayload {
   title: string;
   description?: string;
@@ -913,6 +972,7 @@ export class BackendService {
       category_id?: string | null;
       routing_keywords?: string[];
       created_at?: string | null;
+      access?: { restricted?: boolean; member_ids?: string[] };
     }>;
   }> {
     return this.fetchWithError("/dashboard/custom-widgets/");
@@ -1039,6 +1099,63 @@ export class BackendService {
     return this.fetchWithError("/onboarding/category-owners/", {
       method: "PUT",
       body: JSON.stringify({ owners }),
+    });
+  }
+
+  async getResponsibilityTree(): Promise<ResponsibilityTreeResponse> {
+    return this.fetchWithError("/responsibilities/");
+  }
+
+  async createResponsibilityArea(payload: {
+    title: string;
+    description?: string;
+    routing_hints?: string;
+    parent_id?: string | null;
+    primary_id?: string | null;
+    informed_ids?: string[];
+  }): Promise<ResponsibilityTreeResponse> {
+    return this.fetchWithError("/responsibilities/areas/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateResponsibilityArea(
+    areaId: string,
+    payload: { title?: string; description?: string; routing_hints?: string },
+  ): Promise<ResponsibilityTreeResponse> {
+    return this.fetchWithError(`/responsibilities/areas/${areaId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteResponsibilityArea(areaId: string): Promise<ResponsibilityTreeResponse> {
+    return this.fetchWithError(`/responsibilities/areas/${areaId}/`, { method: "DELETE" });
+  }
+
+  async setResponsibilityMembers(
+    areaId: string,
+    payload: { primary_id?: string | null; informed_ids?: string[] },
+  ): Promise<ResponsibilityTreeResponse> {
+    return this.fetchWithError(`/responsibilities/areas/${areaId}/members/`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getStaffWork(staffId: string): Promise<StaffWorkPayload> {
+    return this.fetchWithError(`/responsibilities/staff/${staffId}/work/`);
+  }
+
+  async listProcessTemplates(): Promise<{ results?: ProcessTemplateRow[] } | ProcessTemplateRow[]> {
+    return this.fetchWithError("/scheduling/task-templates/?page_size=500");
+  }
+
+  async patchProcessTemplate(id: string, payload: Record<string, unknown>): Promise<ProcessTemplateRow> {
+    return this.fetchWithError(`/scheduling/task-templates/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
     });
   }
 
@@ -1649,6 +1766,9 @@ export class BackendService {
       body: JSON.stringify({
         action: "connect",
         ...(returnTo ? { return_to: returnTo } : {}),
+        ...(typeof window !== "undefined" && window.location?.origin
+          ? { redirect_origin: window.location.origin }
+          : {}),
       }),
     });
     const body = await res.json().catch(() => ({}));
@@ -1663,7 +1783,7 @@ export class BackendService {
     if (!res.ok) {
       throw new Error(
         (body as { detail?: string }).detail ||
-          `Could not start Google Calendar connect (${res.status}).`,
+        `Could not start Google Calendar connect (${res.status}).`,
       );
     }
     return {
@@ -1784,6 +1904,7 @@ export class BackendService {
       icon?: string;
       category_id?: string | null;
       routing_keywords?: string[];
+      access?: { restricted: boolean; member_ids: string[] };
     },
   ): Promise<{
     widget: {
@@ -1795,6 +1916,7 @@ export class BackendService {
       icon: string;
       category_id?: string | null;
       routing_keywords?: string[];
+      access?: { restricted?: boolean; member_ids?: string[] };
     };
   }> {
     return this.fetchWithError(`/dashboard/custom-widgets/${id}/`, {
@@ -3009,7 +3131,7 @@ export class BackendService {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         (errorData as { message?: string }).message ||
-          "Failed to record supplier price"
+        "Failed to record supplier price"
       );
     }
     return await response.json();
@@ -5645,21 +5767,23 @@ export class BackendService {
   }
 
   /** Live checklist progress (WhatsApp/conversational step-by-step) for managers. */
-  async getLiveChecklistProgress(): Promise<{ items: Array<{
-    id: string;
-    shift_id: string;
-    staff_id: string;
-    staff_name: string;
-    shift_date: string | null;
-    channel: string;
-    status: string;
-    progress_percentage: number;
-    total_tasks: number;
-    completed_tasks: number;
-    current_task_id: string | null;
-    updated_at: string | null;
-    completed_at: string | null;
-  }> }> {
+  async getLiveChecklistProgress(): Promise<{
+    items: Array<{
+      id: string;
+      shift_id: string;
+      staff_id: string;
+      staff_name: string;
+      shift_date: string | null;
+      channel: string;
+      status: string;
+      progress_percentage: number;
+      total_tasks: number;
+      completed_tasks: number;
+      current_task_id: string | null;
+      updated_at: string | null;
+      completed_at: string | null;
+    }>
+  }> {
     const response = await fetch(`${API_BASE}/scheduling/live-checklist-progress/`, {
       method: "GET",
       headers: this.getHeaders(),

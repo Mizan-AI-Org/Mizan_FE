@@ -43,7 +43,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
-import { SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { SETTINGS_PAGE_INNER, SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { MIZAN_ELEVATED_CARD, MIZAN_SETTINGS_TABS_LIST } from "@/lib/mizan-ui";
 import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 import {
@@ -396,8 +397,9 @@ export default function RolePermissionsPage() {
   const showEditor = !loading && !(scope === "users" && selectedUserIds.length === 0);
 
   return (
-    <div className={`${SETTINGS_PAGE_SHELL_PADDED} space-y-4 max-w-5xl`}>
-      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+    <div className={SETTINGS_PAGE_SHELL_PADDED}>
+      <div className={cn(SETTINGS_PAGE_INNER, "space-y-5")}>
+      <div className={cn(MIZAN_ELEVATED_CARD, "overflow-hidden")}>
         <div className="space-y-4 border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
           {dirty ? (
             <div className="flex justify-end">
@@ -419,7 +421,12 @@ export default function RolePermissionsPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="grid h-auto w-full max-w-md grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5 sm:w-auto sm:min-w-[280px]">
+            <div
+              className={cn(
+                MIZAN_SETTINGS_TABS_LIST,
+                "grid h-auto w-full max-w-md grid-cols-2 sm:w-auto sm:min-w-[280px]",
+              )}
+            >
               {(
                 [
                   { id: "role" as const, label: t("rbac.scope.role"), icon: ShieldCheck },
@@ -712,6 +719,7 @@ export default function RolePermissionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }

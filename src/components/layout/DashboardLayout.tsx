@@ -18,6 +18,7 @@ import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import { CommandSearchBar } from "@/components/command/CommandSearchBar";
 import { AgentPanelProvider } from "@/context/AgentPanelContext";
 import { cn } from "@/lib/utils";
+import { MIZAN_APP_CANVAS } from "@/lib/mizan-ui";
 import { isImpersonating } from "@/lib/impersonation";
 import { useAgentRailGutter } from "@/hooks/use-agent-rail";
 import { ModuleGate } from "@/components/layout/ModuleGate";
@@ -131,7 +132,10 @@ const DashboardLayoutInner: React.FC = () => {
           >
             <main
               id="mizan-main"
-              className="mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-6"
+              className={cn(
+                "mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-6",
+                MIZAN_APP_CANVAS,
+              )}
             >
               <WhatsAppVerifyBanner />
               <BillingBanner />

@@ -2,11 +2,12 @@
 export const PAGE_SHELL =
   "mx-auto w-full min-w-0 max-w-7xl px-4 sm:px-6 lg:px-8";
 
-/** Settings uses a wider canvas so forms and integration panels breathe on large screens. */
-export const SETTINGS_PAGE_SHELL =
-  "mx-auto w-full max-w-[min(100%,90rem)] px-4 sm:px-6 lg:px-8";
+/** Settings page outer shell — gray canvas comes from #mizan-main (MIZAN_APP_CANVAS). */
+export const SETTINGS_PAGE_SHELL_PADDED = "min-h-full w-full pb-20 pt-0 lg:pb-6";
 
-export const SETTINGS_PAGE_SHELL_PADDED = `${SETTINGS_PAGE_SHELL} pt-6 pb-24 lg:pb-8`;
+/** Inset content column inside the settings canvas. */
+export const SETTINGS_PAGE_INNER =
+  "mx-auto w-full max-w-[min(100%,90rem)] px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8";
 
 export const PAGE_SHELL_PADDED = `${PAGE_SHELL} py-6 pb-28`;
 

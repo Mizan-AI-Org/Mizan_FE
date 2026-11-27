@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SeverityBadge, severityPanelClass, type SeverityLevel } from "@/components/os/SeverityBadge";
 import { useLanguage } from "@/hooks/use-language";
 import { cn } from "@/lib/utils";
+import { MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 
 export type AttentionCardModel = {
   id: string;
@@ -31,7 +32,8 @@ export function AttentionCard({ item, onReview, className, compact }: Props) {
   return (
     <article
       className={cn(
-        "rounded-panel px-4 py-4 shadow-xs transition-all duration-os hover:shadow-soft",
+        MIZAN_ELEVATED_CARD,
+        "rounded-xl px-4 py-4 transition-all duration-os hover:shadow-[0_16px_40px_-10px_rgba(15,23,42,0.14)]",
         severityPanelClass(item.severity),
         className,
       )}

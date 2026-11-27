@@ -26,8 +26,8 @@ type ShellProps = {
   optional?: boolean;
 };
 
-/** Onboarding "Your business" step: address, time zone, currency, opening hours, WhatsApp number and the
- * clock-in work zone. Without a work zone, clock-ins pass from anywhere (clock_proof.zone_flags "no_zone"). */
+/** Onboarding "Your business" step: address, time zone, currency, opening hours, and the clock-in work zone.
+ * Without a work zone, clock-ins pass from anywhere (clock_proof.zone_flags "no_zone"). */
 export default function BusinessSetupStep({
   Shell,
   Actions,
@@ -43,7 +43,6 @@ export default function BusinessSetupStep({
   const [address, setAddress] = useState("");
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
-  const [whatsapp, setWhatsapp] = useState("");
   const [hours, setHours] = useState<Hours>(defaultHours);
   const [zone, setZone] = useState<WorkZone | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,7 +58,6 @@ export default function BusinessSetupStep({
         setAddress(d.address || "");
         setTimezone(d.timezone || DEFAULT_TIMEZONE);
         setCurrency(d.currency || DEFAULT_CURRENCY);
-        setWhatsapp(d.whatsapp_number || "");
         if (d.operating_hours && Object.keys(d.operating_hours).length) setHours({ ...defaultHours(), ...d.operating_hours });
         if (Number(d.latitude) && Number(d.longitude)) {
           setZone({ lat: Number(d.latitude), lng: Number(d.longitude), radius: Number(d.radius) || 100 });
@@ -90,11 +88,6 @@ export default function BusinessSetupStep({
   };
 
   const save = async () => {
-    const digits = whatsapp.replace(/\D/g, "");
-    if (whatsapp.trim() && (digits.length < 8 || digits.length > 15)) {
-      toast.error(t("onboarding.business.err_whatsapp"));
-      return;
-    }
     setSaving(true);
     try {
       const put = await authFetch(`${API_BASE}/settings/unified/`, {
@@ -104,7 +97,6 @@ export default function BusinessSetupStep({
           address,
           timezone,
           currency,
-          whatsapp_number: whatsapp.trim(),
           operating_hours: hours,
         }),
       });
@@ -158,11 +150,6 @@ export default function BusinessSetupStep({
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-        </div>
-        <div className="grid gap-1.5 sm:col-span-2">
-          <Label htmlFor="ob-wa">{t("settings.general.business_whatsapp")}</Label>
-          <Input id="ob-wa" type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+212 6 00 00 00 00" />
-          <p className="text-xs text-muted-foreground">{t("settings.general.business_whatsapp_hint")}</p>
         </div>
       </div>
 

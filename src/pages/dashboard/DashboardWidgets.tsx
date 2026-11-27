@@ -16,6 +16,13 @@ import type {
   DashboardClockInsResponse,
 } from "@/lib/types";
 import { toast } from "sonner";
+import {
+  ManagerAttentionCallout,
+  percentDone,
+  sortByAttention,
+  topAttentionItem,
+  WidgetPercentChip,
+} from "@/pages/dashboard/widget-progress";
 import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
 import {
   AttachmentViewerModal,
@@ -88,6 +95,7 @@ import {
   Unplug,
   RefreshCw,
   Link2,
+  Lock,
   CheckCircle2,
   XCircle,
   Check,
@@ -120,6 +128,7 @@ import { StaffTagSelector } from "@/components/staff/StaffTagChips";
 import { CalendarEventDialog } from "@/components/dashboard/CalendarEventDialog";
 import type { StaffTag } from "@/lib/staff-tags";
 import { translateWidgetTaskSubtitle } from "@/lib/localeTag";
+import { ProjectAccessDialog } from "@/components/dashboard/ProjectAccessDialog";
 import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 
 import { useLanguage } from "@/hooks/use-language";
@@ -183,13 +192,8 @@ export const DASHBOARD_WIDGET_IDS = [
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
-/** Hidden from dashboard grid and customize picker (replaced by Command Centre lanes). */
-export const RETIRED_DASHBOARD_WIDGET_IDS = [
-  "meetings_reminders",
-  "clock_ins",
-  "take_orders",
-  "live_attendance",
-] as const satisfies readonly DashboardWidgetId[];
+/** Hidden from dashboard grid and customize picker (legacy cards only). */
+export const RETIRED_DASHBOARD_WIDGET_IDS = [] as const satisfies readonly DashboardWidgetId[];
 
 export function stripRetiredDashboardWidgets(order: DashboardWidgetSlotId[]): DashboardWidgetSlotId[] {
   const retired = new Set<string>(RETIRED_DASHBOARD_WIDGET_IDS);
@@ -350,6 +354,7 @@ export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
   // do something now" widget, sitting next to the inbox lanes that
   // surface the work to communicate about.
   "staff_messages",
+  "meetings_reminders",
   "insights",
   "tasks_demands",
   "staffing",
@@ -719,6 +724,7 @@ export type DashboardCustomWidgetDef = {
   category_id?: string | null;
   routing_keywords?: string[];
   created_at?: string | null;
+  access?: { restricted?: boolean; member_ids?: string[] };
 };
 
 export type DashboardManagerCategory = {
@@ -1427,7 +1433,7 @@ function StaffInboxEnterpriseCard({
                       // dashed emerald outline + italic so the manager
                       // can clearly see which row is in flight.
                       isDragging &&
-                        "opacity-35 border border-dashed border-emerald-400/70 bg-emerald-50/40 dark:bg-emerald-950/20 italic",
+                      "opacity-35 border border-dashed border-emerald-400/70 bg-emerald-50/40 dark:bg-emerald-950/20 italic",
                     )}
                     draggable={draggable}
                     onClick={(e) => {
@@ -1440,9 +1446,9 @@ function StaffInboxEnterpriseCard({
                     aria-label={
                       draggable
                         ? t("dashboard.category_tasks.row_draggable_aria").replace(
-                            "{title}",
-                            subject,
-                          )
+                          "{title}",
+                          subject,
+                        )
                         : undefined
                     }
                   >
@@ -1927,8 +1933,8 @@ function TasksDemandsCard({
         ? ["dashboard", "tasks-demands", 5, "expanded"]
         : ["dashboard", "tasks-demands", 5],
       queryFn: () => api.getDashboardTasksDemands(
-          expanded ? WIDGET_TASK_EXPANDED_LIMIT : WIDGET_TASK_PREVIEW_LIMIT,
-        ),
+        expanded ? WIDGET_TASK_EXPANDED_LIMIT : WIDGET_TASK_PREVIEW_LIMIT,
+      ),
       placeholderData: (previous) => previous,
       // Dashboard widget - bounded cost. 60 s refetch matches the other
       // operational cards, with staleTime so tab switches don't re-fetch.
@@ -2043,7 +2049,7 @@ function TasksDemandsCard({
       qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
       toast.success(
         t("dashboard.tasks_demands.reassign_success") ||
-          "Task reassigned.",
+        "Task reassigned.",
       );
       setReassignTarget(null);
     },
@@ -2054,12 +2060,17 @@ function TasksDemandsCard({
   });
 
   const counts = data?.counts ?? { pending: 0, in_progress: 0, completed: 0 };
+  const donePct = percentDone(counts);
   const rows: DashboardTaskDemandItem[] = useMemo(() => {
     if (!data) return [];
-    if (tab === "pending") return data.pending;
-    if (tab === "in_progress") return data.in_progress;
+    if (tab === "pending") return sortByAttention(data.pending);
+    if (tab === "in_progress") return sortByAttention(data.in_progress);
     return data.completed;
   }, [data, tab]);
+  const attentionItem =
+    tab === "completed"
+      ? null
+      : topAttentionItem([...(data?.pending ?? []), ...(data?.in_progress ?? [])]);
 
   const activeTabCount =
     tab === "pending"
@@ -2109,21 +2120,26 @@ function TasksDemandsCard({
           </span>
         </div>
       ) : null}
-      <CardHeader className={cardHeaderBase}>
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/12 text-indigo-600 dark:text-indigo-400">
-            <ListTodo className="h-4 w-4" aria-hidden />
+      <CardHeader className={cn(cardHeaderBase, "!flex-col !items-stretch gap-2 !space-y-0")}>
+        <div className="flex w-full min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/12 text-indigo-600 dark:text-indigo-400">
+              <ListTodo className="h-4 w-4" aria-hidden />
+            </div>
+            <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+              {t("dashboard.tasks_demands.title")}
+            </CardTitle>
           </div>
-          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
-            {t("dashboard.tasks_demands.title")}
-          </CardTitle>
+          <WidgetPercentChip pct={donePct} />
         </div>
-        <Badge
-          variant="outline"
-          className="border-rose-200 bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/60 text-[10px] font-semibold px-2 h-5"
-        >
-          {t("dashboard.tasks_demands.priority_badge")}
-        </Badge>
+        <div className="flex justify-end">
+          <Badge
+            variant="outline"
+            className="border-rose-200 bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/60 text-[10px] font-semibold px-2 h-5"
+          >
+            {t("dashboard.tasks_demands.priority_badge")}
+          </Badge>
+        </div>
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
@@ -2131,6 +2147,10 @@ function TasksDemandsCard({
           activeId={tab}
           onSelect={(id) => setTab(id as TasksDemandsTab)}
           tabs={tabs.map((tb) => ({ id: tb.id, count: tb.count, label: t(tb.labelKey) }))}
+        />
+        <ManagerAttentionCallout
+          item={attentionItem}
+          label={t("dashboard.widget.needs_attention", { defaultValue: "Needs attention:" })}
         />
 
         {/* Rows */}
@@ -2256,128 +2276,128 @@ function TasksDemandsCard({
                                 {t("dashboard.category_tasks.priority_urgent_short")}
                               </span>
                             ) : null}
-                      {/* Status pill (right-aligned, mirrors row-level
+                            {/* Status pill (right-aligned, mirrors row-level
                           hierarchy - status is the primary signal now) */}
-                      <span
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold whitespace-nowrap",
-                            pill.bg,
-                            pill.text,
-                          )}
-                        >
-                          <span
-                            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", pill.dot)}
-                            aria-hidden
-                          />
-                          <span className="max-w-[4.5rem] truncate">
-                            {taskDemandStatusLabel(pill, t)}
-                          </span>
-                        </span>
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold whitespace-nowrap",
+                                pill.bg,
+                                pill.text,
+                              )}
+                            >
+                              <span
+                                className={cn("h-1.5 w-1.5 shrink-0 rounded-full", pill.dot)}
+                                aria-hidden
+                              />
+                              <span className="max-w-[4.5rem] truncate">
+                                {taskDemandStatusLabel(pill, t)}
+                              </span>
+                            </span>
 
-                        {/* Action menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                            aria-label={t("dashboard.tasks_demands.row_actions")}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" aria-hidden />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          {row.status !== "PENDING" && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                mutation.mutate({
-                                  id: row.id,
-                                  nextStatus: "PENDING",
-                                })
-                              }
-                            >
-                              {t("dashboard.tasks_demands.mark_pending")}
-                            </DropdownMenuItem>
-                          )}
-                          {row.status !== "IN_PROGRESS" && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                mutation.mutate({
-                                  id: row.id,
-                                  nextStatus: "IN_PROGRESS",
-                                })
-                              }
-                            >
-                              {t("dashboard.tasks_demands.mark_in_progress")}
-                            </DropdownMenuItem>
-                          )}
-                          {row.status !== "ACCEPTED" && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                mutation.mutate({
-                                  id: row.id,
-                                  nextStatus: "ACCEPTED",
-                                })
-                              }
-                            >
-                              {t("dashboard.tasks_demands.mark_accepted", {
-                                defaultValue: "Mark accepted",
-                              })}
-                            </DropdownMenuItem>
-                          )}
-                          {row.status !== "COMPLETED" && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                mutation.mutate({
-                                  id: row.id,
-                                  nextStatus: "COMPLETED",
-                                })
-                              }
-                            >
-                              {t("dashboard.tasks_demands.mark_completed")}
-                            </DropdownMenuItem>
-                          )}
-                          {row.status !== "UNABLE_TO_COMPLETE" && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                mutation.mutate({
-                                  id: row.id,
-                                  nextStatus: "UNABLE_TO_COMPLETE",
-                                })
-                              }
-                            >
-                              {t("dashboard.tasks_demands.mark_unable", {
-                                defaultValue: "Mark unable to complete",
-                              })}
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          {/* Reassign - opens the same picker the
+                            {/* Action menu */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                  aria-label={t("dashboard.tasks_demands.row_actions")}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" aria-hidden />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                {row.status !== "PENDING" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      mutation.mutate({
+                                        id: row.id,
+                                        nextStatus: "PENDING",
+                                      })
+                                    }
+                                  >
+                                    {t("dashboard.tasks_demands.mark_pending")}
+                                  </DropdownMenuItem>
+                                )}
+                                {row.status !== "IN_PROGRESS" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      mutation.mutate({
+                                        id: row.id,
+                                        nextStatus: "IN_PROGRESS",
+                                      })
+                                    }
+                                  >
+                                    {t("dashboard.tasks_demands.mark_in_progress")}
+                                  </DropdownMenuItem>
+                                )}
+                                {row.status !== "ACCEPTED" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      mutation.mutate({
+                                        id: row.id,
+                                        nextStatus: "ACCEPTED",
+                                      })
+                                    }
+                                  >
+                                    {t("dashboard.tasks_demands.mark_accepted", {
+                                      defaultValue: "Mark accepted",
+                                    })}
+                                  </DropdownMenuItem>
+                                )}
+                                {row.status !== "COMPLETED" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      mutation.mutate({
+                                        id: row.id,
+                                        nextStatus: "COMPLETED",
+                                      })
+                                    }
+                                  >
+                                    {t("dashboard.tasks_demands.mark_completed")}
+                                  </DropdownMenuItem>
+                                )}
+                                {row.status !== "UNABLE_TO_COMPLETE" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      mutation.mutate({
+                                        id: row.id,
+                                        nextStatus: "UNABLE_TO_COMPLETE",
+                                      })
+                                    }
+                                  >
+                                    {t("dashboard.tasks_demands.mark_unable", {
+                                      defaultValue: "Mark unable to complete",
+                                    })}
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                {/* Reassign - opens the same picker the
                               staff inbox uses so the manager can
                               hand the row off to anyone in the
                               tenant. We pass the row's id + title
                               + category so the modal can pre-rank
                               the department tags relevant to it
                               (e.g. PURCHASE_ORDER → PURCHASES). */}
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setReassignTarget({
-                                id: row.id,
-                                title: row.title,
-                                category: (row as { category?: string })
-                                  .category,
-                              })
-                            }
-                          >
-                            {t("dashboard.tasks_demands.reassign")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => navigate(tasksDemandsDetailHref(row))}
-                          >
-                            {t("dashboard.tasks_demands.open_board")}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    setReassignTarget({
+                                      id: row.id,
+                                      title: row.title,
+                                      category: (row as { category?: string })
+                                        .category,
+                                    })
+                                  }
+                                >
+                                  {t("dashboard.tasks_demands.reassign")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => navigate(tasksDemandsDetailHref(row))}
+                                >
+                                  {t("dashboard.tasks_demands.open_board")}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </div>
@@ -2551,76 +2571,76 @@ function GoogleCalendarSyncHub({
             <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
               {connected
                 ? (() => {
-                    const ago = formatLastSyncLabel(lastSyncAt, locale);
-                    return ago
-                      ? t("dashboard.meetings_reminders.sync_last").replace("{ago}", ago)
-                      : t("dashboard.meetings_reminders.sync_active");
-                  })()
+                  const ago = formatLastSyncLabel(lastSyncAt, locale);
+                  return ago
+                    ? t("dashboard.meetings_reminders.sync_last").replace("{ago}", ago)
+                    : t("dashboard.meetings_reminders.sync_active");
+                })()
                 : t("dashboard.meetings_reminders.not_connected_desc")}
             </p>
           </div>
 
           {connected ? (
             <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0"
-              disabled={refreshing}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRefresh?.();
-              }}
-              aria-label={t("dashboard.meetings_reminders.refresh")}
-              title={t("dashboard.meetings_reminders.refresh")}
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} aria-hidden />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0 px-2 text-[10px] font-semibold"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {t("dashboard.meetings_reminders.manage")}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem asChild>
-                  <a href={calendarLink} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                    {t("dashboard.meetings_reminders.open_in_calendar")}
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={refreshing}
-                  onClick={() => onRefresh?.()}
-                >
-                  <RefreshCw className={cn("h-3.5 w-3.5 mr-2", refreshing && "animate-spin")} />
-                  {t("dashboard.meetings_reminders.refresh")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={connecting || !configured}
-                  onClick={onConnect}
-                >
-                  <Link2 className="h-3.5 w-3.5 mr-2" />
-                  {t("dashboard.meetings_reminders.switch_account")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600 focus:text-red-600 dark:text-red-400"
-                  disabled={disconnecting}
-                  onClick={() => setDisconnectOpen(true)}
-                >
-                  <Unplug className="h-3.5 w-3.5 mr-2" />
-                  {t("dashboard.meetings_reminders.disconnect")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                disabled={refreshing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRefresh?.();
+                }}
+                aria-label={t("dashboard.meetings_reminders.refresh")}
+                title={t("dashboard.meetings_reminders.refresh")}
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} aria-hidden />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 shrink-0 px-2 text-[10px] font-semibold"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {t("dashboard.meetings_reminders.manage")}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem asChild>
+                    <a href={calendarLink} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                      {t("dashboard.meetings_reminders.open_in_calendar")}
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={refreshing}
+                    onClick={() => onRefresh?.()}
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5 mr-2", refreshing && "animate-spin")} />
+                    {t("dashboard.meetings_reminders.refresh")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={connecting || !configured}
+                    onClick={onConnect}
+                  >
+                    <Link2 className="h-3.5 w-3.5 mr-2" />
+                    {t("dashboard.meetings_reminders.switch_account")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-600 focus:text-red-600 dark:text-red-400"
+                    disabled={disconnecting}
+                    onClick={() => setDisconnectOpen(true)}
+                  >
+                    <Unplug className="h-3.5 w-3.5 mr-2" />
+                    {t("dashboard.meetings_reminders.disconnect")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <Button
@@ -2798,8 +2818,8 @@ function MeetingsRemindersCard({
         // env var names to the end user.
         toast.error(
           t("dashboard.meetings_reminders.not_configured") ||
-            res.detail ||
-            "",
+          res.detail ||
+          "",
         );
         return;
       }
@@ -2918,364 +2938,374 @@ function MeetingsRemindersCard({
 
   return (
     <>
-    <Card className={`${cardBase} flex flex-col`}>
-      <CardHeader className={cardHeaderBase}>
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
-            <CalendarDays className="h-4 w-4" aria-hidden />
+      <Card className={`${cardBase} flex flex-col`}>
+        <CardHeader className={cardHeaderBase}>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+              <CalendarDays className="h-4 w-4" aria-hidden />
+            </div>
+            <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+              {t("dashboard.meetings_reminders.title")}
+            </CardTitle>
           </div>
-          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
-            {t("dashboard.meetings_reminders.title")}
-          </CardTitle>
-        </div>
-        <div className="flex items-center gap-1">
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 text-emerald-700 dark:text-emerald-400"
-          aria-label={t("dashboard.meetings_reminders.new_meeting")}
-          title={t("dashboard.meetings_reminders.new_meeting")}
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditing("new");
-          }}
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-        </Button>
-        {/* Share/open-external quick action - matches the mock's top-right
-            forward icon. Opens the full agenda in a new tab. */}
-        <a
-          href={calendarLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={t("dashboard.meetings_reminders.open_calendar")}
-          title={t("dashboard.meetings_reminders.open_calendar")}
-          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-        >
-          <Share2 className="h-4 w-4" aria-hidden />
-        </a>
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
-        {data && !data.connected ? (
-          data.configured === false ? null : (
-            <button
-              type="button"
-              className="mb-2 inline-flex items-center gap-1 self-start text-[11px] text-slate-500 hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-400"
-              disabled={connecting}
-              onClick={(e) => {
-                e.stopPropagation();
-                void handleConnect();
-              }}
-            >
-              <Link2 className="h-3 w-3" aria-hidden />
-              {t("dashboard.meetings_reminders.sync_google_optional")}
-            </button>
-          )
-        ) : (
-        <GoogleCalendarSyncHub
-          connected={Boolean(data?.connected)}
-          email={data?.email ?? null}
-          configured={data?.configured ?? true}
-          connecting={connecting}
-          disconnecting={disconnecting}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-          onRefresh={handleRefreshCalendar}
-          refreshing={isFetching}
-          lastSyncAt={data?.last_sync_at}
-          locale={locale}
-          calendarLink={calendarLink}
-          t={t}
-        />
-        )}
-
-        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
-          {isLoading ? (
-            <div className="py-6 text-center text-sm text-slate-400">
-              {t("dashboard.meetings_reminders.loading")}
-            </div>
-          ) : isError ? (
-            <div className="py-6 flex flex-col items-center gap-2 text-center">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {t("dashboard.meetings_reminders.error")}
-              </p>
+          <div className="flex items-center gap-1">
+            {!data?.connected ? (
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="h-7 px-3 text-xs"
-                onClick={() => void handleRefreshCalendar()}
-                disabled={isFetching}
-              >
-                {t("dashboard.meetings_reminders.retry")}
-              </Button>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="py-5 flex flex-col items-center gap-2 text-center">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
-              </div>
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                {t("dashboard.meetings_reminders.empty_connected")}
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[260px] leading-relaxed">
-                {t("dashboard.meetings_reminders.empty_connected_hint")}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="mt-1 h-7 text-[11px]"
+                variant="ghost"
+                className="h-7 px-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400"
+                aria-label={t("dashboard.meetings_reminders.connect_cta")}
+                title={t("dashboard.meetings_reminders.connect_cta")}
+                disabled={connecting || data?.configured === false}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setEditing("new");
+                  void handleConnect();
                 }}
               >
-                <Plus className="h-3.5 w-3.5 mr-1" aria-hidden />
-                {t("dashboard.meetings_reminders.new_meeting")}
+                {connecting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Link2 className="h-3.5 w-3.5 mr-1" aria-hidden />
+                )}
+                {t("dashboard.meetings_reminders.connect_cta")}
               </Button>
-            </div>
-          ) : (
-            <ul className="space-y-1.5">
-              {items.map((ev) => {
-                const pill = pillClassForMeetingStatus(ev.status);
-                const timeLabel = formatMeetingTime(ev, locale);
-                return (
-                  <li
-                    key={ev.id}
-                    className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors"
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="truncate text-[13px] font-semibold text-slate-900 dark:text-white"
-                            title={ev.title}
-                          >
-                            {ev.title}
-                          </span>
-                          {ev.hangout_link ? (
-                            <Video
-                              className="h-3 w-3 shrink-0 text-sky-500"
-                              aria-label="Video call"
-                            />
-                          ) : ev.location ? (
-                            <MapPin
-                              className="h-3 w-3 shrink-0 text-slate-400"
-                              aria-label={ev.location}
-                            />
-                          ) : null}
-                        </div>
-                        <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                          <span
-                            className={cn(
-                              "shrink-0 inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold whitespace-nowrap",
-                              pill.bg,
-                              pill.text,
-                            )}
-                          >
-                            <span className={cn("h-1.5 w-1.5 rounded-full", pill.dot)} aria-hidden />
-                            {t(pill.labelKey)}
-                          </span>
-                          {/* The time first: it is what people look for. The organizer only when it isn't me. */}
-                          {timeLabel ? (
-                            <span className="shrink-0 font-medium text-slate-700 dark:text-slate-300">{timeLabel}</span>
-                          ) : null}
-                          {!ev.owner_is_me ? (
-                            <>
-                              <span className="w-1 h-1 bg-slate-300 rounded-full shrink-0" />
-                              <span className="truncate italic">{ev.owner_label}</span>
-                            </>
-                          ) : null}
-                          {ev.attendee_count > 0 ? (
-                            <>
-                              <span className="w-1 h-1 bg-slate-300 rounded-full shrink-0" />
-                              <span className="truncate">
-                                +{ev.attendee_count}
-                              </span>
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="shrink-0 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                            aria-label={t("dashboard.meetings_reminders.row_menu")}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" aria-hidden />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          {ev.html_link ? (
-                            <DropdownMenuItem asChild>
-                              <a
-                                href={ev.html_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                                {t("dashboard.meetings_reminders.open_in_gcal")}
-                              </a>
-                            </DropdownMenuItem>
-                          ) : null}
-                          {ev.hangout_link ? (
-                            <DropdownMenuItem asChild>
-                              <a
-                                href={ev.hangout_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <Video className="h-3.5 w-3.5 mr-2" />
-                                {t("dashboard.meetings_reminders.join_meeting")}
-                              </a>
-                            </DropdownMenuItem>
-                          ) : null}
-                          {(ev.can_edit ?? ev.owner_is_me) ? (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                disabled={eventBusyId === ev.id}
-                                onClick={() => setEditing(ev)}
-                              >
-                                <Pencil className="h-3.5 w-3.5 mr-2" />
-                                {t("dashboard.meetings_reminders.edit_event")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={eventBusyId === ev.id}
-                                onClick={() => handleShiftEvent(ev.id, 30)}
-                              >
-                                <Clock className="h-3.5 w-3.5 mr-2" />
-                                {t("dashboard.meetings_reminders.shift_30")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={eventBusyId === ev.id}
-                                onClick={() => handleShiftEvent(ev.id, -30)}
-                              >
-                                <Clock className="h-3.5 w-3.5 mr-2" />
-                                {t("dashboard.meetings_reminders.shift_back_30")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-red-600 focus:text-red-600 dark:text-red-400"
-                                disabled={eventBusyId === ev.id}
-                                onClick={() => setDeletingId(ev.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                {t("dashboard.meetings_reminders.delete_event")}
-                              </DropdownMenuItem>
-                            </>
-                          ) : null}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => {
-                              if (!ev.html_link) return;
-                              navigator.clipboard?.writeText(ev.html_link).catch(() => {
-                                /* clipboard blocked */
-                              });
-                              toast.success(t("dashboard.meetings_reminders.link_copied"));
-                            }}
-                            disabled={!ev.html_link}
-                          >
-                            <Share2 className="h-3.5 w-3.5 mr-2" />
-                            {t("dashboard.meetings_reminders.copy_link")}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        {(data?.total ?? 0) > 5 ? (
-          <button
-            type="button"
-            className="mt-2 self-start px-2 text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowAll((v) => !v);
-            }}
-          >
-            {showAll
-              ? t("dashboard.meetings_reminders.show_less")
-              : t("dashboard.meetings_reminders.show_all", { count: data?.total ?? 0 })}
-          </button>
-        ) : null}
-
-        {reminderRows.length > 0 ? (
-          <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-              {t("dashboard.ops_search.section_reminders")}
-            </p>
-            <ul className="space-y-1.5">
-              {reminderRows.slice(0, 4).map((r) => (
-                <li key={String(r.id)} className="text-[13px] text-slate-700 dark:text-slate-200">
-                  <span className="font-medium">{String(r.title || "")}</span>
-                  {r.due_at ? (
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {" · "}
-                      {new Date(String(r.due_at)).toLocaleString()}
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            ) : null}
+            {/* Share/open-external quick action - matches the mock's top-right
+            forward icon. Opens the full agenda in a new tab. */}
+            <a
+              href={calendarLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t("dashboard.meetings_reminders.open_calendar")}
+              title={t("dashboard.meetings_reminders.open_calendar")}
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            >
+              <Share2 className="h-4 w-4" aria-hidden />
+            </a>
           </div>
-        ) : null}
+        </CardHeader>
 
-        {/* Footer: "Open in Calendar" CTA to match the mock. Always visible
+        <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
+          {data?.connected ? (
+            <GoogleCalendarSyncHub
+              connected={Boolean(data?.connected)}
+              email={data?.email ?? null}
+              configured={data?.configured ?? true}
+              connecting={connecting}
+              disconnecting={disconnecting}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+              onRefresh={handleRefreshCalendar}
+              refreshing={isFetching}
+              lastSyncAt={data?.last_sync_at}
+              locale={locale}
+              calendarLink={calendarLink}
+              t={t}
+            />
+          ) : null}
+
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+            {isLoading ? (
+              <div className="py-6 text-center text-sm text-slate-400">
+                {t("dashboard.meetings_reminders.loading")}
+              </div>
+            ) : isError ? (
+              <div className="py-6 flex flex-col items-center gap-2 text-center">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t("dashboard.meetings_reminders.error")}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-3 text-xs"
+                  onClick={() => void handleRefreshCalendar()}
+                  disabled={isFetching}
+                >
+                  {t("dashboard.meetings_reminders.retry")}
+                </Button>
+              </div>
+            ) : items.length === 0 ? (
+              <div className="py-5 flex flex-col items-center gap-2 text-center">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                </div>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {t("dashboard.meetings_reminders.empty_connected")}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[260px] leading-relaxed">
+                  {data?.connected
+                    ? t("dashboard.meetings_reminders.empty_connected_hint")
+                    : t("dashboard.meetings_reminders.not_connected_desc")}
+                </p>
+                {!data?.connected && data?.configured !== false ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-1 h-7 text-[11px]"
+                    disabled={connecting}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleConnect();
+                    }}
+                  >
+                    {connecting ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" aria-hidden />
+                    ) : (
+                      <Link2 className="h-3.5 w-3.5 mr-1" aria-hidden />
+                    )}
+                    {t("dashboard.meetings_reminders.connect_cta")}
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {items.map((ev) => {
+                  const pill = pillClassForMeetingStatus(ev.status);
+                  const timeLabel = formatMeetingTime(ev, locale);
+                  return (
+                    <li
+                      key={ev.id}
+                      className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="truncate text-[13px] font-semibold text-slate-900 dark:text-white"
+                              title={ev.title}
+                            >
+                              {ev.title}
+                            </span>
+                            {ev.hangout_link ? (
+                              <Video
+                                className="h-3 w-3 shrink-0 text-sky-500"
+                                aria-label="Video call"
+                              />
+                            ) : ev.location ? (
+                              <MapPin
+                                className="h-3 w-3 shrink-0 text-slate-400"
+                                aria-label={ev.location}
+                              />
+                            ) : null}
+                          </div>
+                          <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                            <span
+                              className={cn(
+                                "shrink-0 inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold whitespace-nowrap",
+                                pill.bg,
+                                pill.text,
+                              )}
+                            >
+                              <span className={cn("h-1.5 w-1.5 rounded-full", pill.dot)} aria-hidden />
+                              {t(pill.labelKey)}
+                            </span>
+                            {/* The time first: it is what people look for. The organizer only when it isn't me. */}
+                            {timeLabel ? (
+                              <span className="shrink-0 font-medium text-slate-700 dark:text-slate-300">{timeLabel}</span>
+                            ) : null}
+                            {!ev.owner_is_me ? (
+                              <>
+                                <span className="w-1 h-1 bg-slate-300 rounded-full shrink-0" />
+                                <span className="truncate italic">{ev.owner_label}</span>
+                              </>
+                            ) : null}
+                            {ev.attendee_count > 0 ? (
+                              <>
+                                <span className="w-1 h-1 bg-slate-300 rounded-full shrink-0" />
+                                <span className="truncate">
+                                  +{ev.attendee_count}
+                                </span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="shrink-0 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                              aria-label={t("dashboard.meetings_reminders.row_menu")}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" aria-hidden />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            {ev.html_link ? (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href={ev.html_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                                  {t("dashboard.meetings_reminders.open_in_gcal")}
+                                </a>
+                              </DropdownMenuItem>
+                            ) : null}
+                            {ev.hangout_link ? (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href={ev.hangout_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Video className="h-3.5 w-3.5 mr-2" />
+                                  {t("dashboard.meetings_reminders.join_meeting")}
+                                </a>
+                              </DropdownMenuItem>
+                            ) : null}
+                            {(ev.can_edit ?? ev.owner_is_me) ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={eventBusyId === ev.id}
+                                  onClick={() => setEditing(ev)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                                  {t("dashboard.meetings_reminders.edit_event")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={eventBusyId === ev.id}
+                                  onClick={() => handleShiftEvent(ev.id, 30)}
+                                >
+                                  <Clock className="h-3.5 w-3.5 mr-2" />
+                                  {t("dashboard.meetings_reminders.shift_30")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={eventBusyId === ev.id}
+                                  onClick={() => handleShiftEvent(ev.id, -30)}
+                                >
+                                  <Clock className="h-3.5 w-3.5 mr-2" />
+                                  {t("dashboard.meetings_reminders.shift_back_30")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600 dark:text-red-400"
+                                  disabled={eventBusyId === ev.id}
+                                  onClick={() => setDeletingId(ev.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                  {t("dashboard.meetings_reminders.delete_event")}
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (!ev.html_link) return;
+                                navigator.clipboard?.writeText(ev.html_link).catch(() => {
+                                  /* clipboard blocked */
+                                });
+                                toast.success(t("dashboard.meetings_reminders.link_copied"));
+                              }}
+                              disabled={!ev.html_link}
+                            >
+                              <Share2 className="h-3.5 w-3.5 mr-2" />
+                              {t("dashboard.meetings_reminders.copy_link")}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {(data?.total ?? 0) > 5 ? (
+            <button
+              type="button"
+              className="mt-2 self-start px-2 text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAll((v) => !v);
+              }}
+            >
+              {showAll
+                ? t("dashboard.meetings_reminders.show_less")
+                : t("dashboard.meetings_reminders.show_all", { count: data?.total ?? 0 })}
+            </button>
+          ) : null}
+
+          {reminderRows.length > 0 ? (
+            <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                {t("dashboard.ops_search.section_reminders")}
+              </p>
+              <ul className="space-y-1.5">
+                {reminderRows.slice(0, 4).map((r) => (
+                  <li key={String(r.id)} className="text-[13px] text-slate-700 dark:text-slate-200">
+                    <span className="font-medium">{String(r.title || "")}</span>
+                    {r.due_at ? (
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {" · "}
+                        {new Date(String(r.due_at)).toLocaleString()}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {/* Footer: "Open in Calendar" CTA to match the mock. Always visible
             when connected so the manager has a one-click bail-out to the
             full calendar UI. */}
-        {data?.connected ? (
-          <a
-            href={calendarLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="mt-3 inline-flex items-center gap-1 self-center text-xs font-semibold italic text-emerald-600 dark:text-emerald-400 hover:underline"
-          >
-            {t("dashboard.meetings_reminders.open_in_calendar")}
-          </a>
-        ) : null}
-      </CardContent>
-    </Card>
-    {editing ? (
-      <CalendarEventDialog
-        event={editing === "new" ? null : editing}
-        t={t}
-        onClose={() => setEditing(null)}
-        onSaved={() => {
-          setEditing(null);
-          void invalidateMeetings();
-        }}
-      />
-    ) : null}
-    <AlertDialog open={Boolean(deletingId)} onOpenChange={(open) => !open && setDeletingId(null)}>
-      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("dashboard.meetings_reminders.delete_title")}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("dashboard.meetings_reminders.delete_desc")}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t("dashboard.meetings_reminders.delete_cancel")}</AlertDialogCancel>
-          <Button variant="destructive" onClick={handleDeleteEvent}>
-            <Trash2 className="h-4 w-4 mr-2" aria-hidden />
-            {t("dashboard.meetings_reminders.delete_confirm")}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          {data?.connected ? (
+            <a
+              href={calendarLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-3 inline-flex items-center gap-1 self-center text-xs font-semibold italic text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              {t("dashboard.meetings_reminders.open_in_calendar")}
+            </a>
+          ) : null}
+        </CardContent>
+      </Card>
+      {editing ? (
+        <CalendarEventDialog
+          event={editing === "new" ? null : editing}
+          t={t}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void (async () => {
+              await invalidateMeetings();
+              try {
+                const fresh = await api.getDashboardMeetingsReminders(limit, true);
+                qc.setQueryData(["dashboard", "meetings-reminders", limit], fresh);
+              } catch {
+                /* refetch via invalidate is enough */
+              }
+            })();
+          }}
+        />
+      ) : null}
+      <AlertDialog open={Boolean(deletingId)} onOpenChange={(open) => !open && setDeletingId(null)}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("dashboard.meetings_reminders.delete_title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("dashboard.meetings_reminders.delete_desc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("dashboard.meetings_reminders.delete_cancel")}</AlertDialogCancel>
+            <Button variant="destructive" onClick={handleDeleteEvent}>
+              <Trash2 className="h-4 w-4 mr-2" aria-hidden />
+              {t("dashboard.meetings_reminders.delete_confirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -3320,7 +3350,7 @@ function ClockInReview({ ev, t }: { ev: ClockInEventItem; t: (key: string, optio
             className="h-7 text-xs"
           />
           <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" disabled={!note.trim() || review.isPending}
-                  onClick={() => review.mutate(false)}>
+            onClick={() => review.mutate(false)}>
             {t("dashboard.clock_ins.reject")}
           </Button>
           <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setRejecting(false)}>
@@ -3623,6 +3653,13 @@ function StaffDailyProgressCard({
   });
 
   const liveStaff = data?.staff ?? [];
+  const teamPct = React.useMemo(() => {
+    const rows = liveStaff.filter((row) => row.has_process_progress !== false && !row.is_absent);
+    const total = rows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const done = rows.reduce((sum, row) => sum + (Number(row.done) || 0), 0);
+    if (total <= 0) return null;
+    return Math.round((done / total) * 100);
+  }, [liveStaff]);
 
   const goToProgress = React.useCallback(() => {
     navigate("/dashboard/operations/live");
@@ -3683,11 +3720,14 @@ function StaffDailyProgressCard({
                     {t("dashboard.staff_daily_progress.absent")}
                   </Badge>
                 ) : null}
-                <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-                  {row.done}/{row.total} · {pct}%
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-0.5">
+                  <WidgetPercentChip pct={pct} />
+                  <span className="text-[10px] tabular-nums text-slate-500 dark:text-slate-400">
+                    {row.done}/{row.total}
+                  </span>
+                </div>
               </div>
-              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                 <div
                   className={cn(
                     "h-full rounded-full transition-all",
@@ -3705,134 +3745,137 @@ function StaffDailyProgressCard({
 
   return (
     <>
-    <Card
-      className={cn(cardBase, "flex flex-col cursor-pointer")}
-      onClick={goToProgress}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          goToProgress();
-        }
-      }}
-    >
-      <CardHeader className={cardHeaderBase}>
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
-            <TrendingUp className="h-4 w-4" aria-hidden />
+      <Card
+        className={cn(cardBase, "flex flex-col cursor-pointer")}
+        onClick={goToProgress}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            goToProgress();
+          }
+        }}
+      >
+        <CardHeader className={cn(cardHeaderBase, "!flex-col !items-stretch gap-2 !space-y-0")}>
+          <div className="flex w-full min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+                <TrendingUp className="h-4 w-4" aria-hidden />
+              </div>
+              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+                {t("dashboard.staff_daily_progress.title")}
+              </CardTitle>
+            </div>
+            <WidgetPercentChip pct={teamPct} />
           </div>
-          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
-            {t("dashboard.staff_daily_progress.title")}
-          </CardTitle>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {data?.date ? (
-            <span className="text-[10px] font-semibold rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-              {data.date}
-            </span>
-          ) : null}
-          {isManager ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-[10px] font-semibold"
-              onClick={(e) => {
-                e.stopPropagation();
-                setHistoryOpen(true);
-              }}
-            >
-              {t("dashboard.staff_daily_progress.history")}
-            </Button>
-          ) : null}
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
-        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
-          {isLoading ? (
-            renderStaffList([], true)
-          ) : isError ? (
-            <div className="py-6 flex flex-col items-center gap-2 text-center">
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.staff_daily_progress.error")}</p>
+          <div className="flex items-center justify-end gap-1.5">
+            {data?.date ? (
+              <span className="text-[10px] font-semibold rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                {data.date}
+              </span>
+            ) : null}
+            {isManager ? (
               <Button
                 type="button"
+                variant="ghost"
                 size="sm"
-                variant="outline"
-                className="h-7 px-3 text-xs"
+                className="h-7 px-2 text-[10px] font-semibold"
                 onClick={(e) => {
                   e.stopPropagation();
-                  refetch();
+                  setHistoryOpen(true);
                 }}
-                disabled={isFetching}
               >
-                {t("dashboard.staff_daily_progress.retry")}
+                {t("dashboard.staff_daily_progress.history")}
               </Button>
-            </div>
-          ) : (
-            renderStaffList(liveStaff, false)
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            ) : null}
+          </div>
+        </CardHeader>
 
-    <AlertDialog open={historyOpen} onOpenChange={setHistoryOpen}>
-      <AlertDialogContent className="max-w-md" onClick={(e) => e.stopPropagation()}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("dashboard.staff_daily_progress.history_title")}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("dashboard.staff_daily_progress.history_desc")}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="max-h-64 overflow-y-auto space-y-1 py-2">
-          {historyIndexQuery.isLoading ? (
-            <p className="text-sm text-slate-500">{t("dashboard.staff_daily_progress.loading")}</p>
-          ) : (historyIndexQuery.data?.days ?? []).length === 0 ? (
-            <p className="text-sm text-slate-500">{t("dashboard.staff_daily_progress.history_empty")}</p>
-          ) : (
-            (historyIndexQuery.data?.days ?? []).map((day) => (
-              <button
-                key={day.date}
-                type="button"
-                className={cn(
-                  "w-full flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  selectedDate === day.date
-                    ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                    : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50",
-                )}
-                onClick={() => setSelectedDate(day.date)}
-              >
-                <span className="font-medium">{day.date}</span>
-                <span className="text-xs text-slate-500 tabular-nums">
-                  {day.staff_count} staff · {day.avg_pct}% · {day.incomplete} open
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-        {selectedDate ? (
-          <div className="border-t border-slate-200 dark:border-slate-700 pt-3 max-h-48 overflow-y-auto">
-            <p className="text-xs font-semibold text-slate-500 mb-2">{selectedDate}</p>
-            {renderStaffList(
-              archivedQuery.data?.staff ?? [],
-              archivedQuery.isLoading,
-              "dashboard.staff_daily_progress.empty_archive",
+        <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+            {isLoading ? (
+              renderStaffList([], true)
+            ) : isError ? (
+              <div className="py-6 flex flex-col items-center gap-2 text-center">
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.staff_daily_progress.error")}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-3 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    refetch();
+                  }}
+                  disabled={isFetching}
+                >
+                  {t("dashboard.staff_daily_progress.retry")}
+                </Button>
+              </div>
+            ) : (
+              renderStaffList(liveStaff, false)
             )}
           </div>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            onClick={() => {
-              setSelectedDate(null);
-              setHistoryOpen(false);
-            }}
-          >
-            {t("dashboard.staff_daily_progress.history_close")}
-          </AlertDialogCancel>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <AlertDialogContent className="max-w-md" onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("dashboard.staff_daily_progress.history_title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("dashboard.staff_daily_progress.history_desc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-64 overflow-y-auto space-y-1 py-2">
+            {historyIndexQuery.isLoading ? (
+              <p className="text-sm text-slate-500">{t("dashboard.staff_daily_progress.loading")}</p>
+            ) : (historyIndexQuery.data?.days ?? []).length === 0 ? (
+              <p className="text-sm text-slate-500">{t("dashboard.staff_daily_progress.history_empty")}</p>
+            ) : (
+              (historyIndexQuery.data?.days ?? []).map((day) => (
+                <button
+                  key={day.date}
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                    selectedDate === day.date
+                      ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                      : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50",
+                  )}
+                  onClick={() => setSelectedDate(day.date)}
+                >
+                  <span className="font-medium">{day.date}</span>
+                  <span className="text-xs text-slate-500 tabular-nums">
+                    {day.staff_count} staff · {day.avg_pct}% · {day.incomplete} open
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+          {selectedDate ? (
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-3 max-h-48 overflow-y-auto">
+              <p className="text-xs font-semibold text-slate-500 mb-2">{selectedDate}</p>
+              {renderStaffList(
+                archivedQuery.data?.staff ?? [],
+                archivedQuery.isLoading,
+                "dashboard.staff_daily_progress.empty_archive",
+              )}
+            </div>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setSelectedDate(null);
+                setHistoryOpen(false);
+              }}
+            >
+              {t("dashboard.staff_daily_progress.history_close")}
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -3967,7 +4010,7 @@ function RecentIncidentsCard({
   const openCount = items.length;
 
   const goToIncidents = React.useCallback(() => {
-    navigate("/dashboard/operations/incidents");
+    navigate("/dashboard/operations/live?view=incidents");
   }, [navigate]);
 
   return (
@@ -4445,13 +4488,13 @@ function useWidgetDropZone(
 
   const cardClassName = cn(
     isValidDropTarget &&
-      !isDropTarget &&
-      "ring-2 ring-dashed ring-emerald-300/70 dark:ring-emerald-500/50 ring-offset-1 ring-offset-background",
+    !isDropTarget &&
+    "ring-2 ring-dashed ring-emerald-300/70 dark:ring-emerald-500/50 ring-offset-1 ring-offset-background",
     isDropTarget &&
-      "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-xl scale-[1.015] bg-emerald-50/40 dark:bg-emerald-950/20",
+    "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-xl scale-[1.015] bg-emerald-50/40 dark:bg-emerald-950/20",
     isSourceTarget && "opacity-70",
     justReceivedDrop &&
-      "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background shadow-lg",
+    "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background shadow-lg",
     options?.isPending && "opacity-90",
   );
 
@@ -4864,11 +4907,11 @@ function CategoryTasksCard({
   }, []);
 
   const pendingItems = useMemo(
-    () => activeItems.filter((it) => !itemIsInProgress(it)),
+    () => sortByAttention(activeItems.filter((it) => !itemIsInProgress(it))),
     [activeItems, itemIsInProgress],
   );
   const inProgressItems = useMemo(
-    () => activeItems.filter(itemIsInProgress),
+    () => sortByAttention(activeItems.filter(itemIsInProgress)),
     [activeItems, itemIsInProgress],
   );
 
@@ -4880,6 +4923,8 @@ function CategoryTasksCard({
   }, [data, filter, inProgressItems, pendingItems]);
 
   const counts = data?.counts ?? { open: 0, in_progress: 0, completed: 0 };
+  const donePct = percentDone(counts);
+  const attentionItem = filter === "done" ? null : topAttentionItem([...pendingItems, ...inProgressItems]);
 
   // New tasks land as Pending (open lane). If the manager left
   // "in progress" selected from a prior visit, the card looks empty
@@ -4944,20 +4989,20 @@ function CategoryTasksCard({
         // yelling. We don't apply this to the source bucket (that
         // would be misleading - dropping back yourself is a no-op).
         isValidDropTarget &&
-          !isDropTarget &&
-          "ring-2 ring-dashed ring-emerald-300/70 dark:ring-emerald-500/50 ring-offset-1 ring-offset-background",
+        !isDropTarget &&
+        "ring-2 ring-dashed ring-emerald-300/70 dark:ring-emerald-500/50 ring-offset-1 ring-offset-background",
         // Tier 2 - cursor is currently over this card, so it's the
         // row's live destination. Solid ring + lift so the manager
         // knows releasing here commits the move.
         isDropTarget &&
-          "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-xl scale-[1.015] bg-emerald-50/40 dark:bg-emerald-950/20",
+        "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-xl scale-[1.015] bg-emerald-50/40 dark:bg-emerald-950/20",
         // Source-bucket affordance - a gentle dim so the manager sees
         // "this is where the row is leaving from". Deliberately not a
         // drop-target ring.
         isSourceBucket && "opacity-70",
         // Success pulse after a successful incoming drop.
         justReceivedDrop &&
-          "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background shadow-lg",
+        "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background shadow-lg",
         bucketMutation.isPending && "opacity-90",
       )}
       onDrop={onDropRow}
@@ -4993,26 +5038,26 @@ function CategoryTasksCard({
           </span>
         </div>
       ) : null}
-      <CardHeader className={cn(cardHeaderBase, "flex-wrap gap-y-2")}>
-        <div className="flex min-w-0 flex-1 items-start gap-2 basis-[min(100%,12rem)]">
-          <div
-            className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-              toneClasses.iconBg,
-              toneClasses.iconText,
-            )}
-          >
-            <Icon className="h-4 w-4" aria-hidden />
+      <CardHeader className={cn(cardHeaderBase, "!flex-col !items-stretch gap-2 !space-y-0")}>
+        <div className="flex w-full min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                toneClasses.iconBg,
+                toneClasses.iconText,
+              )}
+            >
+              <Icon className="h-4 w-4" aria-hidden />
+            </div>
+            <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-snug line-clamp-2">
+              {t(titleKey)}
+            </CardTitle>
           </div>
-          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-snug line-clamp-2">
-            {t(titleKey)}
-          </CardTitle>
+          <WidgetPercentChip pct={donePct} />
         </div>
-        {/* Filter chip pair on the top-right matches the mockup's
-            "+ in progress" / "Done" affordance on the URGENT card.
-            We render it on every card for consistency and so managers
-            can flip lanes on any widget without scrolling. */}
-        <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 ml-auto">
+        {/* Filter chip pair — second row so the % stays on the title line. */}
+        <div className="flex flex-wrap items-center justify-end gap-1">
           <CategoryFilterChip
             active={filter === "in_progress"}
             count={counts.in_progress}
@@ -5046,7 +5091,18 @@ function CategoryTasksCard({
             otherwise the area collapses and the list gets the full
             vertical space. */}
         {!isLoading && !isError ? (
-          <CategoryStatusStrip counts={counts} filter={filter} t={t} />
+          <>
+            <ManagerAttentionCallout
+              item={attentionItem}
+              label={t("dashboard.widget.needs_attention", { defaultValue: "Needs attention:" })}
+            />
+            <CategoryStatusStrip
+              counts={counts}
+              filter={filter}
+              t={t}
+              onSelect={(next) => setFilter(next)}
+            />
+          </>
         ) : null}
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {isLoading ? (
@@ -5080,14 +5136,14 @@ function CategoryTasksCard({
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {filter === "in_progress" && pendingItems.length > 0
                   ? t("dashboard.category_tasks.empty_in_progress_with_open", {
-                      defaultValue: "{{count}} open items are still pending - nothing marked in progress yet.",
-                      count: pendingItems.length,
-                    })
+                    defaultValue: "{{count}} open items are still pending - nothing marked in progress yet.",
+                    count: pendingItems.length,
+                  })
                   : t(
-                      filter === "done"
-                        ? "dashboard.category_tasks.empty_done"
-                        : "dashboard.category_tasks.empty_open",
-                    )}
+                    filter === "done"
+                      ? "dashboard.category_tasks.empty_done"
+                      : "dashboard.category_tasks.empty_open",
+                  )}
               </p>
               {filter === "in_progress" && pendingItems.length > 0 ? (
                 <Button
@@ -5132,8 +5188,8 @@ function CategoryTasksCard({
                   }
                   isPendingId={
                     (statusMutation.isPending && statusMutation.variables?.id === it.id) ||
-                    (validateMutation.isPending && validateMutation.variables === it.id) ||
-                    (chaseMutation.isPending && chaseMutation.variables?.id === it.id)
+                      (validateMutation.isPending && validateMutation.variables === it.id) ||
+                      (chaseMutation.isPending && chaseMutation.variables?.id === it.id)
                       ? it.id
                       : null
                   }
@@ -5145,15 +5201,15 @@ function CategoryTasksCard({
                   onOpenProofMedia={
                     it.proof_media_url
                       ? () => {
-                          const url =
-                            resolveStoredMediaUrl(it.proof_media_url!, BACKEND_URL) ||
-                            it.proof_media_url!;
-                          setProofPreview({
-                            url,
-                            name: it.title,
-                            label: "picture",
-                          });
-                        }
+                        const url =
+                          resolveStoredMediaUrl(it.proof_media_url!, BACKEND_URL) ||
+                          it.proof_media_url!;
+                        setProofPreview({
+                          url,
+                          name: it.title,
+                          label: "picture",
+                        });
+                      }
                       : undefined
                   }
                 />
@@ -5187,22 +5243,22 @@ function CategoryTasksCard({
 }
 
 /**
- * Compact status strip rendered just under the card header. Surfaces the
- * granular sub-counts the API returns (overdue / waiting / escalated /
- * new) plus the totals for the currently-active filter so the manager
- * can size up the bucket in one glance - no need to scroll the list to
- * see "are there bills that already slipped?" or "how many escalations
- * landed today?". The whole strip collapses to nothing when there are
- * no rows to call out, keeping the card visually quiet on a calm day.
+ * Status strip under the attention callout. Open and in-progress counts
+ * stay visible together so the manager can see both lanes without
+ * switching filters first. Each chip selects that lane. Granular
+ * signals (overdue, escalated, waiting, new) sit beside them when the
+ * API reports any. The strip collapses when the bucket is empty.
  */
 function CategoryStatusStrip({
   counts,
   filter,
   t,
+  onSelect,
 }: {
   counts: import("@/lib/types").CategoryTasksResponse["counts"];
   filter: CategoryTasksFilter;
   t: (key: string, options?: Record<string, string | number> | string) => string;
+  onSelect: (next: CategoryTasksFilter) => void;
 }) {
   // ``counts`` may come from older deployments without the granular
   // breakdown - coerce missing fields to 0 so we never render NaN.
@@ -5210,36 +5266,32 @@ function CategoryStatusStrip({
   const waitingOn = counts.waiting_on ?? 0;
   const escalated = counts.escalated ?? 0;
   const fresh = counts.new ?? 0;
-  const total =
-    filter === "done"
-      ? counts.completed
-      : filter === "in_progress"
-      ? counts.in_progress
-      : counts.open;
+  const open = counts.open ?? 0;
+  const inProgress = counts.in_progress ?? 0;
 
   const hasBreakdown = overdue + waitingOn + escalated + fresh > 0;
+  const hasWork = open + inProgress + (counts.completed ?? 0) > 0;
 
   // Nothing useful to show - return null so the card's vertical space
   // collapses cleanly to the list.
-  if (total === 0 && !hasBreakdown) return null;
-
-  const totalLabelKey =
-    filter === "done"
-      ? "dashboard.category_tasks.strip_total_done"
-      : filter === "in_progress"
-      ? "dashboard.category_tasks.strip_total_in_progress"
-      : "dashboard.category_tasks.strip_total_open";
+  if (!hasWork && !hasBreakdown) return null;
 
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[10.5px]">
-      {/* Total chip - neutral so the colored signal chips (overdue / new)
-          pop against it. */}
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
-        <span className="tabular-nums">{total}</span>
-        <span className="text-slate-500 dark:text-slate-400 font-medium">
-          {t(totalLabelKey)}
-        </span>
-      </span>
+    <div className="mb-2.5 flex flex-wrap items-center gap-2">
+      <CategoryLaneChip
+        count={open}
+        label={t("dashboard.category_tasks.strip_total_open")}
+        active={filter === "open"}
+        tone="amber"
+        onClick={() => onSelect("open")}
+      />
+      <CategoryLaneChip
+        count={inProgress}
+        label={t("dashboard.category_tasks.strip_total_in_progress")}
+        active={filter === "in_progress"}
+        tone="sky"
+        onClick={() => onSelect("in_progress")}
+      />
       {overdue > 0 ? (
         <CategoryStatusChip
           label={t("dashboard.category_tasks.strip_overdue")}
@@ -5272,6 +5324,52 @@ function CategoryStatusStrip({
   );
 }
 
+function CategoryLaneChip({
+  count,
+  label,
+  active,
+  tone,
+  onClick,
+}: {
+  count: number;
+  label: string;
+  active: boolean;
+  tone: "amber" | "sky";
+  onClick: () => void;
+}) {
+  const palette =
+    tone === "amber"
+      ? {
+          idle:
+            "border-amber-300 bg-amber-50 text-amber-900 shadow-sm dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
+          active:
+            "border-amber-400 bg-amber-100 text-amber-950 ring-2 ring-amber-300/80 shadow-md dark:border-amber-600 dark:bg-amber-900/50 dark:text-amber-50 dark:ring-amber-700/70",
+        }
+      : {
+          idle:
+            "border-sky-300 bg-sky-50 text-sky-900 shadow-sm dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100",
+          active:
+            "border-sky-400 bg-sky-100 text-sky-950 ring-2 ring-sky-300/80 shadow-md dark:border-sky-600 dark:bg-sky-900/50 dark:text-sky-50 dark:ring-sky-700/70",
+        };
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold tracking-tight transition-colors",
+        active ? palette.active : palette.idle,
+      )}
+    >
+      <span className="text-sm tabular-nums leading-none">{count}</span>
+      <span className="font-semibold">{label}</span>
+    </button>
+  );
+}
+
 function CategoryStatusChip({
   label,
   count,
@@ -5294,7 +5392,7 @@ function CategoryStatusChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
         cls,
       )}
     >
@@ -5478,15 +5576,15 @@ function CategoryTaskRow({
         // being carried, so the manager isn't confused by the chip
         // that also floats with the cursor.
         isDragging &&
-          "opacity-35 border border-dashed border-emerald-400/70 bg-emerald-50/40 dark:bg-emerald-950/20 italic",
+        "opacity-35 border border-dashed border-emerald-400/70 bg-emerald-50/40 dark:bg-emerald-950/20 italic",
       )}
       draggable={draggable}
       onClick={
         onRowNavigate
           ? (e) => {
-              e.stopPropagation();
-              onRowNavigate();
-            }
+            e.stopPropagation();
+            onRowNavigate();
+          }
           : undefined
       }
       onDragStart={onRowDragStart}
@@ -5495,28 +5593,30 @@ function CategoryTaskRow({
       aria-label={
         draggable
           ? t("dashboard.category_tasks.row_draggable_aria").replace(
-              "{title}",
-              item.title,
-            )
+            "{title}",
+            item.title,
+          )
           : undefined
       }
     >
-      <div className="min-w-0 w-full">
-        <div
-          className="text-[13px] font-medium text-slate-900 dark:text-white line-clamp-2 break-words"
-          title={item.title}
-        >
-          {item.title}
-        </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
+      <div className="min-w-0 w-full space-y-0.5">
+        <div className="flex items-start gap-2 min-w-0 w-full">
+          <div
+            className="min-w-0 flex-1 text-[13px] font-medium text-slate-900 dark:text-white line-clamp-2 break-words"
+            title={item.title}
+          >
+            {item.title}
+          </div>
           {showUrgentBadge ? (
             <span
-              className="shrink-0 inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1 py-px text-[9px] font-bold uppercase tracking-wider text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+              className="shrink-0 inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
               title={t("dashboard.category_tasks.priority_urgent")}
             >
               {t("dashboard.category_tasks.priority_urgent_short")}
             </span>
           ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
           {needsValidation ? (
             <span className="shrink-0 inline-flex items-center rounded-sm border border-amber-200 bg-amber-50 px-1 py-px text-[9px] font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
               {item.validation_label || t("dashboard.category_tasks.not_validated")}
@@ -5577,187 +5677,194 @@ function CategoryTaskRow({
             {localizeAiSummaryLine(item.ai_summary, t)}
           </div>
         ) : null}
-        <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400">
-          <span
-            className="inline-flex shrink-0 items-center gap-1"
-            title={item.assignee?.name || ""}
-          >
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-[9px] font-semibold text-slate-600 dark:text-slate-200">
-              {initials.slice(0, 2)}
-            </span>
-            <span className="truncate max-w-[7rem]">{assigneeLabel}</span>
-            {item.assignee_absent ? (
-              <span
-                className="rounded bg-orange-100 px-1 text-[9px] font-bold uppercase tracking-wide text-orange-800 dark:bg-orange-950/40 dark:text-orange-200"
-                title={t("dashboard.category_tasks.absent_title")}
-              >
-                {t("dashboard.category_tasks.absent")}
+        <div
+          className="flex items-center gap-2 min-w-0 w-full"
+          onClick={stop}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400">
+            <span
+              className="inline-flex min-w-0 items-center gap-1"
+              title={item.assignee?.name || ""}
+            >
+              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-[9px] font-semibold text-slate-600 dark:text-slate-200">
+                {initials.slice(0, 2)}
               </span>
+              <span className="truncate max-w-[5.5rem] sm:max-w-[7rem]">{assigneeLabel}</span>
+              {item.assignee_absent ? (
+                <span
+                  className="shrink-0 rounded bg-orange-100 px-1 text-[9px] font-bold uppercase tracking-wide text-orange-800 dark:bg-orange-950/40 dark:text-orange-200"
+                  title={t("dashboard.category_tasks.absent_title")}
+                >
+                  {t("dashboard.category_tasks.absent")}
+                </span>
+              ) : null}
+            </span>
+            {item.age_label ? (
+              <>
+                <span aria-hidden className="shrink-0 text-slate-300 dark:text-slate-600">·</span>
+                <span className="shrink-0 tabular-nums whitespace-nowrap">
+                  {localizeAgeLabel(item.age_label, t)}
+                </span>
+              </>
             ) : null}
-          </span>
-          {item.age_label ? (
-            <>
-              <span aria-hidden className="text-slate-300 dark:text-slate-600">·</span>
-              <span className="tabular-nums whitespace-nowrap">{localizeAgeLabel(item.age_label, t)}</span>
-            </>
-          ) : null}
-        </div>
-      </div>
+          </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-1 w-full">
-      {needsValidation && onValidate && item.kind === "dashboard" ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            stop(e);
-            onValidate();
-          }}
-          disabled={isPending}
-          className="shrink-0 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
-          title={t("dashboard.category_tasks.validate_title")}
-        >
-          {t("dashboard.category_tasks.validate")}
-        </button>
-      ) : null}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            {needsValidation && onValidate && item.kind === "dashboard" ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  stop(e);
+                  onValidate();
+                }}
+                disabled={isPending}
+                className="shrink-0 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                title={t("dashboard.category_tasks.validate_title")}
+              >
+                {t("dashboard.category_tasks.validate")}
+              </button>
+            ) : null}
 
-      {onChase && item.kind === "dashboard" ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            stop(e);
-            onChase();
-          }}
-          disabled={isPending}
-          className="inline-flex shrink-0 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 disabled:opacity-50 max-w-[5.5rem] truncate sm:max-w-none sm:px-2"
-          title={t("dashboard.category_tasks.update_now_title")}
-        >
-          <span className="truncate sm:hidden">{t("dashboard.category_tasks.update_now_short")}</span>
-          <span className="hidden sm:inline">{t("dashboard.category_tasks.update_now")}</span>
-        </button>
-      ) : null}
+            {onChase && item.kind === "dashboard" ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  stop(e);
+                  onChase();
+                }}
+                disabled={isPending}
+                className="inline-flex shrink-0 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 disabled:opacity-50 max-w-[5.5rem] truncate sm:max-w-none sm:px-2"
+                title={t("dashboard.category_tasks.update_now_title")}
+              >
+                <span className="truncate sm:hidden">{t("dashboard.category_tasks.update_now_short")}</span>
+                <span className="hidden sm:inline">{t("dashboard.category_tasks.update_now")}</span>
+              </button>
+            ) : null}
 
-      {/* Quick-complete button - ALWAYS visible for non-terminal rows
+            {/* Quick-complete button - ALWAYS visible for non-terminal rows
           (not hover-only) so the affordance is discoverable. This was
           the user's primary complaint: "no clear action or button to
           update the status". One tap → COMPLETED, with a spinner while
           the mutation flies. Disabled state when another row in this
           card is currently mutating to avoid race conditions. */}
-      {canEdit ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            stop(e);
-            onStatusChange?.("COMPLETED");
-          }}
-          disabled={isPending}
-          aria-label={quickCompleteLabel}
-          title={quickCompleteLabel}
-          className={cn(
-            "shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md border transition-all",
-            "border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700",
-            "dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400 dark:hover:border-emerald-700/60 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300",
-            "disabled:opacity-50 disabled:cursor-wait",
-          )}
-        >
-          {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          )}
-        </button>
-      ) : null}
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  stop(e);
+                  onStatusChange?.("COMPLETED");
+                }}
+                disabled={isPending}
+                aria-label={quickCompleteLabel}
+                title={quickCompleteLabel}
+                className={cn(
+                  "shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md border transition-all",
+                  "border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700",
+                  "dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400 dark:hover:border-emerald-700/60 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300",
+                  "disabled:opacity-50 disabled:cursor-wait",
+                )}
+              >
+                {isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                )}
+              </button>
+            ) : null}
 
-      {/* Status pill - clickable when editable so the manager has a
+            {/* Status pill - clickable when editable so the manager has a
           second discoverable entry point ("the colored chip is the
           status; tap it to change") on top of the explicit menu. */}
-      {canEdit ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              onClick={stop}
-              aria-label={t("dashboard.category_tasks.row_actions")}
-              className={cn(
-                "shrink-0 inline-flex max-w-[7.5rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-600",
-                pill.bg,
-                pill.text,
-              )}
-              title={t("dashboard.category_tasks.click_pill_to_change")}
-            >
-              <span className={cn("inline-block h-1.5 w-1.5 shrink-0 rounded-full", pill.dot)} />
-              <span className="truncate">{t(`dashboard.category_tasks.pill_${pill.label}`)}</span>
-              <ChevronDown className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={stop} className="w-48">
-            {isInvoice ? (
-              <>
-                {/* Invoices have their own state machine - only mark
+            {canEdit ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={stop}
+                    aria-label={t("dashboard.category_tasks.row_actions")}
+                    className={cn(
+                      "shrink-0 inline-flex max-w-[7.5rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-600",
+                      pill.bg,
+                      pill.text,
+                    )}
+                    title={t("dashboard.category_tasks.click_pill_to_change")}
+                  >
+                    <span className={cn("inline-block h-1.5 w-1.5 shrink-0 rounded-full", pill.dot)} />
+                    <span className="truncate">{t(`dashboard.category_tasks.pill_${pill.label}`)}</span>
+                    <ChevronDown className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={stop} className="w-48">
+                  {isInvoice ? (
+                    <>
+                      {/* Invoices have their own state machine - only mark
                     paid / mark voided are meaningful. PENDING /
                     IN_PROGRESS would be misleading verbs for a bill. */}
-                <DropdownMenuItem
-                  onClick={() => onStatusChange?.("COMPLETED")}
-                  disabled={isPending}
-                >
-                  {t("dashboard.category_tasks.action_mark_paid")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onStatusChange?.("CANCELLED")}
-                  disabled={isPending}
-                >
-                  {t("dashboard.category_tasks.action_mark_voided")}
-                </DropdownMenuItem>
-              </>
+                      <DropdownMenuItem
+                        onClick={() => onStatusChange?.("COMPLETED")}
+                        disabled={isPending}
+                      >
+                        {t("dashboard.category_tasks.action_mark_paid")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onStatusChange?.("CANCELLED")}
+                        disabled={isPending}
+                      >
+                        {t("dashboard.category_tasks.action_mark_voided")}
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      {item.status !== "PENDING" ? (
+                        <DropdownMenuItem
+                          onClick={() => onStatusChange?.("PENDING")}
+                          disabled={isPending}
+                        >
+                          {t("dashboard.category_tasks.action_mark_pending")}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {item.status !== "IN_PROGRESS" ? (
+                        <DropdownMenuItem
+                          onClick={() => onStatusChange?.("IN_PROGRESS")}
+                          disabled={isPending}
+                        >
+                          {t("dashboard.category_tasks.action_mark_in_progress")}
+                        </DropdownMenuItem>
+                      ) : null}
+                      <DropdownMenuItem
+                        onClick={() => onStatusChange?.("COMPLETED")}
+                        disabled={isPending}
+                      >
+                        {t("dashboard.category_tasks.action_mark_done")}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => onStatusChange?.("CANCELLED")}
+                        disabled={isPending}
+                        className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                      >
+                        {t("dashboard.category_tasks.action_mark_cancelled")}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
-              <>
-                {item.status !== "PENDING" ? (
-                  <DropdownMenuItem
-                    onClick={() => onStatusChange?.("PENDING")}
-                    disabled={isPending}
-                  >
-                    {t("dashboard.category_tasks.action_mark_pending")}
-                  </DropdownMenuItem>
-                ) : null}
-                {item.status !== "IN_PROGRESS" ? (
-                  <DropdownMenuItem
-                    onClick={() => onStatusChange?.("IN_PROGRESS")}
-                    disabled={isPending}
-                  >
-                    {t("dashboard.category_tasks.action_mark_in_progress")}
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem
-                  onClick={() => onStatusChange?.("COMPLETED")}
-                  disabled={isPending}
-                >
-                  {t("dashboard.category_tasks.action_mark_done")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => onStatusChange?.("CANCELLED")}
-                  disabled={isPending}
-                  className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
-                >
-                  {t("dashboard.category_tasks.action_mark_cancelled")}
-                </DropdownMenuItem>
-              </>
+              // Read-only pill for terminal rows - same shape, no chevron.
+              <span
+                className={cn(
+                  "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                  pill.bg,
+                  pill.text,
+                )}
+                title={t(`dashboard.category_tasks.pill_${pill.label}`)}
+              >
+                <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
+                {t(`dashboard.category_tasks.pill_${pill.label}`)}
+              </span>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        // Read-only pill for terminal rows - same shape, no chevron.
-        <span
-          className={cn(
-            "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-            pill.bg,
-            pill.text,
-          )}
-          title={t(`dashboard.category_tasks.pill_${pill.label}`)}
-        >
-          <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
-          {t(`dashboard.category_tasks.pill_${pill.label}`)}
-        </span>
-      )}
+          </div>
+        </div>
       </div>
     </li>
   );
@@ -5848,7 +5955,7 @@ export function SortableDashboardWidget({
         className={cn(
           "flex min-h-0 flex-1 flex-col",
           editMode &&
-            "pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto",
+          "pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto",
         )}
       >
         {children}
@@ -5863,18 +5970,21 @@ export function CustomWidgetTasksCard({
   cardHeaderBase,
   t,
   navigate,
+  canManageAccess = false,
 }: {
   def: DashboardCustomWidgetDef;
   cardBase: string;
   cardHeaderBase: string;
   t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
+  canManageAccess?: boolean;
 }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<TasksDemandsTab>("pending");
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
   const customDropTarget = def.slot_id || `${CUSTOM_WIDGET_PREFIX}${def.id}`;
   const queryKey = useMemo(
     () => ["dashboard", "custom-widget-tasks", def.id, 5] as const,
@@ -5904,9 +6014,9 @@ export function CustomWidgetTasksCard({
     useQuery<CustomWidgetTasksResponse>({
       queryKey: fetchKey,
       queryFn: () => api.getCustomWidgetTasks(
-          def.id,
-          expanded ? WIDGET_TASK_EXPANDED_LIMIT : WIDGET_TASK_PREVIEW_LIMIT,
-        ),
+        def.id,
+        expanded ? WIDGET_TASK_EXPANDED_LIMIT : WIDGET_TASK_PREVIEW_LIMIT,
+      ),
       placeholderData: (previous) => previous,
       // Edits on the dashboard invalidate this right away; the poll only picks up changes made on WhatsApp / by
       // Miya. 30s keeps cards live without every card hitting the API four times a minute.
@@ -5993,12 +6103,17 @@ export function CustomWidgetTasksCard({
     in_progress: counts.in_progress ?? 0,
     completed: counts.completed ?? 0,
   };
+  const donePct = percentDone(tabCounts);
   const rows: DashboardTaskDemandItem[] = useMemo(() => {
     if (!data) return [];
-    if (tab === "pending") return data.pending;
-    if (tab === "in_progress") return data.in_progress;
+    if (tab === "pending") return sortByAttention(data.pending);
+    if (tab === "in_progress") return sortByAttention(data.in_progress);
     return data.completed;
   }, [data, tab]);
+  const attentionItem =
+    tab === "completed"
+      ? null
+      : topAttentionItem([...(data?.pending ?? []), ...(data?.in_progress ?? [])]);
 
   const activeTabCount =
     tab === "pending"
@@ -6056,24 +6171,47 @@ export function CustomWidgetTasksCard({
           </span>
         </div>
       ) : null}
-      <CardHeader className={`${cardHeaderBase} pb-2 pt-5`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800/90 dark:text-slate-300">
-              <Icon className="h-6 w-6" aria-hidden />
+      {canManageAccess ? (
+        <ProjectAccessDialog
+          open={accessOpen}
+          onOpenChange={setAccessOpen}
+          widgetId={def.id}
+          title={def.title}
+          access={def.access}
+          t={t}
+        />
+      ) : null}
+      <CardHeader className={`${cardHeaderBase} pb-2 pt-5 !flex-col !items-stretch gap-2 !space-y-0`}>
+        <div className="flex w-full min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800/90 dark:text-slate-300">
+              <Icon className="h-5 w-5" aria-hidden />
             </div>
-            <div className="min-w-0">
-              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
-                {def.title}
-              </CardTitle>
-              {def.subtitle ? (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
-                  {translateWidgetTaskSubtitle(def.subtitle, t) ?? def.subtitle}
-                </p>
-              ) : null}
-            </div>
+            <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+              {def.title}
+            </CardTitle>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {canManageAccess ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setAccessOpen(true)}
+              >
+                <Lock className="h-3.5 w-3.5" aria-hidden />
+                {t("dashboard.project_access.button")}
+              </Button>
+            ) : null}
+            <WidgetPercentChip pct={donePct} />
           </div>
         </div>
+        {def.subtitle ? (
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug px-0.5">
+            {translateWidgetTaskSubtitle(def.subtitle, t) ?? def.subtitle}
+          </p>
+        ) : null}
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col px-5 pb-4 pt-0">
@@ -6081,6 +6219,10 @@ export function CustomWidgetTasksCard({
           activeId={tab}
           onSelect={(id) => setTab(id as TasksDemandsTab)}
           tabs={tabs.map((tb) => ({ id: tb.id, count: tb.count, label: t(tb.labelKey) }))}
+        />
+        <ManagerAttentionCallout
+          item={attentionItem}
+          label={t("dashboard.widget.needs_attention", { defaultValue: "Needs attention:" })}
         />
 
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
@@ -6565,19 +6707,19 @@ function StaffMessagesCard({
     const all = staffRows;
     if (!q) return all;
     return all.filter((s) => {
-        const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
-        const email = (s.email || "").toLowerCase();
-        const phone = (s.phone || "").toLowerCase();
-        const role = (s.role || "").toLowerCase();
-        const dept = (s.profile?.department || "").toLowerCase();
-        return (
-          name.includes(q) ||
-          email.includes(q) ||
-          phone.includes(q) ||
-          role.includes(q) ||
-          dept.includes(q)
-        );
-      });
+      const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
+      const email = (s.email || "").toLowerCase();
+      const phone = (s.phone || "").toLowerCase();
+      const role = (s.role || "").toLowerCase();
+      const dept = (s.profile?.department || "").toLowerCase();
+      return (
+        name.includes(q) ||
+        email.includes(q) ||
+        phone.includes(q) ||
+        role.includes(q) ||
+        dept.includes(q)
+      );
+    });
   }, [staffRows, recipientSearch]);
 
   const filteredStaffMany = useMemo(() => {
@@ -6663,7 +6805,7 @@ function StaffMessagesCard({
         if (wa > 1 || n > 1) {
           toast.success(
             t("dashboard.staff_messages.send_success_group", { count: wa }) ||
-              `WhatsApp accepted for ${wa} teammates.`,
+            `WhatsApp accepted for ${wa} teammates.`,
           );
         } else {
           const who = (resp.recipient_name || "").trim();
@@ -6676,7 +6818,7 @@ function StaffMessagesCard({
             dest
               ? `WhatsApp accepted for ${dest}. Check their chat with Mizan AI.`
               : t("dashboard.staff_messages.send_success") ||
-                  "Message sent on WhatsApp.",
+              "Message sent on WhatsApp.",
           );
         }
       } else if (resp.whatsapp_failed) {
@@ -6708,7 +6850,7 @@ function StaffMessagesCard({
         err instanceof Error
           ? err.message
           : t("dashboard.staff_messages.send_error") ||
-            "Couldn't send the message.";
+          "Couldn't send the message.";
       toast.error(msg);
     },
   });
@@ -6808,8 +6950,8 @@ function StaffMessagesCard({
                     <span className="truncate">
                       {selectedStaff
                         ? `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim() ||
-                          selectedStaff.email ||
-                          selectedStaff.phone
+                        selectedStaff.email ||
+                        selectedStaff.phone
                         : t("dashboard.staff_messages.recipient_placeholder")}
                     </span>
                     <ChevronDown
@@ -6842,8 +6984,8 @@ function StaffMessagesCard({
                       {recipientIdsMany.length === 0
                         ? t("dashboard.staff_messages.audience_many_placeholder")
                         : t("dashboard.staff_messages.audience_many_selected", {
-                            count: recipientIdsMany.length,
-                          })}
+                          count: recipientIdsMany.length,
+                        })}
                     </span>
                     <ChevronDown
                       className={cn(
@@ -7168,7 +7310,7 @@ function StaffMessagesCard({
                         (recipientOpen
                           ? recipientId === s.id
                           : checked) &&
-                          "bg-emerald-50 dark:bg-emerald-950/30",
+                        "bg-emerald-50 dark:bg-emerald-950/30",
                       )}
                     >
                       <span className="flex items-center gap-2 min-w-0">
@@ -7210,7 +7352,7 @@ function StaffMessagesCard({
               )}
             </div>
             {!staffQuery.isLoading &&
-            (recipientOpen ? filteredStaff : filteredStaffMany).length > 0 ? (
+              (recipientOpen ? filteredStaff : filteredStaffMany).length > 0 ? (
               <div className="border-t border-slate-100 dark:border-slate-800 px-2.5 py-1.5 text-[10px] text-slate-500 dark:text-slate-400">
                 {(recipientOpen ? filteredStaff : filteredStaffMany).length} of{" "}
                 {staffRows.length}{" "}
@@ -7288,6 +7430,7 @@ export function DashboardWidgetById({
         cardHeaderBase={cardHeaderBase}
         t={t}
         navigate={navigate}
+        canManageAccess={hasRole(["SUPER_ADMIN", "OWNER", "ADMIN"])}
       />
     );
   }
@@ -7326,7 +7469,7 @@ export function DashboardWidgetById({
             // lift; we only override the border tint when there's a
             // critical alert so the card visibly urgent.
             criticalCount > 0 &&
-              "border-red-200 dark:border-red-900/40 ring-red-500/10",
+            "border-red-200 dark:border-red-900/40 ring-red-500/10",
           )}
           onClick={goToAllIssues}
           role="button"
@@ -7533,9 +7676,9 @@ export function DashboardWidgetById({
               <span>
                 {totalIssues > 5
                   ? t("dashboard.insights.view_all_count").replace(
-                      "{n}",
-                      String(totalIssues),
-                    )
+                    "{n}",
+                    String(totalIssues),
+                  )
                   : t("dashboard.insights.view_all")}
               </span>
               <ArrowRight className="w-3.5 h-3.5" aria-hidden />

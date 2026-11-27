@@ -1,555 +1,443 @@
 import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { AgentAvatar } from "@/components/agent/AgentAvatar";
-import { ApprovalsPopupHost } from "@/components/command/ApprovalsPopupHost";
-import { CommandCenterTiles } from "@/components/command/CommandCenterTiles";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
-import { OperationsLiveFeed } from "@/pages/OperationsLivePage";
-import { AttentionCard } from "@/components/os/AttentionCard";
-import { CommandCollapsibleSection } from "@/components/os/CommandCollapsibleSection";
-import { SeverityBadge, severityPanelClass } from "@/components/os/SeverityBadge";
-import { useAgentPanel } from "@/context/AgentPanelContext";
+import FirstRunChecklist from "@/components/command/FirstRunChecklist";
+import { buildPriorityQueue, cockpitCounts } from "@/components/command/priorityQueue";
+import { useBranchScope } from "@/contexts/BranchScopeContext";
 import { useCommandCentre } from "@/hooks/use-command-centre";
 import { useLanguage } from "@/hooks/use-language";
-import {
-  type CommandCluster,
-  type CommandFilterKey,
-  type CommandSignal,
-  localizedCommandGreeting,
-  localizedOpsHealth,
-  severityToBadgeLevel,
-  resolveCommandReviewRoute,
-  signalsForFilter,
-} from "@/lib/commandCentre";
+import { api } from "@/lib/api";
+import { COMMAND_ROUTES, localizedCommandGreeting, localizedOpsHealth, type CommandSignal } from "@/lib/commandCentre";
+import type { DashboardTaskDemandItem } from "@/lib/types";
+import { MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
-import { getActionRoute } from "@/pages/dashboard/DashboardWidgets";
+import { DashboardWidgetById, type DashboardWidgetBundleProps } from "@/pages/dashboard/DashboardWidgets";
 
-function categoryLabel(category: string | undefined, t: (k: string, o?: Record<string, string>) => string) {
-  if (!category) return "";
-  return t(`category.${category}`, { defaultValue: category.replace(/_/g, " ") });
+const ALL_OPERATIONS = "/dashboard/operations/live";
+const COMMAND_WIDGETS = ["meetings_reminders", "staff_daily_progress", "urgent_top"] as const;
+
+function whenLabel(iso: string | undefined, language: string): { weekday: string; time: string } {
+  if (!iso) return { weekday: "", time: "" };
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return { weekday: "", time: "" };
+  const locale = language === "ar" ? "ar" : language === "fr" ? "fr" : "en";
+  return {
+    weekday: new Intl.DateTimeFormat(locale, { weekday: "long" }).format(date),
+    time: new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(date),
+  };
 }
-
-function buildAskPrompt(signal: CommandSignal, t: (k: string, o?: Record<string, string>) => string) {
-  const isWatching = signal.lane === "watching" || signal.kind === "agent_watch";
-  if (signal.category === "incidents") {
-    return t("ai.prompt.incident_named", { label: signal.title });
-  }
-  if (signal.category === "compliance") {
-    return t("ai.prompt.compliance");
-  }
-  const parts = [t("ai.prompt.attention_named", { title: signal.title })];
-  if (signal.category) {
-    parts.push(t("command.ask_prompt.category", { category: signal.category }));
-  }
-  if (signal.detail) {
-    parts.push(t("command.ask_prompt.context", { detail: signal.detail }));
-  }
-  if (signal.recommendation) {
-    parts.push(t("command.ask_prompt.recommendation", { recommendation: signal.recommendation }));
-  }
-  if (signal.why && signal.why !== signal.recommendation) {
-    parts.push(t("command.ask_prompt.why", { why: signal.why }));
-  }
-  parts.push(
-    isWatching ? t("command.ask_prompt.watching_tail") : t("command.ask_prompt.action_tail"),
-  );
-  return parts.join(" ");
-}
-
-function AskAgentButton({
-  signal,
-  className,
-  variant = "outline",
-}: {
-  signal: CommandSignal;
-  className?: string;
-  variant?: "outline" | "ghost";
-}) {
-  const { t } = useLanguage();
-  const { askAgent } = useAgentPanel();
-  const prompt = useMemo(() => buildAskPrompt(signal, t), [signal, t]);
-
-  return (
-    <Button
-      type="button"
-      variant={variant}
-      size="sm"
-      className={cn("justify-center gap-1.5", className)}
-      onClick={() => askAgent(prompt)}
-    >
-      <AgentAvatar size="xs" className="h-5 w-5" />
-      {t("nav.ask_agent")}
-    </Button>
-  );
-}
-
-function reviewLabelForSignal(signal: CommandSignal, t: (k: string, o?: Record<string, string>) => string) {
-  if (signal.category === "incidents") {
-    return t("attention.review_incidents", { defaultValue: "Review incidents" });
-  }
-  if (signal.category === "compliance") {
-    return t("attention.review_compliance", { defaultValue: "Review compliance" });
-  }
-  if (signal.kind === "invoice" || signal.category === "finance") {
-    return t("attention.review_payments", { defaultValue: "Review payments" });
-  }
-  if (signal.category === "tasks" || signal.category === "workload") {
-    return t("attention.review_overdue", { defaultValue: "Review overdue work" });
-  }
-  if (signal.category === "attendance") {
-    return t("attention.review_attendance", { defaultValue: "Review attendance" });
-  }
-  if (signal.recommendation?.toLowerCase().includes("inspection")) {
-    return t("attention.plan_inspection", { defaultValue: "Plan inspection" });
-  }
-  if (signal.recommendation?.toLowerCase().includes("reminder")) {
-    return t("attention.create_reminder", { defaultValue: "Create reminder" });
-  }
-  return t("os.attention.review");
-}
-
-function PrioritySignalCard({
-  signal,
-  onReview,
-}: {
-  signal: CommandSignal;
-  onReview: () => void;
-}) {
-  const { t } = useLanguage();
-  const level = severityToBadgeLevel(signal.severity);
-  const cat = categoryLabel(signal.category, t);
-  const detail = signal.detail || signal.why || "";
-
-  return (
-    <article className={cn("rounded-panel px-4 py-3.5 shadow-xs", severityPanelClass(level))}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <SeverityBadge level={level} />
-            {cat ? <span className="text-caption text-muted-foreground">{cat}</span> : null}
-          </div>
-          <h3 className="text-base font-semibold leading-snug">{signal.title}</h3>
-          {detail ? (
-            <p className="line-clamp-2 text-sm text-muted-foreground">{detail}</p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <AskAgentButton signal={signal} variant="ghost" className="hidden sm:inline-flex" />
-          <Button type="button" size="sm" className="gap-1" onClick={onReview}>
-            {reviewLabelForSignal(signal, t)}
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </Button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function WatchingSignalCard({
-  signal,
-  onReview,
-}: {
-  signal: CommandSignal;
-  onReview: () => void;
-}) {
-  const { t } = useLanguage();
-  const isUrgent =
-    signal.signal_type === "urgent_action" ||
-    signal.severity === "critical" ||
-    signal.severity === "high";
-  const badgeLevel = isUrgent ? "URGENT_ACTION" : "RECOMMENDATION";
-  const cat = categoryLabel(signal.category, t);
-  const contextLine = signal.why || "";
-
-  return (
-    <article className="rounded-panel border border-border/80 bg-card px-4 py-3.5 shadow-xs">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <SeverityBadge level={badgeLevel} />
-            {cat ? (
-              <span className="text-caption capitalize text-muted-foreground">{cat}</span>
-            ) : null}
-          </div>
-          <h3 className="text-base font-semibold leading-snug">{signal.title}</h3>
-          {contextLine ? (
-            <p className="line-clamp-2 text-sm text-muted-foreground">{contextLine}</p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button type="button" size="sm" variant="outline" className="gap-1" onClick={onReview}>
-            {reviewLabelForSignal(signal, t)}
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </Button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function clusterSummaryLine(cluster: CommandCluster): string {
-  const n = cluster.issue_count;
-  const cat = (cluster.category || "").toLowerCase();
-  if (cat.includes("task") || cat.includes("work")) return `${n} overdue tasks`;
-  if (cat === "compliance") {
-    const extra = n > 1 ? ` (+${n - 1} more)` : "";
-    return `${n} documents need attention${extra}`;
-  }
-  if (cat === "incidents") return `${n} unresolved incidents`;
-  return `${n} related items`;
-}
-
-function MetricTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string | number;
-  tone?: "default" | "critical" | "warning";
-}) {
-  return (
-    <div className="command-metric-tile rounded-xl border border-border/60 bg-card px-3 py-2.5 shadow-sm">
-      <p className="text-caption text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "mt-0.5 text-base font-semibold leading-snug text-foreground sm:text-lg",
-          typeof value === "number" && "tabular-nums text-xl sm:text-2xl",
-          tone === "critical" && "text-critical",
-          tone === "warning" && "text-high-foreground",
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-const FILTERS: CommandFilterKey[] = ["needs_me", "today", "all"];
 
 export function CommandCentreView({ className }: { className?: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
-  const { askAgent } = useAgentPanel();
-  const { data, isLoading, isError, refetch, isFetching } = useCommandCentre();
-  const [filter, setFilter] = useState<CommandFilterKey>("needs_me");
-
-  const filtered = useMemo(() => signalsForFilter(data, filter), [data, filter]);
-  const decideNow = useMemo(
-    () =>
-      data && data.next_five.length > 0
-        ? data.next_five
-        : (data?.lanes.needs_me.slice(0, 5) ?? []),
-    [data],
-  );
+  const [showAllInsights, setShowAllInsights] = useState(false);
+  const { selected } = useBranchScope();
+  const { data, isLoading, isError, refetch } = useCommandCentre();
+  const overview = useQuery({
+    queryKey: ["operations-overview", "cockpit", selected],
+    queryFn: () => api.getOperationsOverview({ pageSize: 40 }),
+    staleTime: 30_000,
+  });
+  const approvals = useQuery({
+    queryKey: ["approvals", "command-centre", selected],
+    queryFn: () => api.listApprovals("pending"),
+    staleTime: 30_000,
+    retry: false,
+  });
+  const demands = useQuery({
+    queryKey: ["tasks-demands", "command-centre", selected],
+    queryFn: () => api.getDashboardTasksDemands(8),
+    staleTime: 30_000,
+  });
 
   const greetingLine = useMemo(
     () => (data ? localizedCommandGreeting(data, t) : t("command.preparing")),
     [data, t],
   );
-
-  const reviewSignal = (signal: CommandSignal) => {
-    navigate(resolveCommandReviewRoute(signal));
-  };
-
-  const opsHealthLabel = localizedOpsHealth(data?.ops_health, t);
-
-  const decideCount = data?.filter_counts.needs_me ?? 0;
-  const briefing = data?.briefing;
+  const counts = cockpitCounts({
+    peopleWorking: data?.metrics.people_working ?? 0,
+    coverageGaps: data?.metrics.coverage_gaps ?? 0,
+    tasksOpen: overview.data?.summary?.open ?? data?.metrics.active_work ?? 0,
+    tasksOverdue: overview.data?.summary?.overdue ?? 0,
+    incidents: overview.data?.counts?.incidents ?? data?.metrics.open_incidents ?? 0,
+    pendingApprovals: data?.metrics.pending_approvals ?? 0,
+    awaitingApproval: overview.data?.summary?.awaiting_approval ?? 0,
+  });
 
   if (isLoading) {
-    return <CommandCentreSkeleton className={className} />;
-  }
-
-  if (isError || !data?.success) {
     return (
-      <div className={cn("mx-auto max-w-lg space-y-3 px-4 py-12 text-center", className)}>
-        <h2 className="text-section-title">{t("command.load_error")}</h2>
-        <p className="type-secondary">{t("command.load_error_detail")}</p>
-        <Button type="button" onClick={() => void refetch()}>
-          {t("common.retry", { defaultValue: "Retry" })}
-        </Button>
+      <div className={className}>
+        <FirstRunChecklist />
+        <CommandCentreSkeleton />
       </div>
     );
   }
 
+  if (isError || !data?.success) {
+    return (
+      <div className={className}>
+        <FirstRunChecklist />
+        <div className="mx-auto max-w-lg space-y-3 px-4 py-12 text-center">
+          <h2 className="text-section-title">{t("command.load_error")}</h2>
+          <p className="type-secondary">{t("command.load_error_detail")}</p>
+          <Button type="button" onClick={() => void refetch()}>
+            {t("common.retry", { defaultValue: "Retry" })}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const briefing = data.briefing;
+  const { weekday } = whenLabel(data.generated_at || briefing?.asOf, language);
+  const opsHealthLabel = localizedOpsHealth(data.ops_health, t);
+  const healthTone =
+    data.ops_health === "strained"
+      ? "bg-critical-muted text-critical"
+      : data.ops_health === "healthy"
+        ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+        : "bg-muted text-muted-foreground";
+
   return (
     <div
       className={cn(
-        "command-centre-page min-w-0 space-y-5 px-4 py-5 md:px-6 lg:px-8 lg:py-6",
+        "command-centre-page min-w-0 space-y-5 px-4 pb-5 pt-2 md:px-6 lg:px-8 lg:pb-6 lg:pt-3",
         className,
       )}
     >
-      <header aria-label={t("attention.aria.header")} className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{greetingLine}</h1>
-          <p className="text-sm text-muted-foreground">
-            {briefing?.restaurantName ? (
-              <span className="text-foreground/90">{briefing.restaurantName}</span>
-            ) : null}
-            {briefing?.restaurantName ? " · " : null}
-            {decideCount > 0 ? (
-              <>
-                {t("command.subtitle_decisions", {
-                  count: decideCount,
-                  defaultValue: `${decideCount} need your decision`,
-                })}
-                {data.filter_counts.today > 0 ? (
-                  <>
-                    {" · "}
-                    {t("command.subtitle_today_watch", {
-                      today: data.filter_counts.today,
-                      defaultValue: `${data.filter_counts.today} on today's watchlist`,
-                    })}
-                  </>
-                ) : null}
-              </>
-            ) : (
-              t("command.subtitle_clear_owner", {
-                defaultValue: "No urgent decisions — see operations overview below.",
-              })
-            )}
-            {data.ops_health === "strained" ? (
-              <span className="ms-2 inline-flex items-center rounded-full bg-critical-muted px-2 py-0.5 text-caption font-medium text-critical">
-                {opsHealthLabel}
-              </span>
-            ) : null}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => askAgent(t("attention.brief_prompt"))}
-          >
-            {t("attention.brief_me")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground"
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            aria-label={t("command.refresh_aria")}
-            title={t("common.refresh", { defaultValue: "Refresh" })}
-          >
-            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} aria-hidden />
-          </Button>
-        </div>
+      <FirstRunChecklist />
+      <header aria-label={t("attention.aria.header")} className="min-w-0 space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{greetingLine}</h1>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          {briefing?.restaurantName ? (
+            <span className="text-foreground/90">{briefing.restaurantName}</span>
+          ) : null}
+          {briefing?.restaurantName && weekday ? <span aria-hidden>·</span> : null}
+          {weekday ? <span>{t("command.weekday_ops", { weekday })}</span> : null}
+          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium", healthTone)}>
+            {opsHealthLabel}
+          </span>
+        </p>
       </header>
 
-      <CommandCenterTiles metrics={data.metrics} />
-
       <section
-        aria-label={t("command.glance")}
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-2.5"
+        aria-label={t("command.ops_overview")}
       >
-        <MetricTile
-          label={t("command.tile.people_working")}
-          value={data.metrics.people_working}
+        <Kpi
+          tone="staff"
+          href={counts.coverageGaps > 0 ? "/dashboard/employees/shifts" : "/dashboard/employees/attendance"}
+          label={t("command.kpi.on_duty")}
+          value={String(counts.onDuty)}
+          detail={counts.coverageGaps > 0 ? t("command.kpi.coverage_gaps", { count: counts.coverageGaps }) : undefined}
         />
-        <MetricTile
-          label={t("command.tile.active_work")}
-          value={data.metrics.active_work}
+        <Kpi
+          tone="tasks"
+          href="/dashboard/operations/live"
+          label={t("command.kpi.tasks")}
+          value={String(counts.tasksOpen)}
+          detail={
+            counts.tasksOverdue > 0
+              ? t("command.kpi.tasks_overdue", { count: counts.tasksOverdue })
+              : t("command.kpi.tasks_open", { open: counts.tasksOpen })
+          }
         />
-        <MetricTile
-          label={t("command.tile.open_incidents")}
-          value={data.metrics.open_incidents}
-          tone={data.metrics.open_incidents > 0 ? "critical" : "default"}
+        <Kpi
+          tone="incidents"
+          href={COMMAND_ROUTES.incidents}
+          label={t("command.kpi.incidents")}
+          value={String(counts.incidents)}
         />
-        <MetricTile
-          label={t("command.tile.pending_approvals")}
-          value={data.metrics.pending_approvals}
-          tone={data.metrics.pending_approvals > 0 ? "warning" : "default"}
-        />
-        <MetricTile
-          label={t("command.tile.ops_health")}
-          value={opsHealthLabel}
-          tone={data.ops_health === "strained" ? "critical" : "default"}
+        <Kpi
+          tone="pending"
+          href="/dashboard/operations/approvals"
+          label={t("command.kpi.pending")}
+          value={String(counts.pending)}
+          detail={
+            counts.pendingApprovals > 0 && counts.awaitingApproval > 0
+              ? t("command.kpi.pending_detail", {
+                  approvals: counts.pendingApprovals,
+                  awaiting: counts.awaitingApproval,
+                })
+              : undefined
+          }
         />
       </section>
 
-      <OperationsLiveFeed embedded />
-
-      <h2 className="text-sm font-semibold text-foreground">
-        {t("command.priority_queue", { defaultValue: "Priority queue" })}
-      </h2>
-
-      {/* Filters */}
-      <nav aria-label={t("attention.aria.filters")} className="flex flex-wrap gap-2">
-        {FILTERS.map((key) => {
-          const count = data.filter_counts[key];
-          const active = filter === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilter(key)}
-              className={cn(
-                "rounded-full border px-3.5 py-1.5 text-caption font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground shadow-xs"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted/50",
-              )}
-            >
-              {t(`attention.filter.${key}`)}
-              {count > 0 ? ` ${count}` : ""}
-            </button>
-          );
+      <FocusLists
+        decide={buildPriorityQueue({
+          needsMe: data.lanes?.needs_me,
+          overviewItems: overview.data?.items,
+          approvals: approvals.data?.approvals,
+          validations: [],
+          hidden: [],
+          fallbackTitle: t("command.decide_now"),
+          cap: 50,
         })}
-      </nav>
-
-      {filter !== "all" ? (
-        <section className="space-y-3">
-          {filtered.length === 0 ? (
-            <p className="rounded-panel border border-dashed border-border px-4 py-8 text-center text-muted-foreground">
-              {t(`attention.empty.${filter}`)}
-            </p>
-          ) : (
-            filtered.map((signal) =>
-              filter === "watching" ? (
-                <WatchingSignalCard
-                  key={signal.id}
-                  signal={signal}
-                  onReview={() => reviewSignal(signal)}
-                />
-              ) : (
-                <PrioritySignalCard
-                  key={signal.id}
-                  signal={signal}
-                  onReview={() => reviewSignal(signal)}
-                />
-              ),
-            )
-          )}
-        </section>
-      ) : (
-        <>
-          {/* Decide now */}
-          <section className="space-y-3" aria-labelledby="command-decide-heading">
-            {decideNow.length > 0 ? (
-              decideNow.map((signal) => (
-                <PrioritySignalCard
-                  key={signal.id}
-                  signal={signal}
-                  onReview={() => reviewSignal(signal)}
-                />
-              ))
-            ) : (
-              <div className="flex items-center gap-3 rounded-panel border border-dashed border-border/80 bg-muted/20 px-4 py-6">
-                <AgentAvatar size="sm" />
-                <p className="text-body text-muted-foreground">{t("command.decide_clear")}</p>
-              </div>
-            )}
-          </section>
-
-          {/* Agent handling */}
-          {data.lanes.handling.length > 0 ? (
-            <CommandCollapsibleSection
-              id="lane-handling"
-              variant="agent"
-              title={t("attention.lane.handling")}
-              description={t("attention.lane.handling_desc")}
-              count={data.lanes.handling.length}
-              defaultOpen={false}
-              preview={data.lanes.handling[0]?.title}
-            >
-              <div className="space-y-3">
-                {data.lanes.handling.map((signal) => (
-                  <AttentionCard
-                    key={signal.id}
-                    compact
-                    item={{
-                      id: signal.id,
-                      severity: severityToBadgeLevel(signal.severity),
-                      category: signal.category,
-                      title: signal.title,
-                      detail: signal.detail,
-                      recommendation: signal.recommendation,
-                    }}
-                    onReview={() => reviewSignal(signal)}
-                  />
-                ))}
-              </div>
-            </CommandCollapsibleSection>
-          ) : null}
-
-          {/* Clusters */}
-          {data.clusters.length > 0 ? (
-            <section className="space-y-3">
-              <h2 className="text-sm font-medium text-muted-foreground">{t("attention.clusters.title")}</h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                {data.clusters.map((cluster) => (
-                  <article
-                    key={cluster.id}
-                    className={cn(
-                      "rounded-panel px-4 py-4 shadow-xs",
-                      severityPanelClass(severityToBadgeLevel(cluster.severity)),
-                    )}
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <SeverityBadge level={severityToBadgeLevel(cluster.severity)} />
-                        <h3 className="text-section-title uppercase tracking-wide">
-                          {cluster.title}
-                        </h3>
-                        <p className="text-caption text-muted-foreground">
-                          {t("attention.cluster.meta", {
-                            issues: cluster.issue_count,
-                            entities: cluster.entity_count,
-                          })}
-                        </p>
-                        <p className="text-body text-foreground">{clusterSummaryLine(cluster)}</p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="shrink-0 gap-1 self-start"
-                        onClick={() => navigate(getActionRoute(cluster.action_url))}
-                      >
-                        {t("attention.cluster.review_named", {
-                          title: cluster.title,
-                          defaultValue: `Review ${cluster.title}`,
-                        })}
-                        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                      </Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {data.lanes.watching.length > 0 ? (
-            <CommandCollapsibleSection
-              id="lane-watching"
-              variant="agent"
-              title={t("attention.lane.watching")}
-              description={t("attention.lane.watching_desc")}
-              count={data.lanes.watching.length}
-              defaultOpen={false}
-              preview={data.lanes.watching[0]?.title}
-            >
-              <div className="space-y-3">
-                {data.lanes.watching.map((signal) => (
-                  <WatchingSignalCard
-                    key={signal.id}
-                    signal={signal}
-                    onReview={() => reviewSignal(signal)}
-                  />
-                ))}
-              </div>
-            </CommandCollapsibleSection>
-          ) : null}
-        </>
-      )}
-      <ApprovalsPopupHost />
+        work={workInMotion(data.lanes?.today, demands.data?.pending, demands.data?.in_progress)}
+        missing={(briefing?.live?.missingClockIns ?? []).filter((row) => row?.name && !row.isViewerSelf)}
+        coverageGaps={counts.coverageGaps}
+        t={t}
+        widgets={
+          <CommandWidgets
+            t={t}
+            navigate={navigate}
+            showAllInsights={showAllInsights}
+            setShowAllInsights={setShowAllInsights}
+          />
+        }
+      />
     </div>
+  );
+}
+
+type WorkRow = { id: string; title: string; owner: string; status: string; href: string };
+
+function demandTime(row: DashboardTaskDemandItem): number {
+  const raw = row.updated_at || row.created_at;
+  const parsed = Date.parse(raw || "");
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function workInMotion(
+  today: CommandSignal[] | undefined,
+  pending: DashboardTaskDemandItem[] | undefined,
+  inProgress: DashboardTaskDemandItem[] | undefined,
+): WorkRow[] {
+  const rows: WorkRow[] = [];
+  const seen = new Set<string>();
+  for (const signal of today ?? []) {
+    if (signal.kind !== "task" || !signal.id || !signal.title) continue;
+    const id = String(signal.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    rows.push({
+      id,
+      title: signal.title,
+      owner: signal.owner || "",
+      status: signal.severity === "critical" || signal.severity === "high" ? signal.severity : "high",
+      href: signal.action_url || ALL_OPERATIONS,
+    });
+  }
+  const demands = [...(pending ?? []), ...(inProgress ?? [])].sort((a, b) => demandTime(b) - demandTime(a));
+  for (const row of demands) {
+    if (!row?.id || !row.title || seen.has(row.id)) continue;
+    if (row.status !== "PENDING" && row.status !== "IN_PROGRESS") continue;
+    seen.add(row.id);
+    rows.push({
+      id: row.id,
+      title: row.title,
+      owner: row.assignee?.name || "",
+      status: row.status,
+      href: `/dashboard/operations/live?task=${encodeURIComponent(row.id)}`,
+    });
+  }
+  return rows;
+}
+
+function FocusLists({
+  decide,
+  work,
+  missing,
+  coverageGaps,
+  t,
+  widgets,
+}: {
+  decide: ReturnType<typeof buildPriorityQueue>;
+  work: WorkRow[];
+  missing: Array<{ id?: string; name?: string }>;
+  coverageGaps: number;
+  t: (key: string, opts?: Record<string, string | number>) => string;
+  widgets: React.ReactNode;
+}) {
+  const decideShown = decide.slice(0, 5);
+  const workShown = work.slice(0, 5);
+  const namesShown = missing.slice(0, 5);
+  const showTeam = namesShown.length > 0 || coverageGaps > 0;
+  const listsEmpty = decideShown.length === 0 && workShown.length === 0 && !showTeam;
+  const teamMore = missing.length > 5 || (coverageGaps > 0 && missing.length >= 5);
+  return (
+    <div className="space-y-5">
+      {listsEmpty ? <p className="text-sm text-muted-foreground">{t("command.nothing_now")}</p> : null}
+      {listsEmpty ? null : (
+        <div className="grid gap-3 lg:grid-cols-3">
+          {decideShown.length > 0 ? (
+            <ListCard title={t("command.decide_now")} more={decide.length > 5} moreLabel={t("command.see_more")}>
+              {decideShown.map((row) => (
+                <RowLink key={row.key} href={row.href} title={row.title} meta={row.owner || row.area} />
+              ))}
+            </ListCard>
+          ) : null}
+          {workShown.length > 0 ? (
+            <ListCard title={t("command.work_in_motion")} more={work.length > 5} moreLabel={t("command.see_more")}>
+              {workShown.map((row) => (
+                <RowLink
+                  key={row.id}
+                  href={row.href}
+                  title={row.title}
+                  meta={[row.owner || t("command.unassigned"), t(`command.demand_status.${row.status}`, { defaultValue: row.status })].join(" · ")}
+                />
+              ))}
+            </ListCard>
+          ) : null}
+          {showTeam ? (
+            <ListCard title={t("command.team_now")} more={teamMore} moreLabel={t("command.see_more")}>
+              {coverageGaps > 0 ? (
+                <RowLink href="/dashboard/employees/shifts" title={t("command.coverage_line", { count: coverageGaps })} />
+              ) : null}
+              {namesShown.map((person) => (
+                <RowLink
+                  key={person.id || person.name}
+                  href="/dashboard/employees/attendance"
+                  title={person.name || ""}
+                />
+              ))}
+            </ListCard>
+          ) : null}
+        </div>
+      )}
+      {widgets}
+    </div>
+  );
+}
+
+const COMMAND_LIST_CARD_HEADER =
+  "flex flex-row items-center justify-between space-y-0 px-6 pb-2 pt-6";
+
+function ListCard({
+  title,
+  more,
+  moreLabel,
+  children,
+}: {
+  title: string;
+  more?: boolean;
+  moreLabel?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card
+      className={cn(
+        MIZAN_ELEVATED_CARD,
+        "flex h-full min-h-0 flex-col transition-transform duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md",
+      )}
+    >
+      <CardHeader className={COMMAND_LIST_CARD_HEADER}>
+        <CardTitle className="text-sm font-bold tracking-tight text-slate-900 dark:text-white md:text-base">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col px-6 pb-5 pt-0">
+        <ul className="divide-y divide-border/60">{children}</ul>
+        {more ? (
+          <Link to={ALL_OPERATIONS} className="pt-3 text-sm font-medium text-primary hover:underline">
+            {moreLabel}
+          </Link>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CommandWidgets({
+  t,
+  navigate,
+  showAllInsights,
+  setShowAllInsights,
+}: {
+  t: DashboardWidgetBundleProps["t"];
+  navigate: DashboardWidgetBundleProps["navigate"];
+  showAllInsights: boolean;
+  setShowAllInsights: DashboardWidgetBundleProps["setShowAllInsights"];
+}) {
+  const cardBase = cn(
+    MIZAN_ELEVATED_CARD,
+    "relative flex h-full min-h-[200px] flex-col transition-transform duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md",
+  );
+  const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
+  const bundle: DashboardWidgetBundleProps = {
+    t,
+    navigate,
+    cardBase,
+    cardHeaderBase,
+    summary: null,
+    isLoading: false,
+    showAllInsights,
+    setShowAllInsights,
+    criticalCount: 0,
+    insights: [],
+    insightsVisible: [],
+    attentionNow: 0,
+    noShowsCount: 0,
+    noShowsLabelKey: "",
+    noShowsDescKey: "",
+    todaySales: undefined,
+    salesLoading: false,
+    hasRole: () => false,
+    customWidgetsById: {},
+  };
+  return (
+    <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-3">
+      {COMMAND_WIDGETS.map((id) => (
+        <DashboardWidgetById key={id} id={id} props={bundle} />
+      ))}
+    </div>
+  );
+}
+
+function RowLink({ href, title, meta }: { href: string; title: string; meta?: string }) {
+  return (
+    <li>
+      <Link to={href} className="block py-2 hover:text-primary">
+        <div className="truncate text-sm font-medium">{title}</div>
+        {meta ? <div className="truncate text-xs text-muted-foreground">{meta}</div> : null}
+      </Link>
+    </li>
+  );
+}
+
+const KPI_TONE_STYLES = {
+  staff:
+    "border-emerald-200/70 bg-gradient-to-br from-emerald-50/95 via-white to-teal-100/50 hover:border-emerald-300/80 dark:border-emerald-900/50 dark:from-emerald-950/50 dark:via-slate-900 dark:to-teal-950/35",
+  tasks:
+    "border-sky-200/70 bg-gradient-to-br from-sky-50/95 via-white to-blue-100/45 hover:border-sky-300/80 dark:border-sky-900/50 dark:from-sky-950/45 dark:via-slate-900 dark:to-blue-950/35",
+  incidents:
+    "border-amber-200/70 bg-gradient-to-br from-amber-50/95 via-white to-orange-100/45 hover:border-amber-300/80 dark:border-amber-900/45 dark:from-amber-950/40 dark:via-slate-900 dark:to-orange-950/30",
+  pending:
+    "border-violet-200/70 bg-gradient-to-br from-violet-50/95 via-white to-fuchsia-100/40 hover:border-violet-300/80 dark:border-violet-900/45 dark:from-violet-950/40 dark:via-slate-900 dark:to-fuchsia-950/30",
+} as const;
+
+function Kpi({
+  href,
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  href: string;
+  label: string;
+  value: string;
+  detail?: string;
+  tone: keyof typeof KPI_TONE_STYLES;
+}) {
+  return (
+    <Link
+      to={href}
+      className={cn(
+        MIZAN_ELEVATED_CARD,
+        "block px-3 py-2.5 sm:px-3.5 sm:py-3 transition-colors",
+        KPI_TONE_STYLES[tone],
+      )}
+    >
+      <div className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</div>
+      <div className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight text-slate-900 dark:text-slate-50 sm:text-[1.65rem]">
+        {value}
+      </div>
+      {detail ? <div className="mt-0.5 text-[11px] leading-snug text-slate-600/90 dark:text-slate-400">{detail}</div> : null}
+    </Link>
   );
 }
 

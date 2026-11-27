@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useLanguage } from "@/hooks/use-language";
-import { api } from "@/lib/api";
+import { MIZAN_ELEVATED_INSET, MIZAN_SETTINGS_BLOCK } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import type { ApprovalKind, ApprovalRule, ApprovalRulesResponse, ApprovalStepSpec } from "@/lib/types";
 
 const ROLES = ["OWNER", "SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR"];
@@ -265,7 +266,7 @@ function ApprovalRulesSettings() {
   const french = language.startsWith("fr");
 
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <section className={MIZAN_SETTINGS_BLOCK}>
       <header className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <ShieldCheck className="h-5 w-5" aria-hidden />
@@ -276,7 +277,7 @@ function ApprovalRulesSettings() {
         </div>
       </header>
 
-      <ul className="divide-y divide-border rounded-xl border border-border">
+      <ul className={cn("divide-y divide-border", MIZAN_ELEVATED_INSET)}>
         {types.filter((ty) => ty.available).map((ty) => (
           <RuleRow
             key={ty.key}

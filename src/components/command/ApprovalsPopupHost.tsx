@@ -5,20 +5,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
 import type { ApprovalRow, NeedsAttentionItem } from "@/lib/types";
-
-const SKIPPED = "mizan.approvalsLater";
+import { readLater, writeLater } from "@/components/command/priorityQueue";
 
 export type PopupItem =
   | { kind: "approval"; id: string; title: string; label: string }
   | { kind: "task"; id: string; title: string; label: string };
-
-function skipped(): string[] {
-  try {
-    return JSON.parse(sessionStorage.getItem(SKIPPED) || "[]") as string[];
-  } catch {
-    return [];
-  }
-}
 
 const popupKey = (item: Pick<PopupItem, "kind" | "id">) => `${item.kind}:${item.id}`;
 
@@ -47,12 +38,36 @@ export function buildPopupQueue(
   return queue.filter((row) => row.id && !hidden.includes(popupKey(row)));
 }
 
+/** Approve or reject an approval-engine row, or validate / send back a finished task. */
+export function useDecideQueueItem() {
+  const { t } = useLanguage();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { item: PopupItem; decision: "approve" | "reject" }) => {
+      if (input.item.kind === "task") {
+        // The endpoint reads `approve` strictly (missing means send back), so always say which. A send-back
+        // needs a reason: the staff member is told "needs another look".
+        await api.taskExecutionAction(
+          input.item.id,
+          "validate",
+          input.decision === "approve" ? { approve: true } : { approve: false, note: t("approvals.popup.redo_note") },
+        );
+      } else await api.decideApproval(input.item.id, input.decision);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["approvals"] });
+      void queryClient.invalidateQueries({ queryKey: ["operations"] });
+      void queryClient.invalidateQueries({ queryKey: ["command-centre"] });
+      void queryClient.invalidateQueries({ queryKey: ["operations-overview"] });
+    },
+  });
+}
+
 /** One approval or task validation at a time, for managers. Later hides it for this session. */
 export function ApprovalsPopupHost() {
   const { t } = useLanguage();
   const { user, isStaff } = useAuth();
-  const queryClient = useQueryClient();
-  const [hidden, setHidden] = useState<string[]>(() => skipped());
+  const [hidden, setHidden] = useState<string[]>(() => readLater());
   const enabled = Boolean(user) && !isStaff();
   const approvals = useQuery({
     queryKey: ["approvals", "pending-popup"],
@@ -68,35 +83,14 @@ export function ApprovalsPopupHost() {
     staleTime: 20_000,
     retry: false,
   });
-  const decide = useMutation({
-    mutationFn: async (input: { item: PopupItem; decision: "approve" | "reject" }) => {
-      if (input.item.kind === "task") {
-        // The endpoint reads `approve` strictly (missing means send back), so always say which. A send-back
-        // needs a reason: the staff member is told "needs another look".
-        await api.taskExecutionAction(
-          input.item.id,
-          "validate",
-          input.decision === "approve" ? { approve: true } : { approve: false, note: t("approvals.popup.redo_note") },
-        );
-      }
-      else await api.decideApproval(input.item.id, input.decision);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["approvals"] });
-      void queryClient.invalidateQueries({ queryKey: ["operations"] });
-    },
-  });
+  const decide = useDecideQueueItem();
   if (!enabled) return null;
   const next = buildPopupQueue(approvals.data?.approvals, attention.data?.items, hidden, t("approvals.popup.untitled"))[0];
   if (!next) return null;
   const later = () => {
     const ids = [...hidden, popupKey(next)];
     setHidden(ids);
-    try {
-      sessionStorage.setItem(SKIPPED, JSON.stringify(ids));
-    } catch {
-      /* private mode: it comes back on reload */
-    }
+    writeLater(ids);
   };
   return (
     <div

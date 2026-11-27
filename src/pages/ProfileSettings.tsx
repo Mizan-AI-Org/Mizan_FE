@@ -12,7 +12,7 @@ import { LeaveBusinessCard } from "@/components/settings/LeaveBusinessCard";
 import { accountErrorFrom } from "@/lib/accountErrors";
 import {
   SettingsSection,
-  SettingsStickyActions,
+  SettingsFormActions,
   settingsFieldClassName,
 } from "@/components/settings/SettingsSection";
 
@@ -150,7 +150,7 @@ const ProfileSettings: React.FC = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <SettingsSection
         icon={<UserIcon className="h-5 w-5" />}
         iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
@@ -198,7 +198,7 @@ const ProfileSettings: React.FC = () => {
                 )}
               />
               <div
-                className="pointer-events-none absolute inset-y-0 start-0 flex w-full items-center px-3 text-sm text-muted-foreground blur-[5px] select-none"
+                className="pointer-events-none absolute inset-y-0 start-0 flex w-full items-center px-3 text-sm text-muted-foreground blur-[0.7px] select-none"
                 aria-hidden
               >
                 <span className="truncate">{email || "—"}</span>
@@ -302,7 +302,7 @@ const ProfileSettings: React.FC = () => {
 
       <LeaveBusinessCard />
 
-      <SettingsStickyActions hint={t("settings.save_hint")}>
+      <SettingsFormActions hint={t("settings.save_hint")}>
         <Button
           type="submit"
           className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5"
@@ -320,7 +320,7 @@ const ProfileSettings: React.FC = () => {
             </>
           )}
         </Button>
-      </SettingsStickyActions>
+      </SettingsFormActions>
     </form>
   );
 };

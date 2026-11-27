@@ -5,6 +5,7 @@ import { Controller, ControllerProps, FieldPath, FieldValues, FormProvider, useF
 
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 const Form = FormProvider;
 
@@ -102,6 +103,8 @@ FormControl.displayName = "FormControl";
 const FormDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => {
     const { formDescriptionId } = useFormField();
+
+    if (!SHOW_UI_DESCRIPTIONS) return null;
 
     return <p ref={ref} id={formDescriptionId} className={cn("text-sm text-muted-foreground", className)} {...props} />;
   },

@@ -6,6 +6,14 @@ import { useLanguage } from "@/hooks/use-language";
 import { useBusinessVertical } from "@/hooks/use-business-vertical";
 import { api, JOB_TITLE_ROLES, type RoleLowered, type UnmatchedTitle } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /** Job title -> role, after an import (apps/accounts/job_titles.py). "Plongeur (5) → [role] [Apply]" gives everyone
  * with that title the role and remembers it for the next import. Used in Add people, onboarding and Settings. */
@@ -156,7 +164,14 @@ export function UnmatchedTitlesPanel({
 }
 
 /** Settings: the titles the business already answered, and the ones still waiting for a role. Managers only. */
-export function JobTitlesSettings({ embedded = false }: { embedded?: boolean }) {
+export function JobTitlesSettings({
+  embedded = false,
+  inDialog = false,
+}: {
+  embedded?: boolean;
+  /** Drop duplicate title when rendered inside a dialog shell. */
+  inDialog?: boolean;
+}) {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { data: settings } = useBusinessVertical();
@@ -172,16 +187,20 @@ export function JobTitlesSettings({ embedded = false }: { embedded?: boolean }) 
   const unmatched = data?.unmatchedTitles ?? [];
   const panelClass = embedded
     ? "space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/40"
-    : "space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/30";
+    : inDialog
+      ? "space-y-4"
+      : "space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/30";
 
   return (
     <div className={panelClass} data-testid="job-titles-settings">
-      <div className="space-y-1">
-        <div className="text-sm font-medium text-slate-900 dark:text-slate-50">
-          {t("staff.job_titles.settings_title")}
+      {!inDialog ? (
+        <div className="space-y-1">
+          <div className="text-sm font-medium text-slate-900 dark:text-slate-50">
+            {t("staff.job_titles.settings_title")}
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t("staff.job_titles.settings_desc")}</p>
         </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">{t("staff.job_titles.settings_desc")}</p>
-      </div>
+      ) : null}
       {isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
       ) : (
@@ -196,10 +215,52 @@ export function JobTitlesSettings({ embedded = false }: { embedded?: boolean }) 
               ))}
             </div>
           ) : (
-            unmatched.length === 0 && <p className="text-xs text-muted-foreground">{t("staff.job_titles.none")}</p>
+            unmatched.length === 0 && !inDialog && (
+              <p className="text-xs text-muted-foreground">{t("staff.job_titles.none")}</p>
+            )
           )}
         </>
       )}
     </div>
+  );
+}
+
+/** Team page: only show when there is something to map or edit. */
+export function JobTitlesDialogTrigger({ className }: { className?: string }) {
+  const { t } = useLanguage();
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["staff", "title-mappings"],
+    queryFn: () => api.getTitleMappings(),
+    retry: false,
+  });
+  if (isError) return null;
+  if (isLoading) return null;
+
+  const unmatched = data?.unmatchedTitles ?? [];
+  const remembered = data?.remembered ?? [];
+  if (unmatched.length === 0 && remembered.length === 0) return null;
+
+  const pendingCount = unmatched.reduce((sum, row) => sum + (row.count ?? 1), 0);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" className={className} data-testid="open-job-titles">
+          {t("staff.job_titles.settings_title")}
+          {pendingCount > 0 ? (
+            <span className="ms-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+              {pendingCount}
+            </span>
+          ) : null}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{t("staff.job_titles.settings_title")}</DialogTitle>
+          <DialogDescription>{t("staff.job_titles.settings_desc")}</DialogDescription>
+        </DialogHeader>
+        <JobTitlesSettings inDialog />
+      </DialogContent>
+    </Dialog>
   );
 }

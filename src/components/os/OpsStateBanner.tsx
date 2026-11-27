@@ -2,6 +2,7 @@ import React from "react";
 import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 type Variant = "error" | "success" | "info";
 
@@ -41,7 +42,9 @@ export function OpsStateBanner({
         <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="text-card-title">{title}</p>
-          {description ? <p className="mt-1 type-secondary">{description}</p> : null}
+          {SHOW_UI_DESCRIPTIONS && description ? (
+            <p className="mt-1 type-secondary">{description}</p>
+          ) : null}
         </div>
         {actionLabel && onAction ? (
           <Button type="button" size="sm" variant="outline" onClick={onAction}>

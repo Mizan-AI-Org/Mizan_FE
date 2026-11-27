@@ -50,7 +50,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 import { api } from "@/lib/api";
 import {
   DashboardWidgetById,
@@ -134,8 +136,10 @@ export function DashboardWidgetGridSection() {
   const attentionNow = criticalCount + operationalCount;
   const [showAllInsights, setShowAllInsights] = useState(false);
 
-  const cardBase =
-    "relative border border-slate-200/60 dark:border-slate-800/80 bg-card rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)] flex h-full min-h-[200px] flex-col";
+  const cardBase = cn(
+    MIZAN_ELEVATED_CARD,
+    "relative flex h-full min-h-[200px] flex-col transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_16px_40px_-10px_rgba(15,23,42,0.16),0_8px_16px_-6px_rgba(15,23,42,0.1)]",
+  );
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
   const canCustomizeDashboard = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]);
@@ -168,6 +172,31 @@ export function DashboardWidgetGridSection() {
   );
 
   const widgetStorageKey = user?.id ? `mizan-dashboard-widget-order:${user.id}` : null;
+
+  // Google Calendar OAuth returns to the current page with ?gcal=connected — handle it on Projects too.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const gcal = params.get("gcal");
+    if (!gcal) return;
+    if (gcal === "connected") {
+      toast.success(t("dashboard.meetings_reminders.connected_toast"));
+      void queryClient.invalidateQueries({ queryKey: ["dashboard", "meetings-reminders"] });
+    } else {
+      const detail = params.get("gcal_detail") || "";
+      toast.error(
+        detail
+          ? `${t("dashboard.meetings_reminders.connect_failed")} (${detail})`
+          : t("dashboard.meetings_reminders.connect_failed"),
+      );
+    }
+    params.delete("gcal");
+    params.delete("gcal_detail");
+    const qs = params.toString();
+    const next = window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+    window.history.replaceState({}, "", next);
+  }, [queryClient, t]);
+
   const [customizeMode, setCustomizeMode] = useState(false);
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -298,7 +327,7 @@ export function DashboardWidgetGridSection() {
           layoutDirtyRef.current = false;
           queryClient.invalidateQueries({ queryKey: ["staff-inbox-lanes"] });
         })
-        .catch(() => {});
+        .catch(() => { });
     }, 900);
     return () => clearTimeout(timer);
   }, [widgetOrder, canCustomizeDashboard, accessToken, serverLayoutReady, queryClient]);
@@ -435,7 +464,7 @@ export function DashboardWidgetGridSection() {
     <section aria-label={t("nav.widget")} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
         <div className="min-w-0">
-          <p className="text-caption-label">{t("widgets.page.title", "Projects")}</p>
+          <p className="text-caption-label">{t("nav.widget")}</p>
           <p className="type-secondary">
             {t(
               "widgets.page.desc",
@@ -504,130 +533,95 @@ export function DashboardWidgetGridSection() {
       ) : null}
 
       <div className="space-y-6">
-          <ManageDashboardCategoriesDialog
-            open={manageOpen}
-            onOpenChange={setManageOpen}
-            t={t}
-            canEdit={canCustomizeDashboard}
-          />
-          <Dialog open={addWidgetOpen} onOpenChange={setAddWidgetOpen}>
-            <DialogContent className="z-[3100] max-w-lg sm:max-w-3xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold tracking-tight">{t("dashboard.customize.add_widget_title")}</DialogTitle>
-                <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
-                  {t("dashboard.customize.add_widget_subtitle")}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6 pt-2 max-h-[min(70vh,560px)] overflow-y-auto pr-1">
-                {DASHBOARD_WIDGET_CATEGORY_ORDER.map((catId) => {
-                  const inCategory = hiddenWidgets.filter((wid) => getWidgetCategory(wid) === catId);
-                  if (inCategory.length === 0) return null;
-                  return (
-                    <section key={catId} className="space-y-2">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-0.5">
-                        {t(DASHBOARD_WIDGET_CATEGORY_KEYS[catId])}
-                      </h3>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {inCategory.map((wid) => {
-                          const Icon = WIDGET_ADD_ICONS[wid];
-                          const descKey = WIDGET_ADD_DESC_KEYS[wid];
-                          return (
-                            <button
-                              key={wid}
-                              type="button"
-                              onClick={() => {
-                                markLayoutDirty();
-                                setWidgetOrder((o) => (o.includes(wid) ? o : [wid, ...o]));
-                                setAddWidgetOpen(false);
-                              }}
-                              className={cn(
-                                "group flex gap-3 rounded-2xl border border-slate-200/90 bg-card p-4 text-left shadow-sm transition-all",
-                                "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
-                                "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
-                              )}
-                            >
-                              {Icon ? (
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
-                                  <Icon className="h-6 w-6" aria-hidden />
-                                </div>
-                              ) : null}
-                              <div className="min-w-0 flex-1">
-                                <div className="font-semibold text-slate-900 dark:text-white leading-snug">{widgetLabel(wid)}</div>
-                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{t(descKey)}</p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-
-                {managerCategories.map((cat) => {
-                  const tiles = hiddenCustomWidgetsByCategory.byCat[cat.id] ?? [];
-                  if (tiles.length === 0) return null;
-                  return (
-                    <section key={`mgr-${cat.id}`} className="space-y-2">
-                      <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-300 px-0.5">
-                        <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                        {cat.name}
-                      </h3>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {tiles.map((w) => (
+        <ManageDashboardCategoriesDialog
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          t={t}
+          canEdit={canCustomizeDashboard}
+        />
+        <Dialog open={addWidgetOpen} onOpenChange={setAddWidgetOpen}>
+          <DialogContent className="z-[3100] max-w-lg sm:max-w-3xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold tracking-tight">{t("dashboard.customize.add_widget_title")}</DialogTitle>
+              <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
+                {t("dashboard.customize.add_widget_subtitle")}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 pt-2 max-h-[min(70vh,560px)] overflow-y-auto pr-1">
+              {DASHBOARD_WIDGET_CATEGORY_ORDER.map((catId) => {
+                const inCategory = hiddenWidgets.filter((wid) => getWidgetCategory(wid) === catId);
+                if (inCategory.length === 0) return null;
+                return (
+                  <section key={catId} className="space-y-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-0.5">
+                      {t(DASHBOARD_WIDGET_CATEGORY_KEYS[catId])}
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {inCategory.map((wid) => {
+                        const Icon = WIDGET_ADD_ICONS[wid];
+                        const descKey = WIDGET_ADD_DESC_KEYS[wid];
+                        return (
                           <button
-                            key={w.slot_id}
+                            key={wid}
                             type="button"
                             onClick={() => {
                               markLayoutDirty();
-                              setWidgetOrder((o) =>
-                                o.includes(w.slot_id) ? o : [w.slot_id, ...o],
-                              );
+                              setWidgetOrder((o) => (o.includes(wid) ? o : [wid, ...o]));
                               setAddWidgetOpen(false);
                             }}
                             className={cn(
-                              "group flex gap-3 rounded-2xl border border-violet-200/70 bg-card p-4 text-left shadow-sm transition-all",
-                              "hover:border-violet-300 hover:shadow-md hover:bg-violet-50/40 dark:border-violet-900/50 dark:bg-slate-900/80",
-                              "dark:hover:border-violet-700 dark:hover:bg-violet-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40",
+                              MIZAN_ELEVATED_CARD,
+                              "group flex gap-3 p-4 text-left transition-all",
+                              "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
+                              "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
                             )}
                           >
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 text-violet-600 dark:from-violet-500/20 dark:to-fuchsia-500/10 dark:text-violet-300">
-                              <Sparkles className="h-6 w-6" aria-hidden />
-                            </div>
+                            {Icon ? (
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
+                                <Icon className="h-6 w-6" aria-hidden />
+                              </div>
+                            ) : null}
                             <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-slate-900 dark:text-white leading-snug">{w.title}</div>
-                              {w.subtitle && (
-                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">{w.subtitle}</p>
-                              )}
+                              <div className="font-semibold text-slate-900 dark:text-white leading-snug">{widgetLabel(wid)}</div>
+                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{t(descKey)}</p>
                             </div>
                           </button>
-                        ))}
-                      </div>
-                    </section>
-                  );
-                })}
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
 
-                {hiddenCustomWidgetsByCategory.uncategorized.length > 0 && (
-                  <section className="space-y-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-0.5">
-                      {t("dashboard.widget_categories.uncategorized")}
+              {managerCategories.map((cat) => {
+                const tiles = hiddenCustomWidgetsByCategory.byCat[cat.id] ?? [];
+                if (tiles.length === 0) return null;
+                return (
+                  <section key={`mgr-${cat.id}`} className="space-y-2">
+                    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-300 px-0.5">
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                      {cat.name}
                     </h3>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {hiddenCustomWidgetsByCategory.uncategorized.map((w) => (
+                      {tiles.map((w) => (
                         <button
                           key={w.slot_id}
                           type="button"
                           onClick={() => {
                             markLayoutDirty();
-                            setWidgetOrder((o) => (o.includes(w.slot_id) ? o : [...o, w.slot_id]));
+                            setWidgetOrder((o) =>
+                              o.includes(w.slot_id) ? o : [w.slot_id, ...o],
+                            );
                             setAddWidgetOpen(false);
                           }}
                           className={cn(
-                            "group flex gap-3 rounded-2xl border border-slate-200/90 bg-card p-4 text-left shadow-sm transition-all",
-                            "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
-                            "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                            MIZAN_ELEVATED_CARD,
+                            "group flex gap-3 border-violet-200/70 p-4 text-left transition-all dark:border-violet-900/50",
+                            "hover:border-violet-300 hover:shadow-md hover:bg-violet-50/40 dark:border-violet-900/50 dark:bg-slate-900/80",
+                            "dark:hover:border-violet-700 dark:hover:bg-violet-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40",
                           )}
                         >
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 text-violet-600 dark:from-violet-500/20 dark:to-fuchsia-500/10 dark:text-violet-300">
                             <Sparkles className="h-6 w-6" aria-hidden />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -640,90 +634,128 @@ export function DashboardWidgetGridSection() {
                       ))}
                     </div>
                   </section>
-                )}
-
-                {hiddenWidgets.length === 0 &&
-                  hiddenCustomWidgetsByCategory.uncategorized.length === 0 &&
-                  managerCategories.every(
-                    (c) => (hiddenCustomWidgetsByCategory.byCat[c.id] ?? []).length === 0,
-                  ) && (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40">
-                      {t("dashboard.customize.nothing_to_add")}
-                    </div>
-                  )}
-
-                {canCustomizeDashboard && (
-                  <div className="border-t border-slate-200/70 pt-3 text-center dark:border-slate-800">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5 text-emerald-700 dark:text-emerald-400"
-                      onClick={() => {
-                        setAddWidgetOpen(false);
-                        setManageOpen(true);
-                      }}
-                    >
-                      <Sliders className="h-4 w-4" />
-                      {t("dashboard.customize.manage_open")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {canCustomizeDashboard ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
-                <div className={widgetGridCols}>
-                  {displayOrder.length === 0 ? (
-                    <div className="lg:col-span-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 px-6 py-12 text-center">
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.customize.empty")}</p>
-                      {hiddenWidgets.length > 0 && (
-                        <Button type="button" variant="outline" className="mt-4 gap-1.5" onClick={() => setAddWidgetOpen(true)}>
-                          <Plus className="h-4 w-4" />
-                          {t("dashboard.customize.add_widget")}
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    displayOrder.map((wid, index) => {
-                      const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
-                      const node = <DashboardWidgetById id={wid} props={widgetBundle} />;
-                      return (
-                        <SortableDashboardWidget
-                          key={wid}
-                          id={wid}
-                          editMode={customizeMode}
-                          colClassName={cn("relative", colSpan)}
-                          onRemove={() => {
-                            markDefaultAsDismissed(user?.id, wid);
-                            markLayoutDirty();
-                            setWidgetOrder((o) => o.filter((x) => x !== wid));
-                          }}
-                        >
-                          {node}
-                        </SortableDashboardWidget>
-                      );
-                    })
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
-          ) : (
-            <div className={widgetGridCols}>
-              {displayOrder.map((wid, index) => {
-                const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
-                return (
-                  <div key={wid} className={cn("relative flex min-h-0 flex-col", colSpan)}>
-                    <DashboardWidgetById id={wid} props={widgetBundle} />
-                  </div>
                 );
               })}
+
+              {hiddenCustomWidgetsByCategory.uncategorized.length > 0 && (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-0.5">
+                    {t("dashboard.widget_categories.uncategorized")}
+                  </h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {hiddenCustomWidgetsByCategory.uncategorized.map((w) => (
+                      <button
+                        key={w.slot_id}
+                        type="button"
+                        onClick={() => {
+                          markLayoutDirty();
+                          setWidgetOrder((o) => (o.includes(w.slot_id) ? o : [...o, w.slot_id]));
+                          setAddWidgetOpen(false);
+                        }}
+                        className={cn(
+                          MIZAN_ELEVATED_CARD,
+                          "group flex gap-3 p-4 text-left transition-all",
+                          "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
+                          "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                        )}
+                      >
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
+                          <Sparkles className="h-6 w-6" aria-hidden />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-slate-900 dark:text-white leading-snug">{w.title}</div>
+                          {w.subtitle && (
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">{w.subtitle}</p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {hiddenWidgets.length === 0 &&
+                hiddenCustomWidgetsByCategory.uncategorized.length === 0 &&
+                managerCategories.every(
+                  (c) => (hiddenCustomWidgetsByCategory.byCat[c.id] ?? []).length === 0,
+                ) && (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40">
+                    {t("dashboard.customize.nothing_to_add")}
+                  </div>
+                )}
+
+              {canCustomizeDashboard && (
+                <div className="border-t border-slate-200/70 pt-3 text-center dark:border-slate-800">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-emerald-700 dark:text-emerald-400"
+                    onClick={() => {
+                      setAddWidgetOpen(false);
+                      setManageOpen(true);
+                    }}
+                  >
+                    <Sliders className="h-4 w-4" />
+                    {t("dashboard.customize.manage_open")}
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </DialogContent>
+        </Dialog>
+
+        {canCustomizeDashboard ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
+              <div className={widgetGridCols}>
+                {displayOrder.length === 0 ? (
+                  <div className="lg:col-span-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 px-6 py-12 text-center">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.customize.empty")}</p>
+                    {hiddenWidgets.length > 0 && (
+                      <Button type="button" variant="outline" className="mt-4 gap-1.5" onClick={() => setAddWidgetOpen(true)}>
+                        <Plus className="h-4 w-4" />
+                        {t("dashboard.customize.add_widget")}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  displayOrder.map((wid, index) => {
+                    const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
+                    const node = <DashboardWidgetById id={wid} props={widgetBundle} />;
+                    return (
+                      <SortableDashboardWidget
+                        key={wid}
+                        id={wid}
+                        editMode={customizeMode}
+                        colClassName={cn("relative", colSpan)}
+                        onRemove={() => {
+                          markDefaultAsDismissed(user?.id, wid);
+                          markLayoutDirty();
+                          setWidgetOrder((o) => o.filter((x) => x !== wid));
+                        }}
+                      >
+                        {node}
+                      </SortableDashboardWidget>
+                    );
+                  })
+                )}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className={widgetGridCols}>
+            {displayOrder.map((wid, index) => {
+              const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
+              return (
+                <div key={wid} className={cn("relative flex min-h-0 flex-col", colSpan)}>
+                  <DashboardWidgetById id={wid} props={widgetBundle} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

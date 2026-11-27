@@ -96,8 +96,8 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
-                <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
+            <div className="space-y-6 p-4 sm:p-5">
+                <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-border/70 bg-card/80 p-4">
                     <Skeleton className="h-11 flex-1 rounded-xl" />
                     <Skeleton className="h-5 w-24" />
                 </div>
@@ -108,7 +108,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
+            <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-border/70 bg-card/80 p-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                     <Input
@@ -142,7 +142,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                     </CardContent>
                 </Card>
             ) : (
-                <div className="space-y-6 pb-10">
+                <div className="space-y-6 px-4 pb-10 sm:px-5">
                     {sortedDates.map(date => (
                         <div key={date} className="space-y-3">
                             <div className="flex items-center gap-2.5 sticky top-[108px] bg-gray-50/95 dark:bg-slate-900/95 py-1.5 z-[5] backdrop-blur-sm">

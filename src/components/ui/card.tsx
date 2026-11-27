@@ -1,9 +1,19 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("rounded-xl border border-border/80 bg-card text-card-foreground shadow-sm", className)} {...props} />
+  <div
+    ref={ref}
+    className={cn(
+      "rounded-2xl border border-slate-200/65 bg-card text-card-foreground",
+      "shadow-[0_10px_25px_-5px_rgba(15,23,42,0.08),0_8px_10px_-6px_rgba(15,23,42,0.05)]",
+      "dark:border-border/80 dark:shadow-lg dark:shadow-black/20",
+      className,
+    )}
+    {...props}
+  />
 ));
 Card.displayName = "Card";
 
@@ -22,9 +32,10 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HT
 CardTitle.displayName = "CardTitle";
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
-  ),
+  ({ className, ...props }, ref) => {
+    if (!SHOW_UI_DESCRIPTIONS) return null;
+    return <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />;
+  },
 );
 CardDescription.displayName = "CardDescription";
 

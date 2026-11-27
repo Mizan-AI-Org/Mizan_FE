@@ -7,6 +7,7 @@ import { useAgentPanel } from "@/context/AgentPanelContext";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/os/SectionHeader";
 import { cn } from "@/lib/utils";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 type Props = {
   title: string;
@@ -69,8 +70,10 @@ export function MizanPageShell({
                 <h1 className={cn("text-lg font-semibold tracking-tight sm:text-xl", eyebrow && "mt-0.5")}>
                   {title}
                 </h1>
-                {description ? (
-                  <p className="mt-1 text-xs leading-snug text-muted-foreground sm:text-sm">{description}</p>
+                {SHOW_UI_DESCRIPTIONS && description ? (
+                  <p className="page-shell-description mt-1 text-xs leading-snug text-muted-foreground sm:text-sm">
+                    {description}
+                  </p>
                 ) : null}
               </div>
               {headerActions}

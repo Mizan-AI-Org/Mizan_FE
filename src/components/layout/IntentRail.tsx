@@ -156,7 +156,8 @@ function leafMatches(pathname: string, search: string, leaf: NavLeaf) {
   const current = new URLSearchParams(search);
   const [routePart, queryPart] = leaf.href.split("#")[0].split("?");
   if (!queryPart) {
-    if (!pathMatches(pathname, routePart, leaf.exact)) return false;
+    const routes = [routePart, ...(leaf.alsoMatch || [])];
+    if (!routes.some((route) => pathMatches(pathname, route, leaf.exact))) return false;
     if (leaf.exact && leaf.exactInactiveIfSearchHas?.length) {
       const suppressed = leaf.exactInactiveIfSearchHas.some((key) => {
         const val = current.get(key);
@@ -409,7 +410,12 @@ export function IntentRail({ className }: { className?: string }) {
                         className={navChildItemClass(childActive)}
                         aria-current={childActive ? "page" : undefined}
                       >
-                        <span className="min-w-0 flex-1 text-start line-clamp-2 text-[13px] leading-snug">
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 text-start text-[13px] leading-snug",
+                            child.singleLine ? "whitespace-nowrap text-xs tracking-tight" : "line-clamp-2",
+                          )}
+                        >
                           {childLabel}
                         </span>
                         <NavAttentionBadge count={childBadge} />
@@ -632,7 +638,12 @@ export function MobileIntentDock() {
                             className={navChildItemClass(childActive)}
                             aria-current={childActive ? "page" : undefined}
                           >
-                            <span className="min-w-0 flex-1 text-start line-clamp-2 text-[13px] leading-snug">
+                            <span
+                              className={cn(
+                                "min-w-0 flex-1 text-start text-[13px] leading-snug",
+                                child.singleLine ? "whitespace-nowrap text-xs tracking-tight" : "line-clamp-2",
+                              )}
+                            >
                               {t(child.labelKey)}
                             </span>
                             <NavAttentionBadge count={childBadge} />

@@ -23,6 +23,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { WidgetPercentChip } from "@/pages/dashboard/widget-progress";
 import NewTaskDialog from "@/components/admin/NewTaskDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -403,12 +404,6 @@ export default function TaskManagementBoard({
 
   return (
     <div className="h-full flex flex-col space-y-5 w-full">
-      <div className="flex justify-end">
-        <Button type="button" onClick={() => setNewTaskOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("new_task.button")}
-        </Button>
-      </div>
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
       {/* Staff Live Progress - deep-linked from dashboard Staff progress widget */}
       <Card
@@ -416,27 +411,19 @@ export default function TaskManagementBoard({
         className="border border-border shadow-none bg-card flex-1 scroll-mt-24"
       >
         <CardHeader className="border-b border-border pb-4 space-y-0">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
-                <User className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
-                {hasShiftLiveProgress
-                  ? t("live_board.staff_live_progress")
-                  : hasDailyProgress
-                    ? t("dashboard.staff_daily_progress.title")
-                    : t("live_board.staff_live_progress")}
-              </CardTitle>
-              <p className="text-sm text-slate-500 mt-1">
-                {hasShiftLiveProgress
-                  ? t("live_board.staff_live_progress_desc")
-                  : hasDailyProgress
-                    ? t("live_board.daily_task_progress_desc")
-                    : t("live_board.staff_live_progress_desc")}
-              </p>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+              <User className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+              {hasShiftLiveProgress
+                ? t("live_board.staff_live_progress")
+                : hasDailyProgress
+                  ? t("dashboard.staff_daily_progress.title")
+                  : t("live_board.staff_live_progress")}
+            </CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium shrink-0 self-start",
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium shrink-0",
                 hasAnyProgress
                   ? "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300"
                   : "border-border bg-muted text-muted-foreground",
@@ -463,7 +450,19 @@ export default function TaskManagementBoard({
                 <span className="text-[10px] opacity-80">· {dailyProgressDate}</span>
               ) : null}
             </span>
+              <Button type="button" size="sm" onClick={() => setNewTaskOpen(true)}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                {t("new_task.button")}
+              </Button>
+            </div>
           </div>
+          <p className="text-sm text-slate-500 mt-1">
+            {hasShiftLiveProgress
+              ? t("live_board.staff_live_progress_desc")
+              : hasDailyProgress
+                ? t("live_board.daily_task_progress_desc")
+                : t("live_board.staff_live_progress_desc")}
+          </p>
         </CardHeader>
         <CardContent className="p-0">
           {progressLoading ? (
@@ -514,15 +513,13 @@ export default function TaskManagementBoard({
                   </div>
 
                   <div className="flex-1 w-full md:min-w-[180px]">
-                    <div className="flex justify-between items-center mb-1.5 gap-2">
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
-                        {staff.current_process.name}
-                      </span>
-                      <span className="text-xs font-semibold tabular-nums text-slate-500 shrink-0">
-                        {staff.current_process.progress}%
-                      </span>
-                    </div>
-                    <Progress value={staff.current_process.progress} className="h-1.5" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate block mb-2">
+                      {staff.current_process.name}
+                    </span>
+                    <Progress value={staff.current_process.progress} className="h-2" />
+                  </div>
+                  <div className="shrink-0 self-center">
+                    <WidgetPercentChip pct={staff.current_process.progress} />
                   </div>
 
                   <div className="w-full md:w-auto flex flex-wrap items-center gap-3 text-sm">
@@ -620,17 +617,20 @@ export default function TaskManagementBoard({
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-1.5 gap-2">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate" title={checklistLabel}>
-                          {checklistLabel}
-                        </span>
-                        <span className="text-xs font-semibold tabular-nums text-slate-500 shrink-0">
-                          {row.done}/{row.total} · {pct}%
-                        </span>
-                      </div>
-                      <Progress value={pct} className="h-1.5" />
+                      <span
+                        className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate block mb-2"
+                        title={checklistLabel}
+                      >
+                        {checklistLabel}
+                      </span>
+                      <Progress value={pct} className="h-2" />
+                      <p className="mt-1.5 text-[11px] tabular-nums text-muted-foreground">
+                        {row.done}/{row.total}
+                      </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <div className="flex flex-col items-end gap-2 shrink-0 sm:min-w-[4.5rem]">
+                      <WidgetPercentChip pct={pct} />
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       {row.is_absent ? (
                         <Badge
                           variant="outline"
@@ -648,6 +648,7 @@ export default function TaskManagementBoard({
                           <span>{t("live_board.all_tasks_done")}</span>
                         </div>
                       )}
+                    </div>
                     </div>
                   </div>
                 );

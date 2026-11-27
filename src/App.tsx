@@ -36,7 +36,7 @@ const AttendanceReportsPage = React.lazy(() => import("./pages/reporting/Attenda
 const InventoryReportsPage = React.lazy(() => import("./pages/reporting/InventoryReportsPage"));
 const LaborAttendanceReportPage = React.lazy(() => import("./pages/reporting/LaborAttendanceReportPage"));
 const TimeClockPage = React.lazy(() => import("./pages/TimeClockPage"));
-const ManagerAttendancePage = React.lazy(() => import("./pages/ManagerAttendancePage"));
+const AttendancePerformanceHub = React.lazy(() => import("./pages/AttendancePerformanceHub"));
 
 const DomainLayout = React.lazy(() =>
   import("./components/layout/DomainWorld").then((m) => ({ default: m.DomainLayout }))
@@ -146,6 +146,7 @@ const RolePermissionsPage = React.lazy(() => import("./pages/settings/RolePermis
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const RedirectToStaffRequests = React.lazy(() => import("./pages/RedirectToStaffRequests"));
 const RedirectToOperationsLive = React.lazy(() => import("./pages/RedirectToOperationsLive"));
+const RedirectIncidentsToLive = React.lazy(() => import("./pages/RedirectIncidentsToLive"));
 const OperationalIssuesPage = React.lazy(
   () => import("./pages/OperationalIssuesPage")
 );
@@ -361,7 +362,7 @@ const App = () => {
                   <Route path="progress" element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
                   <Route path="tasks" element={<Navigate to="/dashboard/operations/approvals" replace />} />
-                  <Route path="incidents" element={<ManagerReviewDashboard />} />
+                  <Route path="incidents" element={<RedirectIncidentsToLive />} />
                   <Route path="checklists" element={<ManagerReviewDashboard />} />
                   <Route path="agency-jobs" element={<AgencyJobsPage />} />
                   <Route path="archived" element={<Navigate to="/dashboard/operations/live" replace />} />
@@ -381,8 +382,8 @@ const App = () => {
                       </RoleBasedRoute>
                     }
                   />
-                  <Route path="attendance" element={<ManagerAttendancePage />} />
-                  <Route path="performance" element={<SchedulingAnalytics />} />
+                  <Route path="attendance" element={<AttendancePerformanceHub />} />
+                  <Route path="performance" element={<AttendancePerformanceHub />} />
                   <Route path="requests" element={<RedirectToStaffRequests />} />
                   <Route path="requests/:id" element={<RedirectToStaffRequests />} />
                 </Route>

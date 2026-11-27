@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  ShieldAlert,
   Inbox,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +48,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import type { LanguageContextType } from "@/contexts/LanguageContext.types";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthContextType } from "@/contexts/AuthContext.types";
 import { api, BACKEND_URL } from "@/lib/api";
 import type { OperationsLiveItem, OperationsLiveLanePagination } from "@/lib/types";
 import { openDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
@@ -70,10 +69,11 @@ import {
 } from "@/components/ui/attachment-preview";
 import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
+import { HUB_TABS_TRIGGER, MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 import ComplianceDocumentsSettings from "@/components/settings/ComplianceDocumentsSettings";
 import { OperationsSubviewShell } from "@/components/operations/OperationsSubviewShell";
 import StaffRequestsPage from "@/pages/StaffRequestsPage";
+import ManagerReviewDashboard from "@/pages/ManagerReviewDashboard";
 
 type LaneKey = "pending" | "in_progress" | "completed";
 
@@ -711,11 +711,12 @@ function categoryFilterLabel(
   return key.replace(/_/g, " ");
 }
 
-type OpsLiveView = "board" | "compliance" | "requests";
+type OpsLiveView = "board" | "compliance" | "requests" | "incidents";
 
 function opsViewFromSearch(view: string | null): OpsLiveView {
   if (view === "compliance") return "compliance";
   if (view === "requests" || view === "staff_requests") return "requests";
+  if (view === "incidents") return "incidents";
   return "board";
 }
 
@@ -768,7 +769,6 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
     );
   };
   const queryClient = useQueryClient();
-  const { user } = useAuth() as AuthContextType;
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -799,6 +799,10 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
     if (opsView === "requests") return;
     if (opsView === "compliance") {
       publishUiContext({ view: "compliance" });
+      return;
+    }
+    if (opsView === "incidents") {
+      publishUiContext({ view: "incidents" });
       return;
     }
     publishUiContext({
@@ -916,13 +920,6 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
     onSettled: () => setUpdatingId(null),
   });
 
-  const restaurantLabel = useMemo(() => {
-    const fromApi = data?.restaurant_name?.trim();
-    if (fromApi) return fromApi;
-    const fromUser = (user as { restaurant_name?: string } | null)?.restaurant_name;
-    return fromUser || t("operations_live.default_restaurant");
-  }, [data?.restaurant_name, user, t]);
-
   const categoryOptions = useMemo(() => {
     return (data?.filter_options?.categories ?? []).filter(
       (key) => key !== "staff_requests" && !key.startsWith("staff_request"),
@@ -1016,8 +1013,8 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
     <div
       className={
         embedded
-          ? "command-live-ops min-w-0 space-y-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm md:p-5"
-          : "bg-background"
+          ? cn("command-live-ops min-w-0 space-y-4 p-4 md:p-5", MIZAN_ELEVATED_CARD)
+          : "min-w-0"
       }
       {...(embedded ? { "aria-label": t("operations_live.title") } : {})}
     >
@@ -1043,51 +1040,70 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
             </Button>
           </div>
         ) : (
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 space-y-1">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">
-                {t("operations_live.title")}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {opsView === "compliance"
-                  ? t("operations_live.subtitle_compliance")
-                  : opsView === "requests"
-                    ? t("operations_live.subtitle_requests")
-                    : t("operations_live.subtitle", { restaurant: restaurantLabel })}
-              </p>
-            </div>
-            <Tabs
-              value={opsView === "board" ? "board" : opsView}
-              onValueChange={(value) => {
-                if (value === "compliance" || value === "requests") {
-                  setOpsView(value);
-                }
-              }}
-              className="w-full sm:w-[min(100%,32rem)] sm:shrink-0"
-            >
-              <TabsList
-                className={cn(
-                  "grid h-auto w-full min-w-[17rem] grid-cols-2 gap-1.5 rounded-lg border border-border/60 bg-muted/30 p-1.5 sm:min-w-[20rem]",
-                )}
-              >
-                <TabsTrigger
-                  value="requests"
-                  className={cn(HUB_TABS_TRIGGER, "min-w-0 justify-center gap-1.5 px-4 py-2.5 text-sm")}
-                >
-                  <Inbox className="h-3.5 w-3.5" aria-hidden />
-                  {t("operations_live.tab.staff_requests")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="compliance"
-                  className={cn(HUB_TABS_TRIGGER, "min-w-0 justify-center gap-1.5 px-4 py-2.5 text-sm")}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                  {t("operations_live.tab.compliance")}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <header>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">
+              {t("operations_live.title")}
+            </h1>
           </header>
         )}
+
+        {!embedded ? (
+          <Tabs
+            value={opsView === "board" ? "board" : opsView}
+            onValueChange={(value) => {
+              if (value === "compliance" || value === "requests" || value === "incidents") {
+                setOpsView(value);
+              }
+            }}
+            className="w-full"
+          >
+            <TabsList
+              className={cn(
+                "grid h-auto w-full grid-cols-1 gap-1 rounded-xl border border-border/60 bg-muted/30 p-1",
+                "sm:grid-cols-3 sm:gap-1.5 sm:p-1.5",
+              )}
+            >
+              <TabsTrigger
+                value="requests"
+                className={cn(
+                  HUB_TABS_TRIGGER,
+                  "w-full min-w-0 justify-center gap-1.5 px-3 py-3 text-xs sm:px-4 sm:py-2.5 sm:text-sm",
+                )}
+              >
+                <Inbox className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
+                <span className="truncate">{t("operations_live.tab.staff_requests")}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="compliance"
+                className={cn(
+                  HUB_TABS_TRIGGER,
+                  "w-full min-w-0 justify-center gap-1.5 px-3 py-3 text-xs sm:px-4 sm:py-2.5 sm:text-sm",
+                )}
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
+                <span className="truncate">{t("operations_live.tab.compliance")}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="incidents"
+                className={cn(
+                  HUB_TABS_TRIGGER,
+                  "w-full min-w-0 justify-center gap-1.5 px-3 py-3 text-xs sm:px-4 sm:py-2.5 sm:text-sm",
+                )}
+              >
+                <ShieldAlert className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
+                <span className="truncate">{t("operations_live.tab.incidents", "Incidents")}</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : null}
+
+        {!embedded && opsView === "incidents" ? (
+          <OperationsSubviewShell className="overflow-hidden p-0 sm:p-0 lg:p-0">
+            <div className="p-4 sm:p-5 lg:p-6">
+              <ManagerReviewDashboard embeddedIncidents />
+            </div>
+          </OperationsSubviewShell>
+        ) : null}
 
         {!embedded && opsView === "compliance" ? (
           <OperationsSubviewShell>
@@ -1109,7 +1125,7 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
             role="toolbar"
             aria-label={t("operations_live.filters_toolbar")}
           >
-            <div className="flex min-w-[min(100%,52rem)] items-center gap-2 sm:min-w-0 sm:flex-wrap">
+            <div className="flex min-w-0 items-center gap-2 sm:flex-wrap">
               <div className="relative min-w-[10rem] flex-1 sm:max-w-xs">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -1245,7 +1261,7 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
             onDragEnd={onDragEnd}
             onDragCancel={() => setActiveDrag(null)}
           >
-            <div className="space-y-3">
+            <div className={cn("space-y-3", !embedded && cn(MIZAN_ELEVATED_CARD, "p-4 md:p-5"))}>
               <div
                 className="grid grid-cols-3 gap-1 rounded-lg border border-border/70 bg-muted/30 p-1"
                 role="tablist"

@@ -10,6 +10,8 @@ import { API_BASE, authFetch } from "@/lib/api";
 import { api } from "@/lib/api";
 import { CATEGORY_OWNER_GROUPS } from "@/lib/categoryOwners";
 import { unwrapEnvelope } from "@/lib/envelope";
+import { cn } from "@/lib/utils";
+import { MIZAN_ELEVATED_INSET } from "@/lib/mizan-ui";
 
 /** Pure: how many owner areas have nobody in charge (their work falls to the managers). */
 export function countOwnerGaps(owners: Record<string, string | string[]> | undefined): number {
@@ -104,7 +106,7 @@ export function FirstRunChecklistCard({ state, ownerGaps = 0 }: { state: FirstRu
 
   return (
     <section
-      className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-panel border bg-card px-3 py-2 text-sm"
+      className={cn("mb-0 flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-1.5 text-sm", MIZAN_ELEVATED_INSET)}
       aria-label={t("firstrun.title")}
       data-testid="first-run-checklist"
     >
