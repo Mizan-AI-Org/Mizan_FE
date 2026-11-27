@@ -4116,6 +4116,7 @@
   "command.day.calendar_none": "Rien de prévu",
   "command.day.calendar_clear_30": "Rien dans les 30 prochaines min",
   "command.day.upcoming_now": "{{title}} maintenant",
+  "command.day.upcoming_in_progress": "{{title}} · en cours",
   "command.day.upcoming_min": "{{title}} dans {{minutes}} min",
   "command.day.upcoming_hr": "{{title}} dans 1 h",
   "command.day.incidents": "Incidents",

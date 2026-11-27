@@ -3652,6 +3652,7 @@
   "command.day.calendar_none": "Nothing scheduled",
   "command.day.calendar_clear_30": "All clear for the next 30 min",
   "command.day.upcoming_now": "{{title}} now",
+  "command.day.upcoming_in_progress": "{{title}} · in progress",
   "command.day.upcoming_min": "{{title}} in {{minutes}} min",
   "command.day.upcoming_hr": "{{title}} in 1 hr",
   "command.day.incidents": "Incidents",

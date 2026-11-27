@@ -4106,6 +4106,7 @@
   "command.day.calendar_none": "لا شيء مجدول",
   "command.day.calendar_clear_30": "لا شيء خلال 30 دقيقة القادمة",
   "command.day.upcoming_now": "{{title}} الآن",
+  "command.day.upcoming_in_progress": "{{title}} · جارٍ",
   "command.day.upcoming_min": "{{title}} خلال {{minutes}} د",
   "command.day.upcoming_hr": "{{title}} خلال ساعة",
   "command.day.incidents": "الحوادث",
