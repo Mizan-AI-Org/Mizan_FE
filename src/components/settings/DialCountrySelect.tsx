@@ -16,6 +16,8 @@ type DialCountrySelectProps = {
   onChange: (countryCode: string) => void;
   className?: string;
   disabled?: boolean;
+  /** Trigger shows +dial only (more room for the national number). */
+  compact?: boolean;
   /** Accessible label for the trigger (country code picker). */
   "aria-label"?: string;
 };
@@ -25,6 +27,7 @@ export function DialCountrySelect({
   onChange,
   className,
   disabled,
+  compact = false,
   "aria-label": ariaLabel,
 }: DialCountrySelectProps) {
   const { t, language } = useLanguage();
@@ -51,10 +54,18 @@ export function DialCountrySelect({
           aria-expanded={open}
           aria-label={ariaLabel}
           disabled={disabled}
-          className={cn("h-10 min-w-[10.5rem] justify-between gap-1 font-normal", className)}
+          className={cn(
+            "h-10 font-normal",
+            compact
+              ? "w-[4.75rem] min-w-[4.75rem] max-w-[4.75rem] justify-between gap-0 px-1.5"
+              : "min-w-[10.5rem] justify-between gap-1",
+            className,
+          )}
         >
-          <span className="truncate text-sm">{selected?.label ?? value}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
+          <span className={cn("truncate text-sm tabular-nums", compact && "text-xs")}>
+            {compact && selected ? `+${selected.dial}` : selected?.label ?? value}
+          </span>
+          <ChevronDown className={cn("shrink-0 opacity-60", compact ? "h-3 w-3" : "h-4 w-4")} aria-hidden />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(320px,calc(100vw-2rem))] p-0" align="start">

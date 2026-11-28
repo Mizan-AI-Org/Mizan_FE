@@ -135,7 +135,7 @@ export type CommandDaySheet = {
     connected: boolean;
     href: string;
     /** Next meeting or shift at or after now. */
-    upcoming?: { title: string; minutes: number; starts_at?: string } | null;
+    upcoming?: { title: string; minutes: number; starts_at?: string; in_progress?: boolean } | null;
   };
   incidents_new: number;
 };

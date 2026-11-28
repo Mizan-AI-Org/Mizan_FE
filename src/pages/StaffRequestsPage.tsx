@@ -1839,12 +1839,10 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                                     {r.subject || t("staff.requests.default_subject")}
                                   </span>
                                   {r.voice_audio_url ? (
-                                    <span title={t("staff.requests.voice_title")} className="inline-flex shrink-0">
-                                      <Mic
-                                        className="h-3 w-3 text-purple-600 dark:text-purple-400"
-                                        aria-hidden
-                                      />
-                                    </span>
+                                    <Mic
+                                      className="h-3 w-3 shrink-0 text-purple-600 dark:text-purple-400"
+                                      aria-label={t("staff.requests.voice_title")}
+                                    />
                                   ) : null}
                                 </div>
 

@@ -30,26 +30,44 @@ const COMMAND_WIDGETS = ["meetings_reminders", "staff_daily_progress", "urgent_t
 
 type UpcomingCalendar = NonNullable<CommandDaySheet["calendar"]["upcoming"]>;
 
-/** Calendar tile only surfaces what's starting in the next 30 minutes. */
+/** Calendar tile: in-progress meetings, or the next start within 30 minutes. */
 const CALENDAR_IMMINENT_MS = 30 * 60_000;
+const CALENDAR_IN_PROGRESS_MAX_MS = 2 * 60 * 60_000;
+
+function meetingInProgress(item: MeetingReminderItem, now: number): boolean {
+  const startMs = Date.parse(item.start);
+  if (Number.isNaN(startMs) || startMs > now + 30_000) return false;
+  const endMs = item.end ? Date.parse(item.end) : NaN;
+  if (!Number.isNaN(endMs)) return endMs > now;
+  return startMs >= now - CALENDAR_IN_PROGRESS_MAX_MS;
+}
 
 function nextMeetingFromWidget(items: MeetingReminderItem[] | undefined): UpcomingCalendar | null {
   if (!items?.length) return null;
   const now = Date.now();
   const latest = now + CALENDAR_IMMINENT_MS;
-  let best: { ms: number; title: string } | null = null;
+  let inProgress: { ms: number; title: string } | null = null;
+  let imminent: { ms: number; title: string } | null = null;
   for (const item of items) {
     const title = (item.title || "").trim();
     if (!title) continue;
-    const ms = Date.parse(item.start);
-    if (Number.isNaN(ms) || ms < now - 30_000 || ms > latest) continue;
-    if (best === null || ms < best.ms) best = { ms, title };
+    const startMs = Date.parse(item.start);
+    if (Number.isNaN(startMs)) continue;
+    if (meetingInProgress(item, now)) {
+      if (inProgress === null || startMs > inProgress.ms) inProgress = { ms: startMs, title };
+      continue;
+    }
+    if (startMs < now - 30_000 || startMs > latest) continue;
+    if (imminent === null || startMs < imminent.ms) imminent = { ms: startMs, title };
   }
+  const best = inProgress ?? imminent;
   if (!best) return null;
+  const active = Boolean(inProgress);
   return {
     title: best.title,
-    minutes: Math.max(0, Math.floor((best.ms - now) / 60_000)),
+    minutes: active ? 0 : Math.max(0, Math.floor((best.ms - now) / 60_000)),
     starts_at: new Date(best.ms).toISOString(),
+    in_progress: active,
   };
 }
 
@@ -66,6 +84,7 @@ function soonerUpcoming(a: UpcomingCalendar | null | undefined, b: UpcomingCalen
 
 function imminentCalendarUpcoming(upcoming: UpcomingCalendar | null | undefined): UpcomingCalendar | null {
   if (!upcoming) return null;
+  if (upcoming.in_progress) return { ...upcoming, minutes: 0 };
   const now = Date.now();
   if (upcoming.starts_at) {
     const ms = Date.parse(upcoming.starts_at);
@@ -85,6 +104,9 @@ function formatImminentCalendarValue(
   t: (key: string, opts?: Record<string, string | number>) => string,
 ): string {
   const title = upcoming.title;
+  if (upcoming.in_progress) {
+    return t("command.day.upcoming_in_progress", { title });
+  }
   if (upcoming.minutes <= 0) {
     return t("command.day.upcoming_now", { title });
   }
@@ -329,35 +351,39 @@ function FocusLists({
   const decideShown = decide.slice(0, 5);
   const workShown = work.slice(0, 5);
   const namesShown = missing.slice(0, 5);
-  const showTeam = namesShown.length > 0 || coverageGaps > 0;
-  const listsEmpty = decideShown.length === 0 && workShown.length === 0 && !showTeam;
   const teamMore = missing.length > 5 || (coverageGaps > 0 && missing.length >= 5);
+  const teamHasRows = namesShown.length > 0 || coverageGaps > 0;
   return (
     <div className="space-y-5">
-      {listsEmpty ? <p className="text-sm text-muted-foreground">{t("command.nothing_now")}</p> : null}
-      {listsEmpty ? null : (
-        <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
+        <ListCard title={t("command.decide_now")} more={decide.length > 5} moreLabel={t("command.see_more")}>
           {decideShown.length > 0 ? (
-            <ListCard title={t("command.decide_now")} more={decide.length > 5} moreLabel={t("command.see_more")}>
-              {decideShown.map((row) => (
-                <RowLink key={row.key} href={row.href} title={row.title} meta={row.owner || row.area} />
-              ))}
-            </ListCard>
-          ) : null}
+            decideShown.map((row) => (
+              <RowLink key={row.key} href={row.href} title={row.title} meta={row.owner || row.area} />
+            ))
+          ) : (
+            <ListCardEmpty>{t("command.decide_clear")}</ListCardEmpty>
+          )}
+        </ListCard>
+        <ListCard title={t("command.work_in_motion")} more={work.length > 5} moreLabel={t("command.see_more")}>
           {workShown.length > 0 ? (
-            <ListCard title={t("command.work_in_motion")} more={work.length > 5} moreLabel={t("command.see_more")}>
-              {workShown.map((row) => (
-                <RowLink
-                  key={row.id}
-                  href={row.href}
-                  title={row.title}
-                  meta={[row.owner || t("command.unassigned"), t(`command.demand_status.${row.status}`, { defaultValue: row.status })].join(" · ")}
-                />
-              ))}
-            </ListCard>
-          ) : null}
-          {showTeam ? (
-            <ListCard title={t("command.team_now")} more={teamMore} moreLabel={t("command.see_more")}>
+            workShown.map((row) => (
+              <RowLink
+                key={row.id}
+                href={row.href}
+                title={row.title}
+                meta={[row.owner || t("command.unassigned"), t(`command.demand_status.${row.status}`, { defaultValue: row.status })].join(" · ")}
+              />
+            ))
+          ) : (
+            <ListCardEmpty>
+              {t("command.work_clear", { defaultValue: "No active work on the floor right now." })}
+            </ListCardEmpty>
+          )}
+        </ListCard>
+        <ListCard title={t("command.team_now")} more={teamMore} moreLabel={t("command.see_more")}>
+          {teamHasRows ? (
+            <>
               {coverageGaps > 0 ? (
                 <RowLink href="/dashboard/employees/shifts" title={t("command.coverage_line", { count: coverageGaps })} />
               ) : null}
@@ -368,13 +394,21 @@ function FocusLists({
                   title={person.name || ""}
                 />
               ))}
-            </ListCard>
-          ) : null}
-        </div>
-      )}
+            </>
+          ) : (
+            <ListCardEmpty>
+              {t("command.team_all_on_duty", { defaultValue: "Everyone scheduled is on duty." })}
+            </ListCardEmpty>
+          )}
+        </ListCard>
+      </div>
       {widgets}
     </div>
   );
+}
+
+function ListCardEmpty({ children }: { children: React.ReactNode }) {
+  return <li className="py-2 text-sm leading-snug text-muted-foreground">{children}</li>;
 }
 
 const COMMAND_LIST_CARD_HEADER =
@@ -482,6 +516,7 @@ function CalendarFact({ fallback }: { fallback: CommandDaySheet["calendar"] }) {
 
 function DaySheet({ sheet }: { sheet: CommandDaySheet }) {
   const { t } = useLanguage();
+  const headlineLines = sheet.lines.filter((line) => line.kind !== "event");
   const presence =
     sheet.presence.expected > 0
       ? `${sheet.presence.in}/${sheet.presence.expected}`
@@ -508,9 +543,9 @@ function DaySheet({ sheet }: { sheet: CommandDaySheet }) {
   ];
   return (
     <section aria-label={t("command.day.title")} className={cn(MIZAN_ELEVATED_CARD, "overflow-hidden")}>
-      {sheet.lines.length > 0 ? (
+      {headlineLines.length > 0 ? (
         <ul className="space-y-1 border-b border-slate-200/70 px-4 py-3 dark:border-border">
-          {sheet.lines.map((line, index) => (
+          {headlineLines.map((line, index) => (
             <li key={`${line.kind}-${index}`}>
               <Link to={line.href} className="block truncate text-sm font-medium hover:text-primary">
                 {line.kind === "birthday" ? t("command.day.birthday", { name: line.text }) : line.text}

@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { API_BASE, authFetch } from "@/lib/api";
 import { CURRENCY_CODES, DEFAULT_CURRENCY, DEFAULT_TIMEZONE, TIMEZONES, withCurrent } from "@/lib/regional";
 import WorkZonePicker, { type WorkZone } from "@/components/onboarding/WorkZonePicker";
+import type { OnboardingStepActionsProps } from "@/components/onboarding/OnboardingStepActions";
 
 export const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 export type Hours = Record<string, { open: string; close: string; isClosed: boolean }>;
@@ -35,7 +36,7 @@ export default function BusinessSetupStep({
   onSkip,
 }: {
   Shell: React.ComponentType<ShellProps>;
-  Actions: React.ComponentType<{ children: React.ReactNode }>;
+  Actions: React.ComponentType<OnboardingStepActionsProps>;
   onSaved: () => Promise<void> | void;
   onSkip: () => void;
 }) {
@@ -130,51 +131,67 @@ export default function BusinessSetupStep({
       subtitle={t("onboarding.business.subtitle")}
       optional
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-1.5 sm:col-span-2">
-          <Label htmlFor="ob-address">{t("onboarding.business.address")}</Label>
-          <Input id="ob-address" value={address} onChange={(e) => setAddress(e.target.value)} />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="ob-tz">{t("settings.general.timezone")}</Label>
-          <select id="ob-tz" className={selectClass} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-            {withCurrent(TIMEZONES, timezone).map((tz) => (
-              <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
-            ))}
-          </select>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="ob-cur">{t("settings.general.currency")}</Label>
-          <select id="ob-cur" className={selectClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-            {withCurrent(CURRENCY_CODES, currency).map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid gap-2">
-        <Label>{t("onboarding.business.hours")}</Label>
-        <div className="grid gap-2">
-          {DAYS.map((day) => (
-            <div key={day} className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="w-28 shrink-0 font-medium">{t(`process.schedule.day_${day.slice(0, 3).toLowerCase()}`, day)}</span>
-              <Switch
-                checked={!hours[day].isClosed}
-                onCheckedChange={(open) => setDay(day, { isClosed: !open })}
-                aria-label={day}
-              />
-              {hours[day].isClosed ? (
-                <span className="text-muted-foreground">{t("onboarding.business.closed")}</span>
-              ) : (
-                <>
-                  <Input type="time" className="w-28" value={hours[day].open} onChange={(e) => setDay(day, { open: e.target.value })} />
-                  <span>–</span>
-                  <Input type="time" className="w-28" value={hours[day].close} onChange={(e) => setDay(day, { close: e.target.value })} />
-                </>
-              )}
+      <div className="grid gap-6 md:grid-cols-2 md:gap-8">
+        <div className="space-y-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="ob-address">{t("onboarding.business.address")}</Label>
+            <Input id="ob-address" value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-1">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ob-tz">{t("settings.general.timezone")}</Label>
+              <select id="ob-tz" className={selectClass} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+                {withCurrent(TIMEZONES, timezone).map((tz) => (
+                  <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                ))}
+              </select>
             </div>
-          ))}
+            <div className="grid gap-1.5">
+              <Label htmlFor="ob-cur">{t("settings.general.currency")}</Label>
+              <select id="ob-cur" className={selectClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                {withCurrent(CURRENCY_CODES, currency).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:border-s md:border-slate-200 md:ps-8 dark:md:border-slate-700">
+          <Label>{t("onboarding.business.hours")}</Label>
+          <div className="grid gap-2">
+            {DAYS.map((day) => (
+              <div key={day} className="flex flex-wrap items-center gap-2 text-sm sm:gap-3">
+                <span className="w-20 shrink-0 font-medium sm:w-24">
+                  {t(`process.schedule.day_${day.slice(0, 3).toLowerCase()}`, day)}
+                </span>
+                <Switch
+                  checked={!hours[day].isClosed}
+                  onCheckedChange={(open) => setDay(day, { isClosed: !open })}
+                  aria-label={day}
+                />
+                {hours[day].isClosed ? (
+                  <span className="text-muted-foreground">{t("onboarding.business.closed")}</span>
+                ) : (
+                  <>
+                    <Input
+                      type="time"
+                      className="h-9 w-[5.5rem] px-2"
+                      value={hours[day].open}
+                      onChange={(e) => setDay(day, { open: e.target.value })}
+                    />
+                    <span className="text-muted-foreground">–</span>
+                    <Input
+                      type="time"
+                      className="h-9 w-[5.5rem] px-2"
+                      value={hours[day].close}
+                      onChange={(e) => setDay(day, { close: e.target.value })}
+                    />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -209,10 +226,7 @@ export default function BusinessSetupStep({
         )}
       </div>
 
-      <Actions>
-        <Button variant="ghost" type="button" onClick={onSkip} disabled={saving}>
-          {t("onboarding.skip_step", "Skip for now")}
-        </Button>
+      <Actions onSkip={onSkip} skipDisabled={saving}>
         <Button onClick={() => void save()} disabled={saving} className="gap-2 bg-emerald-500 hover:bg-emerald-600">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           {t("onboarding.continue", "Continue")}

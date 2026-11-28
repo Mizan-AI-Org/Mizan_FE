@@ -165,16 +165,27 @@ function laneForStatus(status: string | undefined): LaneKey {
   return "pending";
 }
 
+function opsCategoryI18nOrHumanize(
+  raw: string,
+  t: OpsTranslate,
+): string {
+  const label = raw.startsWith("process:") ? raw.slice(8).trim() : raw.trim();
+  if (!label) return raw;
+  const slug = label.toLowerCase().replace(/\s+/g, "_");
+  const i18nKey = `operations_live.category.${slug}`;
+  const translated = t(i18nKey);
+  if (translated && translated !== i18nKey && !translated.startsWith("operations_live.")) {
+    return translated;
+  }
+  return label.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
 function categoryLabel(
   item: OperationsLiveItem,
   t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   if (item.process_label?.trim()) return item.process_label.trim();
-  const c = String(item.category || "OTHER").toUpperCase();
-  const key = `operations_live.category.${c.toLowerCase()}`;
-  const mapped = t(key, { defaultValue: "" });
-  if (mapped) return mapped;
-  return c.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+  return opsCategoryI18nOrHumanize(String(item.category || "OTHER"), t as OpsTranslate);
 }
 
 function displayStatusBadge(status: OperationsLiveItem["display_status"]) {
@@ -708,10 +719,7 @@ function categoryFilterLabel(
   key: string,
   t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
-  if (key.startsWith("process:")) return key.slice(8);
-  const mapped = t(`operations_live.category.${key.toLowerCase()}`, { defaultValue: "" });
-  if (mapped) return mapped;
-  return key.replace(/_/g, " ");
+  return opsCategoryI18nOrHumanize(key, t as OpsTranslate);
 }
 
 type OpsLiveView = "board" | "compliance" | "requests" | "incidents";
