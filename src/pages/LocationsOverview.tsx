@@ -29,6 +29,7 @@ import {
   type LocationStatus,
   type LocationMetrics,
 } from "@/hooks/use-locations-portfolio";
+import { formatTime } from "@/lib/localeTag";
 
 /**
  * Multi-location command center for owners, admins, and super-admins.
@@ -65,7 +66,7 @@ export default function LocationsOverview() {
           {data?.generated_at && (
             <span className="text-xs text-muted-foreground">
               {t("locations_overview.updated", {
-                time: new Date(data.generated_at).toLocaleTimeString(language),
+                time: formatTime(new Date(data.generated_at), language),
               })}
             </span>
           )}

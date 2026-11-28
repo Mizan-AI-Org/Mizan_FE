@@ -5,6 +5,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useModules } from "@/hooks/use-modules";
 import { formatMoney } from "@/components/onboarding/ModulePicker";
 import { api } from "@/lib/api";
+import { formatDate } from "@/lib/localeTag";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -43,7 +44,7 @@ export function BillingBanner() {
         <span>
           {t(due.overdue ? "billing.banner_overdue" : "billing.banner_due", {
             amount: formatMoney(data.balanceDue, due.currency),
-            date: new Date(due.dueAt).toLocaleDateString(),
+            date: formatDate(new Date(due.dueAt)),
           })}
         </span>
         {link}

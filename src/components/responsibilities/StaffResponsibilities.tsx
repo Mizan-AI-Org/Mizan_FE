@@ -7,6 +7,16 @@ import { useLanguage } from "@/hooks/use-language";
 import { systemLabelKey } from "@/lib/categoryOwners";
 import { CATEGORY_OWNERS_QUERY_KEY, RESPONSIBILITY_TREE_QUERY_KEY } from "@/components/responsibilities/ResponsibilitySettings";
 import { isPrivateSlug, type WatchOverviewRow } from "@/components/responsibilities/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +44,7 @@ export function StaffResponsibilities({
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(!defaultCollapsed);
+  const [replaceTarget, setReplaceTarget] = useState<ResponsibilityAreaNode | null>(null);
   const query = useQuery({
     queryKey: RESPONSIBILITY_TREE_QUERY_KEY,
     queryFn: () => api.getResponsibilityTree(),
@@ -52,20 +63,23 @@ export function StaffResponsibilities({
     },
   });
   const save = useMutation({
-    mutationFn: async (input: { area: ResponsibilityAreaNode; role: "primary" | "informed" | "none" }) => {
-      const informed = (input.area.informed || []).map((row) => row.id).filter((id) => id !== staffId);
-      let primary = input.area.primary?.id || null;
+    mutationFn: async (input: { areaId: string; role: "primary" | "informed" | "none" }) => {
+      // Re-read the area right before writing: the cached tree can be stale, and the write replaces
+      // the whole member list, so a teammate added meanwhile would otherwise be dropped.
+      const fresh = await api.getResponsibilityTree();
+      const area = flatten(fresh.areas || []).find((row) => row.id === input.areaId);
+      if (!area) throw new Error("area_missing");
+      const informed = (area.informed || []).map((row) => row.id).filter((id) => id !== staffId);
+      let primary = area.primary?.id || null;
       if (input.role === "primary") {
-        if (primary && primary !== staffId) {
-          const ok = window.confirm(t("cursorUi.resp.replace_primary", "This area already has a Primary. Replace them?"));
-          if (!ok) return query.data;
-        }
+        // A previous Primary is replaced by the confirmed choice; they stay Informed (never silently dropped).
+        if (primary && primary !== staffId && !informed.includes(primary)) informed.push(primary);
         primary = staffId;
       } else if (primary === staffId) {
         primary = null;
       }
       if (input.role === "informed" && !informed.includes(staffId)) informed.push(staffId);
-      return api.setResponsibilityMembers(input.area.id, { primary_id: primary, informed_ids: informed });
+      return api.setResponsibilityMembers(area.id, { primary_id: primary, informed_ids: informed });
     },
     onError: () => toast.error(t("cursorUi.resp.save_failed")),
     onSettled: () => {
@@ -93,6 +107,7 @@ export function StaffResponsibilities({
 
   if (!query.data) return null;
   return (
+    <>
     <Collapsible
       open={open}
       onOpenChange={setOpen}
@@ -159,9 +174,14 @@ export function StaffResponsibilities({
                       value={role}
                       disabled={save.isPending}
                       aria-label={label}
-                      onChange={(event) =>
-                        save.mutate({ area, role: event.target.value as "primary" | "informed" | "none" })
-                      }
+                      onChange={(event) => {
+                        const next = event.target.value as "primary" | "informed" | "none";
+                        if (next === "primary" && area.primary?.id && area.primary.id !== staffId) {
+                          setReplaceTarget(area);
+                          return;
+                        }
+                        save.mutate({ areaId: area.id, role: next });
+                      }}
                     >
                       <option value="none">{t("cursorUi.resp.role_none", "None")}</option>
                       <option value="primary">{t("cursorUi.resp.primary", "Primary")}</option>
@@ -175,5 +195,25 @@ export function StaffResponsibilities({
         </div>
       </CollapsibleContent>
     </Collapsible>
+      <AlertDialog open={replaceTarget !== null} onOpenChange={(next) => { if (!next) setReplaceTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("cursorUi.resp.replace_primary_title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("cursorUi.resp.replace_primary")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (replaceTarget) save.mutate({ areaId: replaceTarget.id, role: "primary" });
+                setReplaceTarget(null);
+              }}
+            >
+              {t("cursorUi.resp.replace_primary_action")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

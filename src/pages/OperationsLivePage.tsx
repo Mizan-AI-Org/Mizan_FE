@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
+import { useModules } from "@/hooks/use-modules";
 import type { LanguageContextType } from "@/contexts/LanguageContext.types";
 import { api, BACKEND_URL } from "@/lib/api";
 import type { OperationsLiveItem, OperationsLiveLanePagination } from "@/lib/types";
@@ -144,6 +145,8 @@ function formatPerson(
   t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   if (!person?.name) return "-";
+  // Django labels a task with no assignee "Unassigned" (English): show it in the UI language.
+  if (person.name === "Unassigned") return t("generic.unassigned");
   const name =
     person.name === "Me" || person.name === "Staff"
       ? t(person.name === "Me" ? "operations_live.person.me" : "operations_live.person.staff")
@@ -538,14 +541,14 @@ function LaneTab({
       aria-selected={active}
       onClick={onSelect}
       className={cn(
-        "inline-flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+        "inline-flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-xs font-medium leading-tight transition sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm",
         active
           ? "bg-emerald-600 text-white shadow-sm"
           : "text-muted-foreground hover:bg-card hover:text-foreground",
         isOver && !active && "ring-2 ring-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/40",
       )}
     >
-      <span className="truncate">{label}</span>
+      <span className="max-w-full text-center sm:truncate">{label}</span>
       <span
         className={cn(
           "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums font-semibold",
@@ -726,7 +729,11 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const opsView: OpsLiveView = embedded ? "board" : opsViewFromSearch(searchParams.get("view"));
+  const { isEnabled: moduleOn } = useModules();
+  const incidentsOn = moduleOn("incidents");
+  const requestedView = opsViewFromSearch(searchParams.get("view"));
+  // The Incidents tab follows the tenant's incidents module; a stale link falls back to the board.
+  const opsView: OpsLiveView = embedded ? "board" : requestedView === "incidents" && !incidentsOn ? "board" : requestedView;
 
   React.useEffect(() => {
     if (embedded) return;
@@ -1051,7 +1058,7 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
           <Tabs
             value={opsView === "board" ? "board" : opsView}
             onValueChange={(value) => {
-              if (value === "compliance" || value === "requests" || value === "incidents") {
+              if (value === "compliance" || value === "requests" || (value === "incidents" && incidentsOn)) {
                 setOpsView(value);
               }
             }}
@@ -1060,7 +1067,7 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
             <TabsList
               className={cn(
                 "grid h-auto w-full grid-cols-1 gap-1 rounded-xl border border-border/60 bg-muted/30 p-1",
-                "sm:grid-cols-3 sm:gap-1.5 sm:p-1.5",
+                incidentsOn ? "sm:grid-cols-3 sm:gap-1.5 sm:p-1.5" : "sm:grid-cols-2 sm:gap-1.5 sm:p-1.5",
               )}
             >
               <TabsTrigger
@@ -1083,16 +1090,18 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
                 <ShieldCheck className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
                 <span className="truncate">{t("operations_live.tab.compliance")}</span>
               </TabsTrigger>
-              <TabsTrigger
-                value="incidents"
-                className={cn(
-                  HUB_TABS_TRIGGER,
-                  "w-full min-w-0 justify-center gap-1.5 px-3 py-3 text-xs sm:px-4 sm:py-2.5 sm:text-sm",
-                )}
-              >
-                <ShieldAlert className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
-                <span className="truncate">{t("operations_live.tab.incidents", "Incidents")}</span>
-              </TabsTrigger>
+              {incidentsOn ? (
+                <TabsTrigger
+                  value="incidents"
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full min-w-0 justify-center gap-1.5 px-3 py-3 text-xs sm:px-4 sm:py-2.5 sm:text-sm",
+                  )}
+                >
+                  <ShieldAlert className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden />
+                  <span className="truncate">{t("operations_live.tab.incidents", "Incidents")}</span>
+                </TabsTrigger>
+              ) : null}
             </TabsList>
           </Tabs>
         ) : null}

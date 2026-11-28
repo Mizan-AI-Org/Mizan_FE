@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import type { Shift } from "@/types/schedule";
 import { resolveStaffForShiftId, staffDisplayName } from "@/lib/shiftDisplay";
+import { formatPattern } from "@/lib/localeTag";
 
 interface StaffMember {
     id: string;
@@ -147,12 +148,12 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                         <div key={date} className="space-y-3">
                             <div className="flex items-center gap-2.5 sticky top-[108px] bg-gray-50/95 dark:bg-slate-900/95 py-1.5 z-[5] backdrop-blur-sm">
                                 <div className="h-9 w-9 rounded-lg bg-green-600 text-white flex flex-col items-center justify-center shadow-sm">
-                                    <span className="text-[9px] font-bold uppercase leading-none">{format(parseISO(date), "EEE")}</span>
-                                    <span className="text-base font-bold leading-none">{format(parseISO(date), "d")}</span>
+                                    <span className="text-[9px] font-bold uppercase leading-none">{formatPattern(parseISO(date), "EEE")}</span>
+                                    <span className="text-base font-bold leading-none">{formatPattern(parseISO(date), "d")}</span>
                                 </div>
                                 <div className="flex flex-col">
                                     <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                                        {format(parseISO(date), "EEEE, MMMM do")}
+                                        {formatPattern(parseISO(date), "EEEE, MMMM do")}
                                     </h3>
                                     <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         {groupedShifts[date].length === 1

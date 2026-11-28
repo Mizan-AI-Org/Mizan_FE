@@ -17,6 +17,7 @@ import { enqueueClockPayloadSecure, dequeueAllSecure, initDeviceSecret } from "@
 import { API_BASE } from "@/lib/api";
 
 import { useLanguage } from "@/hooks/use-language";
+import { formatPattern, formatTime } from "@/lib/localeTag";
 const PRECISE_ACCURACY_M = 10;
 
 // Narrowing helper for verify-location response without using 'any'
@@ -38,7 +39,10 @@ const getMessageString = (x: unknown): string | undefined => {
 const formatSafe = (value: string | Date | null | undefined, fmt: string): string => {
     if (!value) return "-";
     const d = typeof value === "string" ? parseISO(value) : value;
-    return isValid(d) ? format(d as Date, fmt) : "-";
+    if (!isValid(d)) return "-";
+    if (fmt === "yyyy-MM-dd") return format(d as Date, fmt); // machine key, never localised
+    if (fmt === "p") return formatTime(d as Date, undefined, { hour: "2-digit", minute: "2-digit" });
+    return formatPattern(d as Date, fmt);
 };
 
 interface ClockEvent {
@@ -876,7 +880,7 @@ export default function TimeClockPage() {
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col items-center justify-center">
                         <div className="text-center space-y-2">
-                            <div className="text-2xl font-semibold tracking-tight" aria-live="polite">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                            <div className="text-2xl font-semibold tracking-tight" aria-live="polite">{formatTime(currentTime, undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
                             {isClockedIn ? (
                                 <p className="text-muted-foreground">You’re currently clocked in.</p>
                             ) : inRange ? (

@@ -233,8 +233,8 @@ const TableManagement: React.FC = () => {
         return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
     }
 
-    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN')) {
-        return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
+    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'ADMIN')) {
+        return <div className="text-center py-8 text-gray-500">{t('generic.no_access_description')}</div>;
     }
 
     return (

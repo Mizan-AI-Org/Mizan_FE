@@ -9,6 +9,8 @@ import { buildPriorityQueue, cockpitCounts } from "@/components/command/priority
 import { useBranchScope } from "@/contexts/BranchScopeContext";
 import { useCommandCentre } from "@/hooks/use-command-centre";
 import { useLanguage } from "@/hooks/use-language";
+import type { Language } from "@/contexts/LanguageContext.types";
+import { formatClockTime, formatDate } from "@/lib/localeTag";
 import { api } from "@/lib/api";
 import {
   COMMAND_ROUTES,
@@ -111,14 +113,13 @@ function formatImminentCalendarValue(
   return t("command.day.upcoming_min", { title, minutes: upcoming.minutes });
 }
 
-function whenLabel(iso: string | undefined, language: string): { weekday: string; time: string } {
+function whenLabel(iso: string | undefined, language: Language): { weekday: string; time: string } {
   if (!iso) return { weekday: "", time: "" };
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return { weekday: "", time: "" };
-  const locale = language === "ar" ? "ar" : language === "fr" ? "fr" : "en";
   return {
-    weekday: new Intl.DateTimeFormat(locale, { weekday: "long" }).format(date),
-    time: new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(date),
+    weekday: formatDate(date, language, { weekday: "long" }),
+    time: formatClockTime(date, language),
   };
 }
 

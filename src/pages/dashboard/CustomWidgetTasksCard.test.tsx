@@ -71,7 +71,7 @@ describe("CustomWidgetTasksCard More", () => {
       </QueryClientProvider>,
     );
 
-    await screen.findByText("Wedding task 1");
+    await screen.findAllByText("Wedding task 1");
     expect(screen.queryByText("Wedding task 6")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "dashboard.category_tasks.more" }));

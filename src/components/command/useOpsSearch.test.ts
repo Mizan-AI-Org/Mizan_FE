@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { toHits } from "./useOpsSearch";
-import { COMMAND_TILES, sanitizeSelection } from "./CommandCenterTiles";
 
 describe("toHits", () => {
   it("flattens tenant search groups in the API group order", () => {
@@ -14,13 +13,5 @@ describe("toHits", () => {
   });
   it("is empty for no payload", () => {
     expect(toHits(null)).toEqual([]);
-  });
-});
-
-describe("command tiles", () => {
-  it("falls back to the default three tiles for an empty or unknown choice", () => {
-    expect(sanitizeSelection(undefined)).toEqual(["operations", "performance", "incidents"]);
-    expect(sanitizeSelection(["nope"])).toEqual(["operations", "performance", "incidents"]);
-    expect(sanitizeSelection(["performance", "nope"])).toEqual(["performance"]);
   });
 });

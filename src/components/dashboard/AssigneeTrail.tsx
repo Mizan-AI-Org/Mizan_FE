@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 
 import type { AssigneeTrailStep, TrailPerson } from "@/lib/types";
+import { formatDateTime } from "@/lib/localeTag";
 
 const REASON_KEYS: Record<string, string> = {
   claim: "dashboard.task_detail.trail_claim",
@@ -48,7 +49,7 @@ export function AssigneeTrail({ createdBy, trail }: AssigneeTrailProps) {
                 title={[
                   reasonKey ? t(reasonKey) : null,
                   step.by?.name && step.by.id !== step.to?.id ? step.by.name : null,
-                  Number.isNaN(when.getTime()) ? null : when.toLocaleString(),
+                  Number.isNaN(when.getTime()) ? null : formatDateTime(when),
                 ]
                   .filter(Boolean)
                   .join(" · ")}

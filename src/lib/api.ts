@@ -465,35 +465,6 @@ export interface AudiencePreview {
   count: number;
   people: AudiencePerson[];
 }
-export interface TaskScheduleRow {
-  id: string;
-  title: string;
-  notes?: string;
-  audience: Partial<AudienceSpec>;
-  mode?: AudienceMode;
-  onShiftOnly?: boolean;
-  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUALLY";
-  interval: number;
-  weekdays: number[];
-  monthDay?: number | null;
-  releaseTime?: string;
-  dueTime?: string | null;
-  dueInDays?: number | null;
-  priority: "normal" | "medium" | "urgent";
-  requirePhotoProof?: boolean;
-  requiresValidation?: boolean;
-  startsOn?: string | null;
-  endsOn?: string | null;
-  isActive: boolean;
-  branch?: string | null;
-  audienceLabel?: string;
-  rule?: string;
-  nextDates?: string[];
-  lastRunOn?: string | null;
-  branchName?: string | null;
-  recentRuns?: { date: string; taskIds: string[]; people: number; note?: string }[];
-}
-export type TaskSchedulePayload = Partial<Omit<TaskScheduleRow, "id" | "audienceLabel" | "rule" | "nextDates" | "lastRunOn" | "branchName" | "recentRuns">>;
 export type ResponsibilityPerson = {
   id: string;
   name: string;
@@ -2079,26 +2050,6 @@ export class BackendService {
     return this.fetchWithError("/dashboard/tasks/", { method: "POST", body: JSON.stringify(payload) });
   }
 
-  async listTaskSchedules(q?: string): Promise<{ count: number; results: TaskScheduleRow[] }> {
-    return this.fetchWithError(`/operations/task-schedules/${q ? `?q=${encodeURIComponent(q)}` : ""}`);
-  }
-
-  async getTaskSchedule(id: string): Promise<TaskScheduleRow> {
-    return this.fetchWithError(`/operations/task-schedules/${id}/`);
-  }
-
-  async createTaskSchedule(payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
-    return this.fetchWithError("/operations/task-schedules/", { method: "POST", body: JSON.stringify(payload) });
-  }
-
-  async updateTaskSchedule(id: string, payload: TaskSchedulePayload): Promise<TaskScheduleRow> {
-    return this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "PATCH", body: JSON.stringify(payload) });
-  }
-
-  async archiveTaskSchedule(id: string): Promise<void> {
-    await this.fetchWithError(`/operations/task-schedules/${id}/`, { method: "DELETE" });
-  }
-
   async getTasks(accessToken: string): Promise<Task[]> {
     try {
       const response = await fetch(`${API_BASE}/dashboard/tasks/`, {
@@ -2626,6 +2577,23 @@ export class BackendService {
       method: "PATCH",
       body: JSON.stringify(fields),
     });
+  }
+
+  /** Scheduling analytics export (PDF/Excel). Goes through getHeaders() with one silent 401 refresh. */
+  async downloadSchedulingExport(
+    format: "pdf" | "excel",
+    rangeQs: string,
+  ): Promise<{ blob: Blob; filename: string | null }> {
+    const url = `${API_BASE}/analytics/scheduling-export/?format=${format}&${rangeQs}`;
+    let response = await fetch(url, { headers: this.getHeaders() });
+    if (response.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) response = await fetch(url, { headers: this.getHeaders() });
+      else broadcastAuthExpired();
+    }
+    if (!response.ok) throw new Error("Failed to export scheduling analytics");
+    const match = response.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/);
+    return { blob: await response.blob(), filename: match ? match[1] : null };
   }
 
   async downloadInvoicesCsv(from: string, to: string): Promise<Blob> {

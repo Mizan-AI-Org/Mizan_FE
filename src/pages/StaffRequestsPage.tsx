@@ -60,6 +60,7 @@ import {
   dashboardTaskStatusBadge,
   dashboardTaskStatusLabel,
 } from "@/components/dashboard/dashboard-task-detail-utils";
+import { formatDate, formatDateTime } from "@/lib/localeTag";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON" | "ALL";
 
@@ -234,7 +235,7 @@ function formatRelativeTime(
     const days = Math.floor(hours / 24);
     if (days < 7) return t("staff.requests.rel_days", { count: days });
     if (days < 45) return t("staff.requests.rel_weeks", { count: Math.floor(days / 7) });
-    return new Date(iso).toLocaleDateString(undefined, {
+    return formatDate(new Date(iso), undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -246,7 +247,7 @@ function formatRelativeTime(
 
 function formatAbsoluteDateTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleString(undefined, {
+    return formatDateTime(new Date(iso), undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -563,7 +564,7 @@ function InvoiceDetailPanel({
         <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
           <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("staff.requests.invoice_due_date")}</div>
           <div className="text-lg font-semibold mt-1">
-            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "-"}
+            {invoice.due_date ? formatDate(new Date(invoice.due_date)) : "-"}
           </div>
         </div>
       </div>
@@ -630,7 +631,7 @@ function InvoiceDetailPanel({
             {t("staff.requests.invoice_payment", { defaultValue: "Payment" })}
           </div>
           {invoice.paid_by_name ? <p>Paid by {invoice.paid_by_name}</p> : null}
-          {invoice.paid_at ? <p>Paid at {new Date(invoice.paid_at).toLocaleString()}</p> : null}
+          {invoice.paid_at ? <p>Paid at {formatDateTime(new Date(invoice.paid_at))}</p> : null}
           {invoice.payment_method ? <p>Method: {invoice.payment_method}</p> : null}
           {invoice.payment_reference ? <p>Ref: {invoice.payment_reference}</p> : null}
         </div>
@@ -739,7 +740,7 @@ function InvoiceDetailPanel({
             {timelineEvents.map((ev) => (
               <li key={ev.id} className="text-sm border-l-2 border-emerald-200 pl-3">
                 <div className="text-[11px] text-muted-foreground tabular-nums">
-                  {ev.at ? new Date(ev.at).toLocaleString() : "-"}
+                  {ev.at ? formatDateTime(new Date(ev.at)) : "-"}
                   {ev.actor ? ` · ${ev.actor}` : ""}
                 </div>
                 <div className="leading-snug mt-0.5">{ev.summary || ev.event_type}</div>
@@ -1556,7 +1557,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                         <div className="font-semibold text-sm truncate">{inv.vendor_name}</div>
                         <div className="text-xs text-muted-foreground mt-1">
                           {inv.amount} {inv.currency}
-                          {inv.due_date ? ` · due ${new Date(inv.due_date).toLocaleDateString()}` : ""}
+                          {inv.due_date ? ` · due ${formatDate(new Date(inv.due_date))}` : ""}
                         </div>
                       </div>
                       <Badge
@@ -1726,7 +1727,7 @@ const StaffRequestsPage: React.FC<{ embedded?: boolean; operationsChrome?: boole
                       {activeLane ? ` · ${activeLane.label}` : ""}
                     </span>
                   </CardTitle>
-                  <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
+                  <Badge variant="outline" className="max-w-[60%] shrink-0 whitespace-normal text-center text-[10px] font-semibold uppercase leading-tight tracking-wide">
                     {t(staffRequestStatusLabelKey(activeStatus))}
                   </Badge>
                 </div>

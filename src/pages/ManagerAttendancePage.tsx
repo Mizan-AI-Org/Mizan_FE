@@ -33,6 +33,18 @@ import { api } from "@/lib/api";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 
+/** The summary tiles' sub-labels come from the backend in English ("No clock-in", "Approved leave"); map the known ones. */
+const ATTENDANCE_NOTE_KEYS: Record<string, string> = {
+  "no clock-in": "staff.attendance.note_no_clock_in",
+  "no clock in": "staff.attendance.note_no_clock_in",
+  "approved leave": "staff.attendance.note_approved_leave",
+};
+function attendanceNote(raw: string | undefined, t: (key: string) => string): string {
+  const text = (raw ?? "").trim();
+  const key = ATTENDANCE_NOTE_KEYS[text.toLowerCase()];
+  return key ? t(key) : text;
+}
+
 type AttendanceDashboardSummary = {
   present: { count: number; percentage: number; total: number };
   late: { count: number; avg_minutes: number };
@@ -251,7 +263,7 @@ function ManagerAttendanceBoard({ embedded = false }: { embedded?: boolean }) {
                                     {summary.absent.count} <span className="text-sm text-slate-400 font-medium">{t("staff.attendance.absent")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-red-600 uppercase tracking-widest mt-1">
-                                    {summary.absent.reason}
+                                    {attendanceNote(summary.absent.reason, t)}
                                 </p>
                             </div>
                         </div>
@@ -272,7 +284,7 @@ function ManagerAttendanceBoard({ embedded = false }: { embedded?: boolean }) {
                                     {summary.on_leave.count} <span className="text-sm text-slate-400 font-medium">{t("staff.attendance.on_leave")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
-                                    {summary.on_leave.subtitle}
+                                    {attendanceNote(summary.on_leave.subtitle, t)}
                                 </p>
                             </div>
                         </div>

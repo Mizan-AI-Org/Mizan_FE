@@ -61,7 +61,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
-    "i18next": "^25.6.0",
+    "i18next": "^26.7.2",
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-http-backend": "^4.0.6",
     "input-otp": "^1.4.2",
@@ -120,7 +120,10 @@
     "ws": ">=8.21.0",
     "brace-expansion": ">=2.2.0",
     "rollup": ">=4.53.0",
-    "uuid": ">=10.0.0"
+    "uuid": ">=10.0.0",
+    "minimatch@3": {
+      "brace-expansion": "^1.1.12"
+    }
   },
   "allowScripts": {
     "@swc/core@1.13.5": true,

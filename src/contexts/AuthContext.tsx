@@ -254,7 +254,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       cancelled = true;
       clearInterval(refreshInterval);
     };
-  }, [applyLanguageForUser]);
+    // user?.id: a fresh login (no token at first mount) must start the refresh loop too.
+  }, [applyLanguageForUser, user?.id]);
 
   // api.ts broadcasts this when a 401 survives a silent token-refresh attempt
   // (expired/blacklisted refresh token) so state clears and the user is sent

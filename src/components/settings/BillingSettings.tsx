@@ -32,9 +32,10 @@ import { MIZAN_ELEVATED_CARD, MIZAN_ELEVATED_INSET, MIZAN_SETTINGS_BLOCK } from 
 import { PRIVILEGED_ROLES } from "@/lib/operationalCommandRoles";
 import { cn } from "@/lib/utils";
 import type { BillingInvoiceRow, BillingOverview, BillingState, ModuleKey, PlanChangePreview } from "@/lib/types";
+import { formatDate } from "@/lib/localeTag";
 
 const fmtDate = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
+  iso ? formatDate(new Date(iso), undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 const STATE_TONE: Record<BillingState, string> = {
   trial: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100",
