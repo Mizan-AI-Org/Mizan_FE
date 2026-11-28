@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import { MizanPageShell } from "@/components/os/MizanPageShell";
-import { MIZAN_GRID_GAP } from "@/lib/mizan-ui";
+import { MIZAN_ELEVATED_CARD, MIZAN_GRID_GAP } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
 export type HubLink = {
@@ -33,8 +33,9 @@ export function OsHubPage({ eyebrow, title, description, links }: Props) {
                 type="button"
                 onClick={() => navigate(link.href)}
                 className={cn(
-                  "group flex h-full w-full items-start gap-3 rounded-xl border border-border/80 bg-card p-5 text-left shadow-sm",
-                  "transition-all duration-os hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md",
+                  MIZAN_ELEVATED_CARD,
+                  "group flex h-full w-full items-start gap-3 rounded-xl p-5 text-left",
+                  "transition-all duration-os hover:-translate-y-0.5 hover:border-primary/35",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 )}
               >

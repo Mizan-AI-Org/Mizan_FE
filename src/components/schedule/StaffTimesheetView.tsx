@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Card } from "@/components/ui/card";
 import { Button as UIButton } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { format as dfFormat, parseISO } from "date-fns";
+import { format as dfFormat } from "date-fns";
 import { dateFnsLocale, formatClockTime } from "@/lib/localeTag";
 import type { Language } from "@/contexts/LanguageContext.types";
 import { cn, getStaffColor } from "@/lib/utils";
@@ -32,7 +31,17 @@ interface StaffTimesheetViewProps {
   isLoading?: boolean;
 }
 
-/** Skeleton that mirrors the timesheet layout (header + table with staff/role + 7 days). */
+function prettyRole(role: string): string {
+  return (role || "Staff")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function timeRange(start: string, end: string, language: Language): string {
+  return `${formatClockTime(start, language)}-${formatClockTime(end, language)}`;
+}
+
 function StaffTimesheetViewSkeleton() {
   const weekDates = Array.from({ length: 7 }, (_, i) => i);
   const roleRows = [
@@ -41,28 +50,24 @@ function StaffTimesheetViewSkeleton() {
     { role: "CHEF", staffCount: 2 },
   ];
   return (
-    <div className="bg-card rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-card z-20">
+    <div className="flex max-h-[85vh] flex-col overflow-hidden">
+      <div className="z-20 flex flex-shrink-0 items-center justify-between gap-3 border-b border-border/70 px-4 py-3.5 sm:px-5">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
-            <Skeleton className="h-8 w-8 rounded-lg" />
-            <Skeleton className="h-8 w-24 rounded-lg" />
-            <Skeleton className="h-8 w-8 rounded-lg" />
-          </div>
+          <Skeleton className="h-10 w-36 rounded-xl" />
           <Skeleton className="h-6 w-48" />
         </div>
+        <Skeleton className="h-9 w-24 rounded-xl" />
       </div>
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse min-w-[900px]">
+        <table className="w-full min-w-[960px] border-collapse table-fixed">
           <thead>
-            <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
-              <th className="text-left py-3 px-4 w-48 border-r border-gray-200 dark:border-slate-700">
+            <tr>
+              <th className="w-56 px-4 py-3">
                 <Skeleton className="h-4 w-24" />
               </th>
               {weekDates.map((i) => (
-                <th key={i} className="py-3 px-2 text-center border-r border-gray-200 dark:border-slate-700 last:border-r-0">
-                  <Skeleton className="h-4 w-8 mx-auto" />
-                  <Skeleton className="h-4 w-6 mx-auto mt-1" />
+                <th key={i} className="px-2 py-3">
+                  <Skeleton className="mx-auto h-10 w-12 rounded-lg" />
                 </th>
               ))}
             </tr>
@@ -70,25 +75,22 @@ function StaffTimesheetViewSkeleton() {
           <tbody>
             {roleRows.map(({ role, staffCount }) => (
               <React.Fragment key={role}>
-                <tr className="bg-gray-100/80 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-800">
-                  <td colSpan={8} className="py-2 px-4">
+                <tr>
+                  <td colSpan={8} className="px-4 py-2">
                     <Skeleton className="h-4 w-20" />
                   </td>
                 </tr>
                 {Array.from({ length: staffCount }).map((_, i) => (
-                  <tr key={`${role}-${i}`} className="border-b border-gray-100 dark:border-slate-800">
-                    <td className="py-2 px-4 border-r border-gray-100 dark:border-slate-800">
+                  <tr key={`${role}-${i}`}>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                        <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
                         <Skeleton className="h-4 flex-1 max-w-[120px]" />
                       </div>
                     </td>
                     {weekDates.map((j) => (
-                      <td key={j} className="py-1.5 px-2 align-top border-r border-gray-100 dark:border-slate-800 last:border-r-0">
-                        <div className="space-y-1">
-                          <Skeleton className="h-6 w-full rounded" />
-                          {i === 0 && j < 2 && <Skeleton className="h-6 w-full rounded" />}
-                        </div>
+                      <td key={j} className="px-1.5 py-2">
+                        <Skeleton className="h-11 w-full rounded-lg" />
                       </td>
                     ))}
                   </tr>
@@ -100,20 +102,6 @@ function StaffTimesheetViewSkeleton() {
       </div>
     </div>
   );
-}
-
-/** Staff-based color: each staff gets a consistent hex. Use with inline styles. */
-function getStaffShiftStyle(staffId: string): React.CSSProperties {
-  const hex = getStaffColor(staffId);
-  return {
-    backgroundColor: `${hex}20`,
-    borderColor: hex,
-    color: hex,
-  };
-}
-
-function timeRange(start: string, end: string, language: Language): string {
-  return `${formatClockTime(start, language)}-${formatClockTime(end, language)}`;
 }
 
 export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
@@ -147,6 +135,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
   }, [weekStart]);
 
   const dateStr = (d: Date) => format(d, "yyyy-MM-dd");
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
   const shiftsByStaffByDate = useMemo(() => {
     const map: Record<string, Record<string, Shift[]>> = {};
@@ -157,7 +146,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
       });
     });
     shifts.forEach((shift) => {
-      const staffIds = (shift.staff_members && shift.staff_members.length) ? shift.staff_members : [shift.staffId];
+      const staffIds = shift.staff_members?.length ? shift.staff_members : [shift.staffId];
       staffIds.forEach((staffId) => {
         if (!staffId) return;
         if (!map[staffId]) map[staffId] = {};
@@ -175,7 +164,20 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
       if (!byRole[role]) byRole[role] = [];
       byRole[role].push(s);
     });
-    const order = ["MANAGER", "CHEF", "BARTENDER", "SERVER", "WAITER", "HOST", "RECEPTIONIST", "CASHIER", "KITCHEN_HELP", "DISHWASHER", "CLEANER", "SECURITY"];
+    const order = [
+      "MANAGER",
+      "CHEF",
+      "BARTENDER",
+      "SERVER",
+      "WAITER",
+      "HOST",
+      "RECEPTIONIST",
+      "CASHIER",
+      "KITCHEN_HELP",
+      "DISHWASHER",
+      "CLEANER",
+      "SECURITY",
+    ];
     const ordered: { role: string; staff: StaffMember[] }[] = [];
     const seen = new Set<string>();
     order.forEach((r) => {
@@ -199,34 +201,57 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
     });
   };
 
-  const displayRange = `${format(weekDates[0], "MMM d")} - ${format(weekDates[6], "MMM d, yyyy")}`;
+  const displayRange = `${format(weekDates[0], "MMM d")} – ${format(weekDates[6], "MMM d, yyyy")}`;
 
   if (isLoading) {
     return <StaffTimesheetViewSkeleton />;
   }
 
   return (
-    <div className="bg-card rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-card z-20">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
-            <UIButton variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigateWeek("prev")}>
-              <ChevronLeft className="w-4 h-4" />
+    <div className="flex max-h-[85vh] flex-col overflow-hidden">
+      <div className="z-20 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-gradient-to-b from-muted/40 to-transparent px-4 py-3.5 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex items-center rounded-full border border-border/80 bg-background p-0.5 shadow-sm">
+            <UIButton
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => navigateWeek("prev")}
+              aria-label={t("schedule.prev_week", { defaultValue: "Previous week" })}
+            >
+              <ChevronLeft className="h-4 w-4" />
             </UIButton>
-            <UIButton variant="ghost" className="text-sm font-bold px-3 rounded-lg" onClick={() => setCurrentDate(new Date())}>
+            <UIButton
+              variant="ghost"
+              className="h-8 rounded-full px-3 text-xs font-semibold"
+              onClick={() => setCurrentDate(new Date())}
+            >
               {t("schedule.today")}
             </UIButton>
-            <UIButton variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigateWeek("next")}>
-              <ChevronRight className="w-4 h-4" />
+            <UIButton
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => navigateWeek("next")}
+              aria-label={t("schedule.next_week", { defaultValue: "Next week" })}
+            >
+              <ChevronRight className="h-4 w-4" />
             </UIButton>
           </div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{displayRange}</h2>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("schedule.week_of", { defaultValue: "Week of" })}
+            </p>
+            <h2 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
+              {displayRange}
+            </h2>
+          </div>
         </div>
         {onCreateShift ? (
           <button
             type="button"
             onClick={onCreateShift}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-95"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" />
             <span>{t("schedule.create")}</span>
@@ -235,25 +260,39 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
       </div>
 
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse min-w-[900px]">
+        <table className="w-full min-w-[960px] table-fixed border-separate border-spacing-0">
           <thead>
-            <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
-              <th className="text-left py-3 px-4 w-48 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-r border-gray-200 dark:border-slate-700">
-                {t("schedule.timesheet.staff_role")}
+            <tr>
+              <th className="sticky left-0 z-20 w-56 border-b border-r border-border/70 bg-card px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("schedule.staff")}
               </th>
               {weekDates.map((d) => {
-                const isToday = dateStr(d) === format(new Date(), "yyyy-MM-dd");
+                const isToday = dateStr(d) === todayStr;
                 return (
                   <th
                     key={dateStr(d)}
                     className={cn(
-                      "py-3 px-2 text-center text-xs font-bold uppercase tracking-wider border-r border-gray-200 dark:border-slate-700 last:border-r-0",
-                      isToday ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300" : "text-gray-500 dark:text-gray-400"
+                      "border-b border-border/70 px-1.5 py-2.5 text-center last:pr-3",
+                      isToday ? "bg-emerald-50/80 dark:bg-emerald-950/25" : "bg-card",
                     )}
                   >
-                    <div>{format(d, "EEE")}</div>
-                    <div className={cn("mt-0.5", isToday ? "text-green-700 dark:text-green-400 font-black" : "text-gray-700 dark:text-gray-300")}>
-                      {format(d, "d")}
+                    <div
+                      className={cn(
+                        "mx-auto flex w-12 flex-col items-center rounded-xl py-1",
+                        isToday && "bg-emerald-600 text-white shadow-sm dark:bg-emerald-500",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold uppercase tracking-wide",
+                          isToday ? "text-white/80" : "text-muted-foreground",
+                        )}
+                      >
+                        {format(d, "EEE")}
+                      </span>
+                      <span className={cn("text-base font-bold leading-none", !isToday && "text-foreground")}>
+                        {format(d, "d")}
+                      </span>
                     </div>
                   </th>
                 );
@@ -263,62 +302,94 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
           <tbody>
             {staffByRole.map(({ role, staff }) => (
               <React.Fragment key={role}>
-                <tr className="bg-gray-100/80 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-800">
-                  <td colSpan={8} className="py-2 px-4 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    {role}
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="sticky left-0 bg-muted/60 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    {prettyRole(role)}
+                    <span className="ms-2 font-medium normal-case tracking-normal text-muted-foreground/80">
+                      {staff.length}
+                    </span>
                   </td>
                 </tr>
                 {staff.map((member) => {
-                  const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "-";
-                  const initials = name !== "-" ? name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "-";
+                  const name =
+                    `${member.first_name || ""} ${member.last_name || ""}`.trim() || "-";
+                  const initials =
+                    name !== "-"
+                      ? name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
+                      : "-";
+                  const color = getStaffColor(member.id);
                   return (
-                    <tr key={member.id} className="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50/50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-2 px-4 border-r border-gray-100 dark:border-slate-800">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8 rounded-full border-2 border-white dark:border-slate-700 shadow-sm">
-                            <AvatarFallback className="text-xs font-bold bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300">
+                    <tr key={member.id} className="group/row">
+                      <td className="sticky left-0 z-10 border-b border-r border-border/50 bg-card px-4 py-2.5">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <Avatar className="h-9 w-9 shrink-0 rounded-full shadow-sm ring-2 ring-background">
+                            <AvatarFallback
+                              className="text-[11px] font-bold"
+                              style={{ backgroundColor: `${color}22`, color }}
+                            >
                               {initials}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{name}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+                            <p className="truncate text-[11px] text-muted-foreground">{prettyRole(member.role || role)}</p>
+                          </div>
                         </div>
                       </td>
                       {weekDates.map((d) => {
                         const dayShifts = (shiftsByStaffByDate[member.id] || {})[dateStr(d)] || [];
-                        const isToday = dateStr(d) === format(new Date(), "yyyy-MM-dd");
+                        const isToday = dateStr(d) === todayStr;
                         return (
                           <td
                             key={dateStr(d)}
                             className={cn(
-                              "py-1.5 px-2 align-top border-r border-gray-100 dark:border-slate-800 last:border-r-0",
-                              isToday && "bg-green-50/30 dark:bg-green-900/10"
+                              "border-b border-border/50 px-1.5 py-1.5 align-top last:pr-3",
+                              isToday && "bg-emerald-50/50 dark:bg-emerald-950/15",
                             )}
                           >
-                            <div className="space-y-1">
-                              {dayShifts.length === 0 ? (
-                                <span className="text-xs text-gray-300 dark:text-gray-600">-</span>
-                              ) : (
-                                dayShifts.map((shift) => {
-                                  const roleInitial = (member.role || "S").charAt(0).toUpperCase();
-                                  const staffStyle = getStaffShiftStyle(member.id);
+                            {dayShifts.length === 0 ? (
+                              <div className="h-11 rounded-lg border border-transparent group-hover/row:border-dashed group-hover/row:border-border/70" />
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                {dayShifts.map((shift) => {
+                                  const label = timeRange(shift.start, shift.end, language);
                                   return (
-                                    <div
+                                    <button
                                       key={shift.id}
+                                      type="button"
                                       onClick={() => onEditShift?.(shift)}
+                                      disabled={!onEditShift}
                                       className={cn(
-                                        "w-full min-h-[32px] flex items-center rounded px-2 py-1.5 border cursor-pointer hover:opacity-90 transition-opacity text-[11px] font-medium box-border",
-                                        onEditShift && "cursor-pointer"
+                                        "flex min-h-11 w-full flex-col items-start justify-center rounded-lg border px-2 py-1.5 text-left shadow-sm transition-transform hover:-translate-y-px hover:shadow-md disabled:cursor-default",
                                       )}
-                                      style={{ ...staffStyle, borderWidth: "1px" }}
-                                      title={`${shift.title || "Shift"} ${timeRange(shift.start, shift.end, language)}`}
+                                      style={{
+                                        backgroundColor: `${color}18`,
+                                        borderColor: `${color}55`,
+                                        color,
+                                      }}
+                                      title={shift.title ? `${shift.title} ${label}` : label}
                                     >
-                                      <span className="font-bold shrink-0">{roleInitial}</span>
-                                      <span className="truncate min-w-0 ml-1">{timeRange(shift.start, shift.end, language)}</span>
-                                    </div>
+                                      <span className="w-full truncate text-[11px] font-bold leading-tight">
+                                        {label}
+                                      </span>
+                                      {shift.title && shift.title !== "Shift" ? (
+                                        <span className="w-full truncate text-[10px] font-medium opacity-80">
+                                          {shift.title}
+                                        </span>
+                                      ) : null}
+                                    </button>
                                   );
-                                })
-                              )}
-                            </div>
+                                })}
+                              </div>
+                            )}
                           </td>
                         );
                       })}
@@ -330,9 +401,9 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
           </tbody>
         </table>
         {staffByRole.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm font-medium">{t("schedule.no_staff_period")}</p>
-            <p className="text-xs mt-1">{t("schedule.add_staff_timesheet")}</p>
+            <p className="mt-1 text-xs">{t("schedule.add_staff_timesheet")}</p>
           </div>
         )}
       </div>

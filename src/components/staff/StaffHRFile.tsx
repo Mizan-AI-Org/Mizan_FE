@@ -52,9 +52,9 @@ function fmtDay(iso: string) {
 
 function Stat({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
   return (
-    <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-4">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-      <p className={cn("text-xl font-black text-slate-900 dark:text-white", tone)}>{value}</p>
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-800/40">
+      <p className="flex min-h-8 items-start text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-400">{label}</p>
+      <p className={cn("text-xl font-bold text-slate-900 dark:text-white", tone)}>{value}</p>
     </div>
   );
 }
@@ -62,9 +62,9 @@ function Stat({ label, value, tone }: { label: string; value: string | number; t
 function Field({ label, value }: { label: string; value: unknown }) {
   const shown = Array.isArray(value) ? value.join(", ") : value === null || value === undefined || value === "" ? "" : String(value);
   return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{label}</p>
-      <p className={cn("text-sm font-medium", shown ? "text-slate-700 dark:text-slate-200" : "text-slate-400 italic")}>
+    <div className="grid grid-cols-[9rem_minmax(0,1fr)] items-baseline gap-3">
+      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+      <p className={cn("text-sm font-medium", shown ? "text-slate-800 dark:text-slate-100" : "text-slate-400")}>
         {shown || "—"}
       </p>
     </div>

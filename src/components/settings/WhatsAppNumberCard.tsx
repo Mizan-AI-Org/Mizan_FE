@@ -10,7 +10,9 @@ import { useLanguage } from "@/hooks/use-language";
 import { apiPost, composeWhatsAppNumber, isPlausibleWhatsApp } from "@/lib/accountErrors";
 import { DEFAULT_DIAL_COUNTRY_CODE, dialForCountryCode } from "@/lib/dialCountries";
 import { DialCountrySelect } from "@/components/settings/DialCountrySelect";
-import { settingsFieldClassName } from "@/components/settings/SettingsSection";
+import { settingsFieldClassName, settingsFieldHintClassName } from "@/components/settings/SettingsSection";
+import { MIZAN_ELEVATED_INSET } from "@/lib/mizan-ui";
+import { cn } from "@/lib/utils";
 
 /**
  * The WhatsApp number Miya, sign-in codes and password-reset links use. A new number is only saved after the code
@@ -73,7 +75,7 @@ export function WhatsAppNumberCard() {
   const verified = !!user?.whatsapp_verified;
 
   return (
-    <div className="space-y-3 rounded-xl border border-border/60 p-4">
+    <div className={cn("space-y-3 p-4", MIZAN_ELEVATED_INSET)}>
       <div className="flex flex-wrap items-center gap-2">
         <MessageCircle className="h-4 w-4 text-emerald-600" aria-hidden />
         <Label className="text-sm font-semibold">{t("account.whatsapp.title")}</Label>
@@ -92,7 +94,7 @@ export function WhatsAppNumberCard() {
           </Button>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">{t("account.whatsapp.hint")}</p>
+      <p className={settingsFieldHintClassName}>{t("account.whatsapp.hint")}</p>
       {editing && (
         <div className="space-y-3">
           {!sentTo ? (

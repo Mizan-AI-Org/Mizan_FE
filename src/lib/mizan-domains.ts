@@ -20,6 +20,10 @@ export type DomainNavLeaf = DomainSection & {
   matchesBareRoute?: boolean;
   /** Exact leaf is inactive when the URL search contains any of these keys (sub-views share one pathname). */
   exactInactiveIfSearchHas?: string[];
+  /** Other pathnames that should highlight this leaf (shared page, separate routes). */
+  alsoMatch?: string[];
+  /** Keep the sidebar label on one line. */
+  singleLine?: boolean;
 };
 
 export const DOMAIN_SECTIONS: Record<DomainId, DomainNavLeaf[]> = {
@@ -30,10 +34,12 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainNavLeaf[]> = {
       exact: true,
       exactInactiveIfSearchHas: ["view"],
     },
-    { labelKey: "nav.work.requests", href: "/dashboard/operations/live?view=requests" },
-    { labelKey: "nav.work.compliance", href: "/dashboard/operations/live?view=compliance" },
-    { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents", moduleId: "incidents" },
     { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
+    {
+      labelKey: "nav.employees.tasks",
+      href: "/dashboard/employees/tasks",
+      moduleId: "checklists",
+    },
     { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists", moduleId: "checklists" },
     // Agency tenants only: restaurants never see this leaf.
     { labelKey: "nav.work.agency_jobs", href: "/dashboard/operations/agency-jobs", moduleId: "agency" },
@@ -41,8 +47,13 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainNavLeaf[]> = {
   employees: [
     { labelKey: "nav.employees.people", href: "/dashboard/employees/people" },
     { labelKey: "nav.employees.shifts", href: "/dashboard/employees/shifts", moduleId: "scheduling" },
-    { labelKey: "nav.employees.tasks", href: "/dashboard/employees/tasks", moduleId: "checklists" },
-    { labelKey: "nav.employees.performance", href: "/dashboard/employees/performance", moduleId: "scheduling" },
+    {
+      labelKey: "nav.employees.attendance_performance",
+      href: "/dashboard/employees/attendance",
+      alsoMatch: ["/dashboard/employees/performance"],
+      moduleId: "scheduling",
+      singleLine: true,
+    },
   ],
   products: [{ labelKey: "nav.sales", href: "/dashboard/products/sales" }],
   customers: [

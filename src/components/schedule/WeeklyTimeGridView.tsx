@@ -96,7 +96,7 @@ interface WeeklyTimeGridViewProps {
 
 function WeeklyTimeGridSkeleton() {
     return (
-        <div className="bg-card rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+        <div className="flex max-h-[85vh] flex-col overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-card z-20">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -399,7 +399,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
             if (d) setCurrentDate(d);
         };
         return (
-            <div className="bg-card rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="flex max-h-[85vh] flex-col overflow-hidden">
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-card z-20 shadow-sm">
                     <div className="flex items-center space-x-6">
                         <div className="flex items-center space-x-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -474,7 +474,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
     }
 
     return (
-        <div className="bg-card rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+        <div className="flex max-h-[85vh] flex-col overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-card z-20 shadow-sm">
                 <div className="flex items-center space-x-6">
                     <div className="flex items-center space-x-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">

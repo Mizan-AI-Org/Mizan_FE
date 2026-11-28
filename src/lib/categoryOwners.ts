@@ -4,6 +4,21 @@ export type CategoryOwnerGroup = {
   items: { key: string; labelKey: string }[];
 };
 
+export function systemLabelKey(slug: string): string | undefined {
+  for (const group of CATEGORY_OWNER_GROUPS) {
+    const item = group.items.find((row) => row.key === slug);
+    if (item) return item.labelKey;
+  }
+  return undefined;
+}
+
+export function systemGroupKey(slug: string): string | undefined {
+  for (const group of CATEGORY_OWNER_GROUPS) {
+    if (group.items.some((row) => row.key === slug)) return group.groupKey;
+  }
+  return undefined;
+}
+
 export const CATEGORY_OWNER_GROUPS: CategoryOwnerGroup[] = [
   {
     groupKey: "onboarding.owners.groups.incidents",

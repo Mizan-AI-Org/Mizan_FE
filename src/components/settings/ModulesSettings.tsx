@@ -9,6 +9,8 @@ import { useLanguage } from "@/hooks/use-language";
 import { TENANT_MODULES_QUERY_KEY } from "@/hooks/use-modules";
 import { api } from "@/lib/api";
 import type { ModuleKey } from "@/lib/types";
+import { MIZAN_ELEVATED_INSET, MIZAN_SETTINGS_BLOCK } from "@/lib/mizan-ui";
+import { cn } from "@/lib/utils";
 
 /** Settings > Modules: what this workspace runs and pays for. Turning a module off hides it; no data is deleted. */
 export default function ModulesSettings() {
@@ -62,7 +64,7 @@ export default function ModulesSettings() {
   }
   const canEdit = !!query.data?.canEdit;
   return (
-    <section className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <section className={MIZAN_SETTINGS_BLOCK}>
       <header className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <LayoutGrid className="h-5 w-5" aria-hidden />
@@ -87,9 +89,11 @@ export default function ModulesSettings() {
 
       {canEdit ? (
         <div
-          className={`sticky bottom-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/95 px-4 py-3 shadow-sm backdrop-blur transition-opacity ${
-            dirty ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+          className={cn(
+            MIZAN_ELEVATED_INSET,
+            "sticky bottom-2 flex flex-wrap items-center justify-between gap-3 px-4 py-3 backdrop-blur transition-opacity",
+            dirty ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
           aria-hidden={!dirty}
         >
           <div className="space-y-0.5">

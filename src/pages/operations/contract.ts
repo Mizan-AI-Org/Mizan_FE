@@ -104,7 +104,7 @@ export function operationsDetailHref(item: Pick<OperationsItem, "kind" | "id">):
     case "staff_request":
       return `/dashboard/staff-requests/${item.id}`;
     case "incident":
-      return `/dashboard/operations/incidents?incident=${encodeURIComponent(item.id)}`;
+      return `/dashboard/operations/live?view=incidents&incident=${encodeURIComponent(item.id)}`;
     case "checklist":
       return "/dashboard/operations/checklists";
     case "process":

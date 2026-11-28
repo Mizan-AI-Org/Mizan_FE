@@ -150,7 +150,9 @@ type ChecklistExecutionDetail = {
   actions?: ExecutionAction[];
 };
 
-const ManagerReviewDashboard: React.FC = () => {
+const ManagerReviewDashboard: React.FC<{ embeddedIncidents?: boolean }> = ({
+  embeddedIncidents = false,
+}) => {
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
   const [search, setSearch] = useState("");
@@ -168,7 +170,8 @@ const ManagerReviewDashboard: React.FC = () => {
   // Path locks the page mode so Incidents and Staff Checklists stand alone.
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const pathImpliesIncidents = /\/(?:operations\/)?incidents\/?$/.test(location.pathname);
+  const pathImpliesIncidents =
+    embeddedIncidents || /\/(?:operations\/)?incidents\/?$/.test(location.pathname);
   const pathImpliesChecklists = /\/(?:operations\/)?checklists\/?$/.test(location.pathname);
   const pathLocksTab = pathImpliesIncidents || pathImpliesChecklists;
 
@@ -222,12 +225,26 @@ const ManagerReviewDashboard: React.FC = () => {
     () => (searchParams.get("incident") || "").trim() || null,
   );
 
+  const clearIncidentFromUrl = () => {
+    const next = new URLSearchParams(searchParams);
+    if (!next.has("incident")) return;
+    next.delete("incident");
+    setSearchParams(next, { replace: true });
+  };
+
+  const openIncident = (id: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("incident", id);
+    if (embeddedIncidents && !next.get("view")) next.set("view", "incidents");
+    setSearchParams(next, { replace: true });
+  };
+
+  // URL is the source of truth for the incident modal (closing must not re-open from stale state).
   useEffect(() => {
-    const id = (searchParams.get("incident") || "").trim();
-    if (!id) return;
-    if (activeTab !== "incidents") setActiveTab("incidents");
-    if (selectedIncident !== id) setSelectedIncident(id);
-  }, [searchParams, activeTab, selectedIncident]);
+    const id = (searchParams.get("incident") || "").trim() || null;
+    setSelectedIncident(id);
+    if (id) setActiveTab((tab) => (tab === "incidents" ? tab : "incidents"));
+  }, [searchParams]);
   const [updateStatus, setUpdateStatus] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [assignTo, setAssignTo] = useState<string>('');
@@ -913,7 +930,7 @@ const ManagerReviewDashboard: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['safety-incidents'] });
       queryClient.invalidateQueries({ queryKey: ['safety-incident-detail'] });
-      setSelectedIncident(null);
+      clearIncidentFromUrl();
       setUpdateStatus('');
       setResolutionNotes('');
       setAssignTo('');
@@ -1057,7 +1074,8 @@ const ManagerReviewDashboard: React.FC = () => {
   };
 
   return (
-    <div className={`${PAGE_SHELL} py-6 space-y-5`}>
+    <div className={embeddedIncidents ? "space-y-4" : cn(PAGE_SHELL, "py-6 space-y-5")}>
+      {!embeddedIncidents ? (
       <header
         className={cn(
           "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between",
@@ -1146,6 +1164,7 @@ const ManagerReviewDashboard: React.FC = () => {
         </div>
         ) : null}
       </header>
+      ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {!pathLocksTab ? (
@@ -2021,7 +2040,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         <TableRow
                           key={incident.id}
                           className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => setSelectedIncident(incident.id)}
+                          onClick={() => openIncident(incident.id)}
                         >
                           <TableCell>
                             <div className="font-medium text-sm">{incident.title || "Untitled"}</div>
@@ -2098,7 +2117,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             )}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Button size="sm" variant="outline" onClick={() => setSelectedIncident(incident.id)}>
+                            <Button size="sm" variant="outline" onClick={() => openIncident(incident.id)}>
                               {t("common.open")}
                             </Button>
                           </TableCell>
@@ -2149,15 +2168,10 @@ const ManagerReviewDashboard: React.FC = () => {
             open={!!selectedIncident}
             onOpenChange={(open) => {
               if (!open) {
-                setSelectedIncident(null);
                 setUpdateStatus("");
                 setResolutionNotes("");
                 setAssignTo("");
-                const next = new URLSearchParams(searchParams);
-                if (next.has("incident")) {
-                  next.delete("incident");
-                  setSearchParams(next, { replace: true });
-                }
+                clearIncidentFromUrl();
               }
             }}
           >
@@ -2392,7 +2406,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setSelectedIncident(null);
+                          clearIncidentFromUrl();
                           setUpdateStatus("");
                           setResolutionNotes("");
                           setAssignTo("");

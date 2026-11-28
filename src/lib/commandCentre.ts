@@ -4,10 +4,28 @@
  * Where command-centre tiles and review links point. One place so the integrator can retarget them
  * if the unified Operations page (workstream C) lands on different paths.
  */
+/** Legacy `/operations/incidents` links → Live Ops incidents tab (avoids redirect + double modal). */
+export function normalizeOperationsDeepLink(href: string): string {
+  const raw = (href || "").trim();
+  if (!raw.startsWith("/") || raw.startsWith("//")) return raw;
+  const [path, query = ""] = raw.split("?");
+  if (!/\/operations\/incidents\/?$/.test(path)) return raw;
+  const params = new URLSearchParams(query);
+  const next = new URLSearchParams();
+  next.set("view", "incidents");
+  const incident = params.get("incident");
+  if (incident) next.set("incident", incident);
+  params.forEach((value, key) => {
+    if (key === "incident" || key === "view" || key === "tab") return;
+    next.set(key, value);
+  });
+  return `/dashboard/operations/live?${next}`;
+}
+
 export const COMMAND_ROUTES = {
   operations: "/dashboard/operations/live",
   compliance: "/dashboard/operations/live?view=compliance",
-  incidents: "/dashboard/operations/incidents",
+  incidents: "/dashboard/operations/live?view=incidents",
   performance: "/dashboard/employees/performance",
   attendance: "/dashboard/employees/attendance",
   orders: "/dashboard/customers/reservations-orders?tab=orders",
@@ -28,6 +46,11 @@ export type CommandSignal = {
   recommendation?: string;
   action_url?: string;
   kind?: string;
+  /** Person accountable, when the payload has one. */
+  owner?: string;
+  /** Department or operational area. */
+  area?: string;
+  action_kind?: "open" | "approve";
 };
 
 export type CommandCluster = {
@@ -56,9 +79,15 @@ export type CommandCentrePayload = {
   ops_health: "strained" | "stable" | "healthy";
   metrics: {
     people_working: number;
+    /** Missing clock-ins (other people) plus open staffing gaps for the current scope. */
+    coverage_gaps?: number;
     active_work: number;
     open_incidents: number;
     pending_approvals: number;
+  };
+  scope?: {
+    all_branches: boolean;
+    label: string;
   };
   lanes: {
     needs_me: CommandSignal[];
@@ -78,6 +107,7 @@ export type CommandCentrePayload = {
     watching: number;
   };
   generated_at?: string;
+  day_sheet?: CommandDaySheet;
   domain_attention?: Array<{
     domain: string;
     title: string;
@@ -90,14 +120,35 @@ export type CommandCentrePayload = {
   briefing?: CommandBriefingSnapshot;
 };
 
+export type CommandDaySheetLine = {
+  kind: "event" | "reminder" | "birthday";
+  text: string;
+  href: string;
+};
+
+export type CommandDaySheet = {
+  lines: CommandDaySheetLine[];
+  presence: { in: number; expected: number };
+  approvals_pending: number;
+  services: Array<{ label: "lunch" | "dinner"; start: string; end: string }>;
+  calendar: {
+    connected: boolean;
+    href: string;
+    /** Next meeting or shift at or after now. */
+    upcoming?: { title: string; minutes: number; starts_at?: string } | null;
+  };
+  incidents_new: number;
+};
+
 export type CommandBriefingSnapshot = {
   restaurantName?: string;
   asOf?: string;
+  summary?: string;
   whatsHappening?: string;
   whatNeedsAttention?: string;
   live?: {
     summary?: string;
-    missingClockIns?: Array<{ id?: string; name?: string }>;
+    missingClockIns?: Array<{ id?: string; name?: string; isViewerSelf?: boolean }>;
     clockedIn?: unknown[];
     todaysClockIns?: unknown[];
   };
@@ -168,14 +219,14 @@ export function resolveCommandReviewRoute(signal: CommandSignal): string {
     return "/dashboard/scheduling";
   }
   if (raw && raw !== "/dashboard" && raw.startsWith("/") && !raw.startsWith("//")) {
-    return raw;
+    return normalizeOperationsDeepLink(raw);
   }
   const category = (signal.category || "").toLowerCase();
   if (category === "incidents" || signal.kind === "incident") {
     const id = String(signal.id || "").trim();
     return id
-      ? `/dashboard/operations/incidents?incident=${encodeURIComponent(id)}`
-      : "/dashboard/operations/incidents";
+      ? `/dashboard/operations/live?view=incidents&incident=${encodeURIComponent(id)}`
+      : "/dashboard/operations/live?view=incidents";
   }
   if (category === "staffing") {
     return "/dashboard/employees/shifts";

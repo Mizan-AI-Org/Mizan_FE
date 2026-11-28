@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 import i18n from "@/i18n";
 
 const Sheet = SheetPrimitive.Root;
@@ -91,9 +92,12 @@ SheetTitle.displayName = SheetPrimitive.Title.displayName;
 const SheetDescription = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <SheetPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
-));
+>(({ className, ...props }, ref) => {
+  if (!SHOW_UI_DESCRIPTIONS) return null;
+  return (
+    <SheetPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  );
+});
 SheetDescription.displayName = SheetPrimitive.Description.displayName;
 
 export {

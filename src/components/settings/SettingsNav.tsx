@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 export type SettingsNavItem = {
   id: string;
@@ -75,7 +76,7 @@ export function SettingsNav({
                 <span className="block text-sm font-semibold leading-snug whitespace-nowrap lg:whitespace-normal lg:line-clamp-2">
                   {item.label}
                 </span>
-                {item.description ? (
+                {SHOW_UI_DESCRIPTIONS && item.description ? (
                   <span className="mt-0.5 hidden text-[11px] leading-snug text-slate-500 dark:text-slate-400 lg:block">
                     {item.description}
                   </span>
@@ -100,7 +101,7 @@ export function SettingsNav({
               <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">
                 {permissionsLabel}
               </span>
-              {permissionsDescription ? (
+              {SHOW_UI_DESCRIPTIONS && permissionsDescription ? (
                 <span className="mt-0.5 hidden text-[11px] leading-snug text-slate-500 dark:text-slate-400 lg:block">
                   {permissionsDescription}
                 </span>

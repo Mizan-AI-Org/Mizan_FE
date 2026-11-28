@@ -1,4 +1,4 @@
-import { Loader2, Plus, X, Search, Check, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Loader2, Download, FileSpreadsheet, FileText, CalendarDays, Table2, List } from "lucide-react";
 import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
 import { StaffScheduleListView } from "./StaffScheduleListView";
 import { StaffTimesheetView } from "./StaffTimesheetView";
@@ -18,7 +18,7 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { getStaffColor } from "@/lib/utils";
 import { exportTimesheetToPDF, exportTimesheetToExcel } from "@/utils/timesheetExport";
 import { Button } from "@/components/ui/button";
-import { MIZAN_SURFACE_CARD } from "@/lib/mizan-ui";
+import { HUB_TABS_TRIGGER, MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -422,30 +422,37 @@ const EnhancedScheduleView: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-          {t("schedule.staff_schedule")}
-        </h1>
-        <Tabs
-          value={currentView}
-          onValueChange={(v) => setCurrentView(v as "week" | "timesheet" | "list")}
-          className="w-full shrink-0 sm:w-[min(40rem,56%)]"
-        >
-          <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
-            <TabsTrigger value="week" className="w-full justify-center py-2.5 text-sm">
-              {t("schedule.weekly_grid_view")}
-            </TabsTrigger>
-            <TabsTrigger value="timesheet" className="w-full justify-center py-2.5 text-sm">
-              {t("schedule.timesheet_view")}
-            </TabsTrigger>
-            <TabsTrigger value="list" className="w-full justify-center py-2.5 text-sm">
-              {t("schedule.list_view")}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </header>
+      <Tabs
+        value={currentView}
+        onValueChange={(v) => setCurrentView(v as "week" | "timesheet" | "list")}
+        className="w-full"
+      >
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 rounded-xl border border-border/60 bg-muted/40 p-1.5 sm:grid-cols-3 sm:gap-2">
+          <TabsTrigger
+            value="week"
+            className={cn(HUB_TABS_TRIGGER, "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]")}
+          >
+            <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+            {t("schedule.weekly_grid_view")}
+          </TabsTrigger>
+          <TabsTrigger
+            value="timesheet"
+            className={cn(HUB_TABS_TRIGGER, "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]")}
+          >
+            <Table2 className="h-4 w-4 shrink-0" aria-hidden />
+            {t("schedule.timesheet_view")}
+          </TabsTrigger>
+          <TabsTrigger
+            value="list"
+            className={cn(HUB_TABS_TRIGGER, "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]")}
+          >
+            <List className="h-4 w-4 shrink-0" aria-hidden />
+            {t("schedule.list_view")}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      <div className={cn(MIZAN_SURFACE_CARD, "w-full overflow-hidden p-0")}>
+      <div className={cn(MIZAN_ELEVATED_CARD, "w-full overflow-hidden")}>
         {currentView === "week" && (
           <WeeklyTimeGridView
             shifts={shifts}
@@ -481,20 +488,19 @@ const EnhancedScheduleView: React.FC = () => {
 
         {/* Export actions: only for Timesheet view, at the bottom */}
         {currentView === "timesheet" && (
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-muted/20 px-4 py-2.5 sm:px-5">
               <div className="flex items-center gap-2">
-                <Download className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                <Download className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">
                   {t("schedule.export_timesheet")}
                 </span>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-2 border-red-200 bg-surface-raised text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/50"
+                  className="h-8 gap-2 rounded-full"
                   onClick={async () => {
                     setIsExporting(true);
                     try {
@@ -519,7 +525,7 @@ const EnhancedScheduleView: React.FC = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-2 border-emerald-200 bg-surface-raised text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+                  className="h-8 gap-2 rounded-full"
                   onClick={async () => {
                     setIsExporting(true);
                     try {
@@ -541,7 +547,6 @@ const EnhancedScheduleView: React.FC = () => {
                   {t("schedule.export_as_excel")}
                 </Button>
               </div>
-            </div>
           </div>
         )}
       </div>

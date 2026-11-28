@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -31,7 +30,6 @@ import {
   Route,
   FileWarning,
   Plus,
-  UserCog,
   Shield,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
@@ -65,7 +63,6 @@ import { useLanguage } from "@/hooks/use-language";
 import { useMyLanguage } from "@/hooks/use-my-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Language } from "@/contexts/LanguageContext.types";
-import { supportedLanguages } from "@/i18n";
 import axios from "axios";
 import type { AxiosError } from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -74,14 +71,20 @@ import { translateApiError } from "@/i18n/messages";
 import {
   SettingsSection,
   SettingsSubsection,
-  settingsInsetPanelClassName,
-  SettingsStickyActions,
+  SettingsFormActions,
   settingsFieldClassName,
+  settingsFieldHintClassName,
   settingsSelectClassName,
 } from "@/components/settings/SettingsSection";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
-import { SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
-import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
+import { SETTINGS_PAGE_INNER, SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import {
+  HUB_TABS_TRIGGER,
+  MIZAN_ELEVATED_INSET,
+  MIZAN_SETTINGS_HUB,
+  MIZAN_SETTINGS_TAB_CONTENT,
+  MIZAN_SETTINGS_TABS_LIST,
+} from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
@@ -172,10 +175,8 @@ function Settings() {
   const { t } = useLanguage();
   // The person's own language (the app, Miya, WhatsApp) vs. the business default for everyone who hasn't chosen.
   const { language, changeLanguage: changeMyLanguage, saving: savingMyLanguage } = useMyLanguage();
-  const { user: authUser, updateUser } = useAuth();
+  const { user: authUser } = useAuth();
   const followingBusinessLanguage = authUser?.language_chosen === false;
-  const [businessLanguage, setBusinessLanguage] = useState<Language>("en");
-  const [savingBusinessLanguage, setSavingBusinessLanguage] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [latitude, setLatitude] = useState<number>(0);
@@ -189,7 +190,6 @@ function Settings() {
   const [restaurantAddress, setRestaurantAddress] = useState("");
   const [restaurantPhone, setRestaurantPhone] = useState("");
   const [restaurantEmail, setRestaurantEmail] = useState("");
-  const [businessWhatsapp, setBusinessWhatsapp] = useState("");
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [operatingHours, setOperatingHours] = useState<{
@@ -203,8 +203,6 @@ function Settings() {
     Saturday: { open: "10:00", close: "14:00", isClosed: true },
     Sunday: { open: "10:00", close: "14:00", isClosed: true },
   });
-  const [automaticClockOut, setAutomaticClockOut] = useState(false);
-  const [allowChecklistWithoutClockIn, setAllowChecklistWithoutClockIn] = useState(false);
   const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
   // Legacy incident_category_assignees still get promoted to owners on save (as before), but against the
   // LIVE owner map: ResponsibilitySettings saves owners itself, so this state may be stale.
@@ -572,17 +570,9 @@ function Settings() {
       setRestaurantAddress(data.address || "");
       setRestaurantPhone(data.phone || data.phone_restaurant || "");
       setRestaurantEmail(data.email || "");
-      setBusinessWhatsapp(data.whatsapp_number || "");
       setTimezone(data.timezone || DEFAULT_TIMEZONE);
       setCurrency(data.currency || DEFAULT_CURRENCY);
-      setBusinessLanguage(
-        typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
-          ? (data.language as Language)
-          : "en"
-      );
       setOperatingHours(data.operating_hours || operatingHours);
-      setAutomaticClockOut(data.automatic_clock_out === true);
-      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in === true);
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
@@ -716,13 +706,9 @@ function Settings() {
         address: restaurantAddress,
         phone_restaurant: restaurantPhone,
         email: restaurantEmail,
-        whatsapp_number: businessWhatsapp,
         timezone,
         currency,
-        language: businessLanguage,
         operating_hours: operatingHours,
-        automatic_clock_out: automaticClockOut,
-        allow_checklist_without_clock_in: allowChecklistWithoutClockIn,
         break_duration: breakDuration,
         email_notifications: emailNotifications,
         push_notifications: pushNotifications,
@@ -790,25 +776,6 @@ function Settings() {
     }
   };
 
-  const persistBusinessLanguage = async (lng: Language) => {
-    // Business default for everyone who hasn't picked their own; saved at once, without the full Save.
-    const previous = businessLanguage;
-    setBusinessLanguage(lng);
-    setSavingBusinessLanguage(true);
-    try {
-      // businessOnly: the person's own language (and Miya's) stays as it is.
-      const updated = await api.updateMyLanguage({ language: lng, businessOnly: true });
-      if (updated) updateUser(updated);
-      toast.success(t("settings.language.business_saved"));
-    } catch (error) {
-      console.error("Failed to persist business language:", error);
-      setBusinessLanguage(previous);
-      toast.error(t("settings.language.save_error"));
-    } finally {
-      setSavingBusinessLanguage(false);
-    }
-  };
-
   const myLanguageField = (
     <div className="space-y-2">
       <Label htmlFor="my-language">{t("settings.language.mine")}</Label>
@@ -823,7 +790,7 @@ function Settings() {
         <option value="fr">Français</option>
         <option value="ar">العربية</option>
       </select>
-      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+      <p className={settingsFieldHintClassName}>
         {followingBusinessLanguage ? t("settings.language.following_business") : t("settings.language.mine_hint")}
       </p>
     </div>
@@ -873,8 +840,9 @@ function Settings() {
 
   return (
     <div className={SETTINGS_PAGE_SHELL_PADDED}>
+      <div className={SETTINGS_PAGE_INNER}>
       <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
-        <div className="flex w-full max-w-5xl flex-col gap-5">
+        <div className="flex w-full flex-col gap-5">
           {/* Desktop navigation lives in the Intent rail; this is the small-screen fallback. */}
           <aside className="lg:hidden">
             <SettingsNav
@@ -895,12 +863,9 @@ function Settings() {
           <div className="min-w-0 space-y-4">
         <TabsContent value="general-settings" className="mt-0 space-y-4 focus-visible:outline-none">
           {activeTab === "general-settings" ? (
-          <Tabs value={generalSection} onValueChange={onGeneralSectionChange} className="space-y-4">
+          <Tabs value={generalSection} onValueChange={onGeneralSectionChange} className={MIZAN_SETTINGS_HUB}>
             <TabsList
-              className={cn(
-                "grid h-auto w-full gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5",
-                isStaff ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-4",
-              )}
+              className={cn(MIZAN_SETTINGS_TABS_LIST, isStaff ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-4")}
             >
               <TabsTrigger
                 value="profile"
@@ -932,7 +897,7 @@ function Settings() {
               ) : null}
             </TabsList>
 
-            <TabsContent value="profile" className="mt-0 space-y-4 focus-visible:outline-none">
+            <TabsContent value="profile" className={MIZAN_SETTINGS_TAB_CONTENT}>
               {isStaff ? (
                 <SettingsSection
                   icon={<Languages className="h-5 w-5" />}
@@ -949,7 +914,7 @@ function Settings() {
             </TabsContent>
 
             {!isStaff ? (
-              <TabsContent value="modules" className="mt-0 space-y-4 focus-visible:outline-none">
+              <TabsContent value="modules" className={MIZAN_SETTINGS_TAB_CONTENT}>
                 <Suspense fallback={<FormSectionSkeleton />}>
                   <ModulesSettings />
                 </Suspense>
@@ -957,7 +922,7 @@ function Settings() {
             ) : null}
 
             {!isStaff ? (
-              <TabsContent value="location" className="mt-0 space-y-4 focus-visible:outline-none">
+              <TabsContent value="location" className={MIZAN_SETTINGS_TAB_CONTENT}>
                 <SectionErrorBoundary label="Business Locations">
                   <Suspense fallback={<FormSectionSkeleton fields={4} />}>
                     <MultiLocationSettings
@@ -972,7 +937,7 @@ function Settings() {
             ) : null}
 
             {!isStaff ? (
-              <TabsContent value="general" className="mt-0 space-y-4 focus-visible:outline-none">
+              <TabsContent value="general" className={MIZAN_SETTINGS_TAB_CONTENT}>
             <SettingsSection
               icon={<Building2 className="h-5 w-5" />}
               iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
@@ -980,134 +945,131 @@ function Settings() {
               description={t("settings.general.restaurant_info.description")}
               collapsible
               defaultOpen
+              compact
               contentClassName="pt-0"
             >
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8 lg:items-start">
-                <div className="space-y-6 min-w-0">
-                  <SettingsSubsection
-                    title={t("settings.general.contact_section_title")}
-                    description={t("settings.general.contact_section_desc")}
-                  >
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-2 sm:col-span-2">
-                        <Label htmlFor="restaurant-name">{t("settings.general.fields.name")}</Label>
-                        <Input
-                          id="restaurant-name"
-                          value={restaurantName}
-                          onChange={(e) => setRestaurantName(e.target.value)}
-                          className={settingsFieldClassName}
-                          placeholder={t("settings.general.fields.name_placeholder")}
-                          autoComplete="organization"
-                        />
-                      </div>
-                      <div className="space-y-2 sm:col-span-2">
-                        <Label htmlFor="address">{t("settings.general.fields.address")}</Label>
-                        <Input
-                          id="address"
-                          value={restaurantAddress}
-                          onChange={(e) => setRestaurantAddress(e.target.value)}
-                          className={settingsFieldClassName}
-                          placeholder={t("settings.general.fields.address_placeholder")}
-                          autoComplete="street-address"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">{t("settings.general.fields.phone")}</Label>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={restaurantPhone}
-                          onChange={(e) => setRestaurantPhone(e.target.value)}
-                          className={settingsFieldClassName}
-                          placeholder={t("settings.general.fields.phone_placeholder")}
-                          autoComplete="tel"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email">{t("settings.general.fields.email")}</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={restaurantEmail}
-                          onChange={(e) => setRestaurantEmail(e.target.value)}
-                          className={settingsFieldClassName}
-                          placeholder={t("settings.general.fields.email_placeholder")}
-                          autoComplete="email"
-                        />
-                      </div>
-                    </div>
-                  </SettingsSubsection>
-
-                  <SettingsSubsection
-                    title={t("cursorUi.settings.regional_title")}
-                    description={t("cursorUi.settings.regional_desc")}
-                  >
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="timezone">{t("settings.general.timezone")}</Label>
-                      <select id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} className={settingsSelectClassName}>
-                        {withCurrent(TIMEZONES, timezone).map((tz) => (
-                          <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="currency">{t("settings.general.currency")}</Label>
-                      <select id="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={settingsSelectClassName}>
-                        {withCurrent(CURRENCY_CODES, currency).map((code) => (
-                          <option key={code} value={code}>{code}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="business-whatsapp">{t("settings.general.business_whatsapp")}</Label>
+              <SettingsSubsection
+                dense
+                title={t("settings.general.contact_section_title")}
+                description={t("settings.general.contact_section_desc")}
+              >
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        id: "restaurant-name",
+                        label: t("settings.general.fields.name"),
+                        placeholder: t("settings.general.fields.name_placeholder"),
+                        value: restaurantName,
+                        onChange: (v: string) => setRestaurantName(v),
+                        type: "text",
+                        autoComplete: "organization",
+                      },
+                      {
+                        id: "address",
+                        label: t("settings.general.fields.address"),
+                        placeholder: t("settings.general.fields.address_placeholder"),
+                        value: restaurantAddress,
+                        onChange: (v: string) => setRestaurantAddress(v),
+                        type: "text",
+                        autoComplete: "street-address",
+                      },
+                      {
+                        id: "phone",
+                        label: t("settings.general.fields.phone"),
+                        placeholder: t("settings.general.fields.phone_placeholder"),
+                        value: restaurantPhone,
+                        onChange: (v: string) => setRestaurantPhone(v),
+                        type: "tel",
+                        autoComplete: "tel",
+                      },
+                      {
+                        id: "email",
+                        label: t("settings.general.fields.email"),
+                        placeholder: t("settings.general.fields.email_placeholder"),
+                        value: restaurantEmail,
+                        onChange: (v: string) => setRestaurantEmail(v),
+                        type: "email",
+                        autoComplete: "email",
+                      },
+                    ] as const
+                  ).map((field) => (
+                    <div key={field.id} className="space-y-1">
+                      <Label htmlFor={field.id} className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        {field.label}
+                      </Label>
                       <Input
-                        id="business-whatsapp"
-                        type="tel"
-                        value={businessWhatsapp}
-                        onChange={(e) => setBusinessWhatsapp(e.target.value)}
-                        className={settingsFieldClassName}
-                        placeholder="+212 6 00 00 00 00"
+                        id={field.id}
+                        type={field.type}
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        className={cn(settingsFieldClassName, "h-9 text-sm")}
+                        placeholder={field.placeholder}
+                        autoComplete={field.autoComplete}
                       />
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("settings.general.business_whatsapp_hint")}</p>
+                    </div>
+                  ))}
+                </div>
+              </SettingsSubsection>
+
+              <div className="grid grid-cols-1 gap-3 border-t border-slate-200/80 pt-3 dark:border-slate-800 sm:grid-cols-2 sm:items-start">
+                <SettingsSubsection
+                  dense
+                  title={t("cursorUi.settings.regional_title")}
+                  description={t("cursorUi.settings.regional_desc")}
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0 space-y-1">
+                      <Label htmlFor="timezone" className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        {t("settings.general.timezone")}
+                      </Label>
+                      <select
+                        id="timezone"
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className={cn(settingsSelectClassName, "h-9 text-sm")}
+                      >
+                        {withCurrent(TIMEZONES, timezone).map((tz) => (
+                          <option key={tz} value={tz}>
+                            {tz.replace(/_/g, " ")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="min-w-0 space-y-1">
+                      <Label htmlFor="currency" className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        {t("settings.general.currency")}
+                      </Label>
+                      <select
+                        id="currency"
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        className={cn(settingsSelectClassName, "h-9 text-sm")}
+                      >
+                        {withCurrent(CURRENCY_CODES, currency).map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                  </SettingsSubsection>
-                </div>
+                </SettingsSubsection>
 
-                <div className="min-w-0 lg:border-l lg:border-slate-200/90 lg:pl-8 dark:lg:border-slate-800">
-                  <SettingsSubsection
-                    title={t("settings.general.staff_roles_section_title")}
-                    description={t("settings.general.staff_roles_section_desc")}
-                  >
-                    <div className="flex flex-col gap-4">
-                  <div className={settingsInsetPanelClassName}>
-                    <div className="flex items-start gap-2">
-                      <UserCog className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-medium text-slate-900 dark:text-slate-50">
-                            {t("settings.general.custom_staff_roles_title")}
-                          </span>
-                          {customStaffRoles.length > 0 ? (
-                            <Badge variant="secondary" className="text-[10px] font-normal">
-                              {customStaffRoles.filter((r) => r.name.trim()).length}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <p className="text-xs leading-relaxed text-muted-foreground">
-                          {t("settings.general.custom_staff_roles_desc")}
-                        </p>
-                      </div>
-                    </div>
+                <SettingsSubsection
+                  dense
+                  title={t("settings.general.staff_roles_section_title")}
+                  description={t("settings.general.staff_roles_section_desc")}
+                >
+                  <div className="space-y-2">
                     {customStaffRoles.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">
+                      <p className="text-[11px] leading-snug text-muted-foreground italic">
                         {t("settings.general.custom_staff_roles_empty")}
                       </p>
                     ) : (
-                      <div className="space-y-2 max-h-[min(280px,40vh)] overflow-y-auto pr-0.5">
+                      <div className="max-h-[min(160px,28vh)] space-y-1.5 overflow-y-auto pr-0.5">
                         {customStaffRoles.map((row, idx) => (
-                          <div key={row.id} className="flex gap-2 items-center">
+                          <div key={row.id} className="flex items-center gap-1.5">
                             <Input
                               value={row.name}
                               onChange={(e) => {
@@ -1116,14 +1078,14 @@ function Settings() {
                                 setCustomStaffRoles(next);
                               }}
                               placeholder={t("settings.general.custom_staff_roles_placeholder")}
-                              className={cn(settingsFieldClassName, "h-10")}
+                              className={cn(settingsFieldClassName, "h-9 text-sm")}
                               aria-label={t("settings.general.custom_staff_roles_placeholder")}
                             />
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                              className="h-8 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
                               onClick={() =>
                                 setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
                               }
@@ -1138,83 +1100,17 @@ function Settings() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="gap-1.5"
+                      className="h-8 gap-1 text-xs"
                       onClick={() =>
                         setCustomStaffRoles((prev) => [...prev, { id: crypto.randomUUID(), name: "" }])
                       }
                     >
-                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                      <Plus className="h-3 w-3" aria-hidden />
                       {t("settings.general.custom_staff_roles_add")}
                     </Button>
                   </div>
-                    </div>
-                  </SettingsSubsection>
-                </div>
+                </SettingsSubsection>
               </div>
-            </SettingsSection>
-
-            <SettingsSection
-              icon={<Languages className="h-5 w-5" />}
-              iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
-              title={t("settings.general.language_prefs_title")}
-              description={t("settings.general.language_prefs_desc")}
-              collapsible
-              defaultOpen
-            >
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
-                  <div className="space-y-5">
-                    {myLanguageField}
-                    <div className="space-y-2">
-                      <Label htmlFor="language">{t("settings.language.business")}</Label>
-                      <select
-                        id="language"
-                        value={businessLanguage}
-                        disabled={savingBusinessLanguage}
-                        onChange={(e) => persistBusinessLanguage(e.target.value as Language)}
-                        className={settingsSelectClassName}
-                      >
-                        <option value="en">English</option>
-                        <option value="fr">Français</option>
-                        <option value="ar">العربية</option>
-                      </select>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {t("settings.language.business_hint")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4 h-full min-h-[5.5rem]">
-                    <div className="space-y-0.5 min-w-0 flex-1">
-                      <Label htmlFor="automatic-clock-out" className="cursor-pointer">
-                        {t("settings.general.automatic_clock_out")}
-                      </Label>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {t("settings.general.automatic_clock_out_desc")}
-                      </p>
-                    </div>
-                    <Switch
-                      id="automatic-clock-out"
-                      checked={automaticClockOut}
-                      onCheckedChange={setAutomaticClockOut}
-                      className="data-[state=checked]:bg-emerald-600 shrink-0"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4 h-full min-h-[5.5rem]">
-                    <div className="space-y-0.5 min-w-0 flex-1">
-                      <Label htmlFor="allow-checklist-without-clock-in" className="cursor-pointer">
-                        {t("settings.general.allow_checklist_without_clock_in")}
-                      </Label>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {t("settings.general.allow_checklist_without_clock_in_desc")}
-                      </p>
-                    </div>
-                    <Switch
-                      id="allow-checklist-without-clock-in"
-                      checked={allowChecklistWithoutClockIn}
-                      onCheckedChange={setAllowChecklistWithoutClockIn}
-                      className="data-[state=checked]:bg-emerald-600 shrink-0"
-                    />
-                  </div>
-                </div>
             </SettingsSection>
 
             <SettingsSection
@@ -1234,15 +1130,15 @@ function Settings() {
               <ResponsibilitySettings />
             </SettingsSection>
 
-            <SettingsStickyActions hint={t("settings.save_hint")}>
+            <SettingsFormActions hint={t("settings.save_hint")}>
               <Button
                 onClick={saveGeneralSettings}
-                className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 shadow-sm"
+                className="h-11 rounded-xl bg-emerald-600 px-5 font-semibold text-white shadow-sm hover:bg-emerald-700"
               >
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="mr-2 h-4 w-4" />
                 {t("settings.general.save_general")}
               </Button>
-            </SettingsStickyActions>
+            </SettingsFormActions>
               </TabsContent>
             ) : null}
           </Tabs>
@@ -1250,14 +1146,10 @@ function Settings() {
         </TabsContent>
 
         {!isStaff && (
-          <TabsContent value="integrations" className="mt-0 space-y-4 focus-visible:outline-none">
+          <TabsContent value="integrations" className="mt-0 focus-visible:outline-none">
             {activeTab === "integrations" ? (
-            <Tabs
-              value={integrationSection}
-              onValueChange={onIntegrationSectionChange}
-              className="w-full space-y-4"
-            >
-              <TabsList className="grid h-auto w-full grid-cols-3 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
+            <Tabs value={integrationSection} onValueChange={onIntegrationSectionChange} className={MIZAN_SETTINGS_HUB}>
+              <TabsList className={cn(MIZAN_SETTINGS_TABS_LIST, "grid-cols-3")}>
                 <TabsTrigger
                   value="pos"
                   className={cn(
@@ -1287,17 +1179,17 @@ function Settings() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="pos" className="mt-0 space-y-4 focus-visible:outline-none">
+              <TabsContent value="pos" className={MIZAN_SETTINGS_TAB_CONTENT}>
             <PosIntegrations onChange={() => void fetchUnifiedSettings()} />
               </TabsContent>
 
-              <TabsContent value="reservations" className="mt-0 space-y-4 focus-visible:outline-none">
+              <TabsContent value="reservations" className={MIZAN_SETTINGS_TAB_CONTENT}>
             <div id="reservation-booking-integration" className="scroll-mt-24">
               <ReservationIntegration onIntegrationChange={() => void fetchUnifiedSettings()} />
             </div>
               </TabsContent>
 
-              <TabsContent value="calendar" className="mt-0 space-y-4 focus-visible:outline-none">
+              <TabsContent value="calendar" className={MIZAN_SETTINGS_TAB_CONTENT}>
             <SettingsSection
               icon={<Calendar className="h-5 w-5" />}
               iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
@@ -1320,7 +1212,13 @@ function Settings() {
             >
                 {gcalConnected ? (
                   <div className="space-y-4">
-                    <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
+                    <div
+                      className={cn(
+                        "p-4",
+                        MIZAN_ELEVATED_INSET,
+                        "border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20",
+                      )}
+                    >
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
@@ -1440,25 +1338,29 @@ function Settings() {
         )}
 
         {!isStaff && activeTab === "billing" ? (
-          <TabsContent value="billing" className="mt-0 space-y-4 focus-visible:outline-none">
-            <Suspense fallback={<FormSectionSkeleton />}>
-              <BillingSettings />
-            </Suspense>
-
-            <AccountDataCard />
+          <TabsContent value="billing" className="mt-0 focus-visible:outline-none">
+            <div className={MIZAN_SETTINGS_HUB}>
+              <Suspense fallback={<FormSectionSkeleton />}>
+                <BillingSettings />
+              </Suspense>
+              <AccountDataCard />
+            </div>
           </TabsContent>
         ) : null}
 
         {!isStaff && (
-          <TabsContent value="compliance-approvals" className="mt-0 space-y-4 focus-visible:outline-none">
-            <Suspense fallback={<FormSectionSkeleton />}>
-              <ApprovalRulesSettings />
-            </Suspense>
+          <TabsContent value="compliance-approvals" className="mt-0 focus-visible:outline-none">
+            <div className={MIZAN_SETTINGS_HUB}>
+              <Suspense fallback={<FormSectionSkeleton />}>
+                <ApprovalRulesSettings />
+              </Suspense>
+            </div>
           </TabsContent>
         )}
           </div>
         </div>
       </Tabs>
+      </div>
     </div>
   );
 }

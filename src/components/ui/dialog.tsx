@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import i18n from "@/i18n";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -82,9 +83,12 @@ DialogTitle.displayName = DialogPrimitive.Title.displayName;
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
-));
+>(({ className, ...props }, ref) => {
+  if (!SHOW_UI_DESCRIPTIONS) return null;
+  return (
+    <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  );
+});
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {

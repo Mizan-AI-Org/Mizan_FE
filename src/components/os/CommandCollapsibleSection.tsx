@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
+import { MIZAN_ELEVATED_CARD } from "@/lib/mizan-ui";
 
 type Props = {
   id?: string;
@@ -35,10 +37,9 @@ export function CommandCollapsibleSection({
       <Collapsible open={open} onOpenChange={setOpen}>
         <div
           className={cn(
-            "overflow-hidden rounded-panel border shadow-xs",
-            isAgent
-              ? "border-ai-border bg-gradient-to-br from-ai/90 to-card"
-              : "border-border/70 bg-card",
+            "overflow-hidden",
+            MIZAN_ELEVATED_CARD,
+            isAgent && "border-ai-border bg-gradient-to-br from-ai/90 to-card",
           )}
         >
           <CollapsibleTrigger asChild>
@@ -64,7 +65,7 @@ export function CommandCollapsibleSection({
                     </span>
                   ) : null}
                 </div>
-                {description ? (
+                {SHOW_UI_DESCRIPTIONS && description ? (
                   <p className="mt-0.5 text-body text-muted-foreground">{description}</p>
                 ) : null}
                 {!open && preview ? (

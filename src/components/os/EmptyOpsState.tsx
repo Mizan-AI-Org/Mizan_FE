@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 type Props = {
   title: string;
@@ -24,7 +25,9 @@ export function EmptyOpsState({
       role="status"
     >
       <p className="text-card-title text-foreground">{title}</p>
-      {description ? <p className="mt-1 type-secondary">{description}</p> : null}
+      {SHOW_UI_DESCRIPTIONS && description ? (
+        <p className="mt-1 type-secondary ui-field-hint">{description}</p>
+      ) : null}
       {action ? (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {action}

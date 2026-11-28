@@ -7,7 +7,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { MizanPageShell } from "@/components/os/MizanPageShell";
-import { MIZAN_GRID_GAP, MIZAN_SURFACE_CARD } from "@/lib/mizan-ui";
+import { MIZAN_ELEVATED_CARD, MIZAN_GRID_GAP, MIZAN_SURFACE_CARD } from "@/lib/mizan-ui";
 import { Button } from "@/components/ui/button";
 import { OPERATIONAL_COMMAND_ROLES } from "@/lib/operationalCommandRoles";
 import { roleAllowed } from "@/lib/operationalCommandRoles";
@@ -72,8 +72,11 @@ function activeDomainSection(domain: DomainId, pathname: string) {
   const sections = DOMAIN_SECTIONS[domain] || [];
   const sorted = [...sections].sort((a, b) => b.href.length - a.href.length);
   return sorted.find((s) => {
-    if (s.exact) return pathname === s.href || pathname === `${s.href}/`;
-    return pathname === s.href || pathname.startsWith(`${s.href}/`);
+    const routes = [s.href, ...(s.alsoMatch || [])];
+    return routes.some((href) => {
+      if (s.exact) return pathname === href || pathname === `${href}/`;
+      return pathname === href || pathname.startsWith(`${href}/`);
+    });
   });
 }
 
@@ -230,7 +233,10 @@ export function DomainOverviewPage({ domain: domainProp }: { domain?: DomainId }
                       <button
                         type="button"
                         onClick={() => navigate(link.href)}
-                        className="group flex h-full w-full items-center justify-between rounded-xl border border-border/80 bg-card px-4 py-4 text-left shadow-sm transition-all hover:border-primary/35 hover:shadow-md"
+                        className={cn(
+                          MIZAN_ELEVATED_CARD,
+                          "group flex h-full w-full items-center justify-between rounded-xl px-4 py-4 text-left transition-all hover:border-primary/35",
+                        )}
                       >
                         <span className="font-medium">{t(link.labelKey)}</span>
                         <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
@@ -263,7 +269,10 @@ export function DomainOverviewPage({ domain: domainProp }: { domain?: DomainId }
                   <button
                     type="button"
                     onClick={() => navigate(link.href)}
-                    className="group flex w-full items-center justify-between rounded-xl border border-border/80 bg-card px-4 py-3 text-left shadow-sm transition-colors hover:border-primary/35"
+                    className={cn(
+                      MIZAN_ELEVATED_CARD,
+                      "group flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition-colors hover:border-primary/35",
+                    )}
                   >
                     <span className="font-medium">{t(link.labelKey)}</span>
                     <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />

@@ -59,13 +59,11 @@ import { Badge } from "@/components/ui/badge";
 import BrandLogo from "@/components/BrandLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageQuickSwitch } from "@/components/LanguageQuickSwitch";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
 import { API_BASE, api, type JobTitleReport } from "@/lib/api";
 import { UnmatchedTitlesPanel } from "@/components/staff/JobTitlesPanel";
-import { CATEGORY_OWNER_GROUPS } from "@/lib/categoryOwners";
-import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
+import { ResponsibilitySettings } from "@/components/responsibilities/ResponsibilitySettings";
 import { fetchStaffRosterCount } from "@/lib/staffPicker";
 import type { User as AuthUser } from "@/contexts/AuthContext.types";
 import { useAuth } from "@/hooks/use-auth";
@@ -77,6 +75,7 @@ import {
     type DashboardWidgetId,
 } from "@/pages/dashboard/DashboardWidgets";
 import BusinessSetupStep from "@/components/onboarding/BusinessSetupStep";
+import PreferencesStep from "@/components/onboarding/PreferencesStep";
 import { SectorPicker } from "@/components/onboarding/SectorPicker";
 import { ModulePicker } from "@/components/onboarding/ModulePicker";
 import { recommendedModules } from "@/config/modules";
@@ -94,6 +93,7 @@ import {
 /* -------------------------------------------------------------------------- */
 
 type BackendStep =
+    | "preferences"
     | "industry"
     | "staff_csv"
     | "widgets"
@@ -108,6 +108,7 @@ const BUSINESS_DONE_KEY = "mizan.onboarding.business";
 
 const WIZARD_ORDER: WizardStep[] = [
     "welcome",
+    "preferences",
     "industry",
     "business",
     "modules",
@@ -160,9 +161,6 @@ const ROLE_CHOICES: { id: string; labelKey: string }[] = [
     { id: "ACCOUNTANT", labelKey: "onboarding.roles.accountant" },
     { id: "STAFF", labelKey: "onboarding.roles.staff" },
 ];
-
-/** Categories collected on the owners step. Keys MUST match the backend list. */
-const CATEGORY_GROUPS = CATEGORY_OWNER_GROUPS;
 
 const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
@@ -453,6 +451,10 @@ const OnboardingWizard: React.FC = () => {
             const started =
                 (Object.values(status.steps) as boolean[]).some((v) => v);
             if (started) {
+                if (!status.steps.preferences) {
+                    goTo("preferences");
+                    return;
+                }
                 const next = status.next_step as WizardStep;
                 const modulesDone = localStorage.getItem(MODULES_DONE_KEY) === "1";
                 const businessDone = localStorage.getItem(BUSINESS_DONE_KEY) === "1";
@@ -662,7 +664,7 @@ const OnboardingWizard: React.FC = () => {
                 >
                     {step === "welcome" && (
                         <WelcomeStep
-                            onStart={() => goTo("industry")}
+                            onStart={() => goTo("preferences")}
                             userName={user.first_name || user.email || ""}
                             restaurantName={user.restaurant_name || ""}
                             completedAlready={status.completed}
@@ -681,6 +683,24 @@ const OnboardingWizard: React.FC = () => {
                                             ),
                                     );
                                 }
+                            }}
+                        />
+                    )}
+
+                    {step === "preferences" && (
+                        <PreferencesStep
+                            Shell={StepShell}
+                            Actions={StepActions}
+                            alreadyDone={status.steps.preferences}
+                            onSaved={async () => {
+                                await markStepComplete("preferences");
+                                await refreshStatus();
+                                goNext();
+                            }}
+                            onSkip={async () => {
+                                await markStepComplete("preferences");
+                                await refreshStatus();
+                                goNext();
                             }}
                         />
                     )}
@@ -787,8 +807,8 @@ const OnboardingWizard: React.FC = () => {
                     {step === "category_owners" && (
                         <OwnersStep
                             status={status}
-                            onSaved={async (owners: Record<string, string[]>) => {
-                                await saveCategoryOwners(owners);
+                            onSaved={async () => {
+                                await markStepComplete("category_owners");
                                 await refreshStatus();
                                 goNext();
                             }}
@@ -920,18 +940,6 @@ const OnboardingWizard: React.FC = () => {
         }
     }
 
-    async function saveCategoryOwners(owners: Record<string, string | string[]>) {
-        const res = await fetch(`${API_BASE}/onboarding/category-owners/`, {
-            method: "PUT",
-            headers: authHeaders(),
-            body: JSON.stringify({ owners }),
-        });
-        if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
-            throw new Error(body.detail || t("onboarding.err.save_owners"));
-        }
-    }
-
     async function skipGoogleCalendar() {
         const res = await fetch(`${API_BASE}/integrations/google-calendar/`, {
             method: "POST",
@@ -992,6 +1000,8 @@ const OnboardingWizard: React.FC = () => {
 
 function stepChipFallback(s: string): string {
     switch (s) {
+        case "preferences":
+            return "Preferences";
         case "industry":
             return "Industry";
         case "modules":
@@ -1976,56 +1986,10 @@ const PermissionsStep: React.FC<{
 
 const OwnersStep: React.FC<{
     status: OnboardingStatus;
-    onSaved: (owners: Record<string, string[]>) => Promise<void> | void;
+    onSaved: () => Promise<void> | void;
 }> = ({ status, onSaved }) => {
     const { t } = useTranslation();
-    const { user: currentUser } = useAuth();
-
-    const normalise = (raw: Record<string, string | string[]> | undefined): Record<string, string[]> => {
-        const out: Record<string, string[]> = {};
-        if (!raw) return out;
-        for (const [k, v] of Object.entries(raw)) {
-            out[k] = Array.isArray(v) ? v : v ? [v] : [];
-        }
-        return out;
-    };
-
-    const [owners, setOwners] = useState<Record<string, string[]>>(
-        () => normalise(status.config.category_owners),
-    );
     const [saving, setSaving] = useState(false);
-
-    const ownersMetaQuery = useQuery({
-        queryKey: ["onboarding-category-owners-meta"],
-        queryFn: async () => {
-            const res = await fetch(`${API_BASE}/onboarding/category-owners/`, {
-                headers: authHeaders(),
-            });
-            if (!res.ok) throw new Error("Failed to load category owners");
-            return res.json() as {
-                staff_directory?: Record<
-                    string,
-                    { id: string; first_name: string; last_name: string; email: string; role?: string }
-                >;
-            };
-        },
-        staleTime: 60_000,
-    });
-
-    const staffDirectory = useMemo(() => {
-        const out: Record<string, import("@/lib/staffPicker").StaffPickerRow> = {};
-        for (const [id, row] of Object.entries(ownersMetaQuery.data?.staff_directory || {})) {
-            if (!row) continue;
-            out[id] = {
-                id: String(row.id || id),
-                first_name: String(row.first_name || ""),
-                last_name: String(row.last_name || ""),
-                email: String(row.email || ""),
-                role: row.role ? String(row.role) : undefined,
-            };
-        }
-        return out;
-    }, [ownersMetaQuery.data?.staff_directory]);
 
     const rosterQuery = useQuery({
         queryKey: ["onboarding-staff-roster-count"],
@@ -2036,7 +2000,7 @@ const OwnersStep: React.FC<{
     const save = async () => {
         setSaving(true);
         try {
-            await onSaved(owners);
+            await onSaved();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Save failed.");
         } finally {
@@ -2044,7 +2008,6 @@ const OwnersStep: React.FC<{
         }
     };
 
-    const totalAssigned = Object.values(owners).filter((v) => v.length > 0).length;
     const hasStaff = (rosterQuery.data ?? 0) > 0;
 
     return (
@@ -2053,7 +2016,7 @@ const OwnersStep: React.FC<{
             title={t("onboarding.owners.title", "Who owns what?")}
             subtitle={t(
                 "onboarding.owners.subtitle",
-                "Pick one or more people for each category - incidents, requests, and tasks are routed to them automatically.",
+                "Pick one Primary for each area. Informed people are notified, not assigned. Incidents, requests and tasks go to the Primary automatically.",
             )}
             alreadyDoneBadge={status.steps.category_owners}
         >
@@ -2069,92 +2032,16 @@ const OwnersStep: React.FC<{
                     )}
                 </div>
             ) : (
-                <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-1">
-                    {currentUser?.id ? (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-slate-300 p-2.5 dark:border-slate-700">
-                            <p className="text-xs text-muted-foreground">
-                                {t("cursorUi.resp.defaults_hint", "Not sure yet? Put yourself on every empty area and hand them over later.")}
-                            </p>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                data-testid="owners-apply-defaults"
-                                onClick={() =>
-                                    setOwners((prev) => {
-                                        const next = { ...prev };
-                                        for (const group of CATEGORY_GROUPS) {
-                                            for (const cat of group.items) {
-                                                if (!(next[cat.key] || []).length) next[cat.key] = [String(currentUser.id)];
-                                            }
-                                        }
-                                        return next;
-                                    })
-                                }
-                            >
-                                {t("cursorUi.resp.defaults_cta", "Assign empty areas to me")}
-                            </Button>
-                        </div>
-                    ) : null}
-                    {CATEGORY_GROUPS.map((group) => (
-                        <div key={group.groupKey} className="space-y-2">
-                            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                {t(group.groupKey, group.groupKey.split(".").pop() || "")}
-                            </div>
-                            <div className="space-y-1.5">
-                                {group.items.map((cat) => (
-                                    <div
-                                        key={cat.key}
-                                        className="flex flex-col gap-2 p-2.5 rounded-lg bg-card border border-slate-200 dark:border-slate-800 sm:flex-row sm:items-start sm:gap-3"
-                                    >
-                                        <Label className="sm:flex-1 text-sm font-medium pt-1">
-                                            {t(cat.labelKey, cat.key)}
-                                        </Label>
-                                        <div className="sm:min-w-[240px] sm:flex-1 shrink-0">
-                                            <CategoryOwnerPicker
-                                                selectedIds={owners[cat.key] || []}
-                                                staffDirectory={staffDirectory}
-                                                onChange={(ids) => {
-                                                    setOwners((prev) => {
-                                                        if (ids.length === 0) {
-                                                            const { [cat.key]: _, ...rest } = prev;
-                                                            return rest;
-                                                        }
-                                                        return { ...prev, [cat.key]: ids };
-                                                    });
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                    <ResponsibilitySettings canEdit showWatching={false} />
                 </div>
             )}
 
             <StepActions>
-                <div className="text-xs text-muted-foreground">
-                    {t("onboarding.owners.chosen_count", {
-                        defaultValue: "{{count}} categories assigned",
-                        count: totalAssigned,
-                    })}
-                </div>
                 <div className="flex items-center gap-2">
                     <Button
                         variant="ghost"
-                        onClick={async () => {
-                            setSaving(true);
-                            try {
-                                await onSaved({});
-                            } catch (err) {
-                                toast.error(
-                                    err instanceof Error ? err.message : "Skip failed.",
-                                );
-                            } finally {
-                                setSaving(false);
-                            }
-                        }}
+                        onClick={save}
                         disabled={saving}
                     >
                         {t("onboarding.skip_step", "Skip for now")}

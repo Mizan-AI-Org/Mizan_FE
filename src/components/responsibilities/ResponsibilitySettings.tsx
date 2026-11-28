@@ -2,45 +2,40 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, Lock } from "lucide-react";
 import { toast } from "sonner";
-import { CategoryOwnerGroupsEditor } from "@/components/settings/CategoryOwnerGroupsEditor";
+import { ResponsibilityTreeEditor } from "@/components/responsibilities/ResponsibilityTreeEditor";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
 import type { StaffPickerRow } from "@/lib/staffPicker";
 import {
   isPrivateSlug,
-  normalizeOwners,
   watchLevelFor,
-  withOwners,
-  type OwnersMap,
   type WatchLevel,
   type WatchOverviewRow,
 } from "@/components/responsibilities/types";
 
 export const CATEGORY_OWNERS_QUERY_KEY = ["category-owners"] as const;
+export const RESPONSIBILITY_TREE_QUERY_KEY = ["responsibility-tree"] as const;
 
 export type ResponsibilitySettingsProps = {
-  /** Managers edit owners; everyone else sees the list read-only. Default true. */
   canEdit?: boolean;
-  /** Show the follow (watch) control and who follows each area. Default true. */
   showWatching?: boolean;
   className?: string;
-  /** Called after an owner change has been saved. */
   onSaved?: () => void;
 };
 
 const selectClass =
   "h-8 rounded-lg border border-slate-200 bg-background px-2 text-xs dark:border-slate-700";
 
-/**
- * Who owns what, on main's model: several owners per category (first to claim wins), plus opt-in followers.
- * Owners are the only people notified of new work; followers get a single FYI for urgent incidents if they chose it.
- * Mount in Settings (workstream B's slot) or inside AssignResponsibilitiesDialog. Saves each change as it is made.
- */
+function invalidateOwners(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: RESPONSIBILITY_TREE_QUERY_KEY });
+  void queryClient.invalidateQueries({ queryKey: CATEGORY_OWNERS_QUERY_KEY });
+}
+
 export function ResponsibilitySettings({ canEdit = true, showWatching = true, className, onSaved }: ResponsibilitySettingsProps) {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
-  const ownersQuery = useQuery({ queryKey: CATEGORY_OWNERS_QUERY_KEY, queryFn: () => api.getCategoryOwners() });
+  const treeQuery = useQuery({ queryKey: RESPONSIBILITY_TREE_QUERY_KEY, queryFn: () => api.getResponsibilityTree() });
   const mineQuery = useQuery({ queryKey: ["my-watches"], queryFn: () => api.getMyWatches(), enabled: showWatching });
   const overviewQuery = useQuery({
     queryKey: ["watches-overview"],
@@ -55,10 +50,9 @@ export function ResponsibilitySettings({ canEdit = true, showWatching = true, cl
     },
   });
 
-  const owners = useMemo(() => normalizeOwners(ownersQuery.data?.owners), [ownersQuery.data?.owners]);
   const staffDirectory = useMemo(() => {
     const out: Record<string, StaffPickerRow> = {};
-    for (const [id, row] of Object.entries(ownersQuery.data?.staff_directory || {})) {
+    for (const [id, row] of Object.entries(treeQuery.data?.staff_directory || {})) {
       if (!row) continue;
       out[id] = {
         id: String(row.id || id),
@@ -69,30 +63,32 @@ export function ResponsibilitySettings({ canEdit = true, showWatching = true, cl
       };
     }
     return out;
-  }, [ownersQuery.data?.staff_directory]);
+  }, [treeQuery.data?.staff_directory]);
 
-  const saveOwners = useMutation({
-    mutationFn: async (input: { slug: string; ids: string[] }) => {
-      // The server replaces the whole map, so re-read it first: another manager may have changed a different area.
-      const fresh = normalizeOwners((await api.getCategoryOwners()).owners);
-      return api.saveCategoryOwners(withOwners(fresh, input.slug, input.ids));
-    },
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: CATEGORY_OWNERS_QUERY_KEY });
-      const previous = queryClient.getQueryData(CATEGORY_OWNERS_QUERY_KEY);
-      queryClient.setQueryData(CATEGORY_OWNERS_QUERY_KEY, (old: typeof ownersQuery.data) =>
-        old ? { ...old, owners: withOwners(normalizeOwners(old.owners), input.slug, input.ids) } : old,
-      );
-      return { previous };
-    },
-    onError: (_err, _input, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(CATEGORY_OWNERS_QUERY_KEY, ctx.previous);
-      toast.error(t("cursorUi.resp.save_failed"));
-    },
+  const members = useMutation({
+    mutationFn: (input: { areaId: string; primaryId: string | null; informedIds: string[] }) =>
+      api.setResponsibilityMembers(input.areaId, { primary_id: input.primaryId, informed_ids: input.informedIds }),
+    onError: () => toast.error(t("cursorUi.resp.save_failed")),
     onSuccess: () => onSaved?.(),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: CATEGORY_OWNERS_QUERY_KEY }),
+    onSettled: () => invalidateOwners(queryClient),
   });
-
+  const update = useMutation({
+    mutationFn: (input: { areaId: string; patch: { title?: string; description?: string; routing_hints?: string } }) =>
+      api.updateResponsibilityArea(input.areaId, input.patch),
+    onError: () => toast.error(t("cursorUi.resp.save_failed")),
+    onSettled: () => invalidateOwners(queryClient),
+  });
+  const create = useMutation({
+    mutationFn: (payload: { title: string; description?: string; parent_id?: string | null }) =>
+      api.createResponsibilityArea(payload),
+    onError: () => toast.error(t("cursorUi.resp.save_failed")),
+    onSettled: () => invalidateOwners(queryClient),
+  });
+  const remove = useMutation({
+    mutationFn: (areaId: string) => api.deleteResponsibilityArea(areaId),
+    onError: () => toast.error(t("cursorUi.resp.save_failed")),
+    onSettled: () => invalidateOwners(queryClient),
+  });
   const saveWatch = useMutation({
     mutationFn: async (input: { slug: string; level: WatchLevel }) =>
       input.level === "none" ? api.removeMyWatch(input.slug) : api.setMyWatch(input.slug, input.level),
@@ -103,8 +99,8 @@ export function ResponsibilitySettings({ canEdit = true, showWatching = true, cl
     },
   });
 
-  if (ownersQuery.isLoading) return <p className="text-sm text-muted-foreground">{t("cursorUi.resp.loading")}</p>;
-  if (ownersQuery.isError) return <p className="text-sm text-destructive">{t("cursorUi.resp.load_error")}</p>;
+  if (treeQuery.isLoading) return <p className="text-sm text-muted-foreground">{t("cursorUi.resp.loading")}</p>;
+  if (treeQuery.isError) return <p className="text-sm text-destructive">{t("cursorUi.resp.load_error")}</p>;
 
   const followers = (slug: string) =>
     (overviewQuery.data || []).filter((w) => w.slug === slug && w.level === "critical");
@@ -112,12 +108,15 @@ export function ResponsibilitySettings({ canEdit = true, showWatching = true, cl
   return (
     <div className={className} data-testid="responsibility-settings">
       <p className="mb-4 text-xs leading-relaxed text-muted-foreground">{t("cursorUi.resp.owners_hint")}</p>
-      <CategoryOwnerGroupsEditor
-        categoryOwners={owners as OwnersMap}
+      <ResponsibilityTreeEditor
+        areas={treeQuery.data?.areas || []}
         staffDirectory={staffDirectory}
         t={t}
-        disabled={!canEdit}
-        onOwnersChange={(slug, ids) => saveOwners.mutate({ slug, ids })}
+        disabled={!canEdit || members.isPending || update.isPending || create.isPending}
+        onMembers={(areaId, primaryId, informedIds) => members.mutate({ areaId, primaryId, informedIds })}
+        onUpdate={(areaId, patch) => update.mutate({ areaId, patch })}
+        onCreate={(payload) => create.mutate(payload)}
+        onDelete={(areaId) => remove.mutate(areaId)}
         renderExtra={
           showWatching
             ? (slug) => {

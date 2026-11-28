@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignupData } from "../lib/types";
 import { AuthContext } from "./AuthContext";
@@ -12,6 +12,78 @@ import { roleAllowed } from "@/lib/operationalCommandRoles";
 import { isTenantUserSession } from "@/lib/platformApi";
 import { resolveUserLanguage } from "@/lib/userLanguage";
 
+type AuthMeResult =
+  | { status: "ok"; user: User }
+  | { status: "unauthorized" }
+  | { status: "unavailable" };
+
+/** Coalesce parallel GET /auth/me/ and avoid hammering the API (exhausts local Postgres). */
+const AUTH_ME_MIN_INTERVAL_MS = 15_000;
+let currentUserFetch: Promise<AuthMeResult> | null = null;
+let lastAuthMeAt = 0;
+let lastAuthMeUser: User | null = null;
+
+function readCachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem("user");
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+function resetAuthMeCache(): void {
+  lastAuthMeAt = 0;
+  lastAuthMeUser = null;
+  currentUserFetch = null;
+}
+
+function markAuthenticatedUser(user: User): void {
+  lastAuthMeUser = user;
+  lastAuthMeAt = Date.now();
+}
+
+async function fetchCurrentUser(options?: { force?: boolean }): Promise<AuthMeResult> {
+  const token = localStorage.getItem("access_token");
+  if (!token) return { status: "unauthorized" };
+
+  const now = Date.now();
+  if (
+    !options?.force &&
+    lastAuthMeUser &&
+    now - lastAuthMeAt < AUTH_ME_MIN_INTERVAL_MS
+  ) {
+    return { status: "ok", user: lastAuthMeUser };
+  }
+
+  if (currentUserFetch) return currentUserFetch;
+
+  currentUserFetch = (async (): Promise<AuthMeResult> => {
+    const fetchProfile = () =>
+      fetch(`${API_BASE}/auth/me/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+    let response = await fetchProfile();
+    if (response.status === 401 && (await refreshAccessToken())) {
+      response = await fetchProfile();
+    }
+    if (response.status === 401) return { status: "unauthorized" };
+    if (!response.ok) return { status: "unavailable" };
+    const body = await response.json();
+    const user = (body.user || body.data || body) as User;
+    lastAuthMeUser = user;
+    lastAuthMeAt = Date.now();
+    return { status: "ok", user };
+  })().finally(() => {
+    currentUserFetch = null;
+  });
+  return currentUserFetch;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -19,6 +91,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const locationRef = useRef(location.pathname);
+  locationRef.current = location.pathname;
+  /** Once per full page load (or after logout): avoid re-hitting /auth/me on every route change. */
+  const sessionCheckedRef = useRef(false);
+  const bootstrapInFlightRef = useRef(false);
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
 
   // API_BASE is now imported from ../lib/api
 
@@ -27,6 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     clearOnboardingSkipFlags();
+    sessionCheckedRef.current = false;
+    resetAuthMeCache();
     setUser(null);
   }, []);
 
@@ -63,80 +144,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return "/dashboard";
   }, []);
 
-  const initializeAuth = useCallback(async () => {
+  const bootstrapSession = useCallback(async () => {
+    if (sessionCheckedRef.current) {
+      setIsLoading(false);
+      return;
+    }
+    if (bootstrapInFlightRef.current) return;
+    bootstrapInFlightRef.current = true;
+
     try {
+      const pathname = locationRef.current;
       // Platform Admin (/admin) uses its own login + /api/platform/* - skip tenant bootstrap.
-      if (location.pathname.startsWith("/admin")) {
+      if (pathname.startsWith("/admin")) {
+        sessionCheckedRef.current = true;
         return;
       }
 
-      const storedUser = localStorage.getItem("user");
       const token = localStorage.getItem("access_token");
+      const cachedUser = readCachedUser();
 
-      if (storedUser && token) {
-        // Verify token is still valid by fetching profile
-        const fetchProfile = () =>
-          fetch(`${API_BASE}/auth/me/`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: localStorage.getItem("access_token")
-                ? `Bearer ${localStorage.getItem("access_token")}`
-                : "",
-            },
-          });
-
-        let response = await fetchProfile();
-        if (response.status === 401 && (await refreshAccessToken())) {
-          response = await fetchProfile();
+      if (token && cachedUser) {
+        if (!userRef.current) {
+          setUser(cachedUser);
+          applyLanguageForUser(cachedUser);
         }
 
-        if (response.ok) {
-          const body = await response.json();
-          const userData = (body.user || body.data || body) as User;
-          // Platform-only ops sessions belong on /admin — not tenant dashboards.
+        const me = await fetchCurrentUser();
+        if (me.status === "ok") {
+          const userData = me.user;
           if (userData.is_platform_operator === true && !isTenantUserSession(userData)) {
-            if (
-              location.pathname === "/auth" ||
-              !location.pathname.startsWith("/admin")
-            ) {
+            if (pathname === "/auth" || !pathname.startsWith("/admin")) {
               navigate("/admin", { replace: true });
             }
+            sessionCheckedRef.current = true;
             return;
           }
-          setUser(userData);
-          applyLanguageForUser(userData);
-          // Don't auto-redirect on auth initialization - let the user stay where they are
-          // Only redirect if they're on a public route like /auth
-          if (location.pathname === "/auth") {
-            navigate(resolvePostLoginPath(userData));
+          const sameAsCache =
+            JSON.stringify(userData) === JSON.stringify(cachedUser);
+          if (!sameAsCache || !userRef.current) {
+            setUser(userData);
+            applyLanguageForUser(userData);
+            localStorage.setItem("user", JSON.stringify(userData));
           }
-        } else {
-          // Do not force clear on transient failures; allow app to show login page naturally
+        } else if (me.status === "unauthorized") {
+          clearAuth();
+        }
+        // unavailable: keep cached session (do not log out on DB blips)
+      } else if (token && !cachedUser) {
+        const me = await fetchCurrentUser({ force: true });
+        if (me.status === "ok") {
+          setUser(me.user);
+          applyLanguageForUser(me.user);
+          localStorage.setItem("user", JSON.stringify(me.user));
+        } else if (me.status === "unauthorized") {
           clearAuth();
         }
       }
+      sessionCheckedRef.current = true;
     } catch (error) {
       console.error("Auth initialization error:", error);
-      clearAuth();
+      sessionCheckedRef.current = true;
     } finally {
+      bootstrapInFlightRef.current = false;
       setIsLoading(false);
     }
-  }, [clearAuth, navigate, location.pathname, resolvePostLoginPath]);
+  }, [clearAuth, navigate, applyLanguageForUser]);
 
   useEffect(() => {
-    // Purge legacy browser-global skip flag left by older builds so a new
-    // business on this machine can still enter onboarding.
     clearOnboardingSkipFlags();
-    initializeAuth();
-  }, [initializeAuth]);
+    void bootstrapSession();
+  }, [bootstrapSession]);
+
+  useEffect(() => {
+    if (!user || location.pathname !== "/auth") return;
+    navigate(resolvePostLoginPath(user), { replace: true });
+  }, [user, location.pathname, navigate, resolvePostLoginPath]);
 
   // Periodically refresh user role and permissions for real-time UI updates.
   // Skip the call when the tab is hidden so background tabs don't hammer the API,
   // and bump the interval to 5 min on production-sized workspaces.
   useEffect(() => {
-    if (location.pathname.startsWith("/admin")) return;
-
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
@@ -144,43 +231,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const refresh = async () => {
       if (cancelled) return;
+      if (locationRef.current.startsWith("/admin")) return;
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       try {
-        const fetchProfile = () =>
-          fetch(`${API_BASE}/auth/me/`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            },
-          });
-        let response = await fetchProfile();
-        if (response.status === 401 && (await refreshAccessToken())) {
-          response = await fetchProfile();
-        }
-        if (response.ok) {
-          const latestBody = await response.json();
-          const latest: User = (latestBody.user || latestBody.data || latestBody) as User;
-          const prev = user ? JSON.stringify(user) : null;
-          const next = JSON.stringify(latest);
-          if (prev !== next) {
-            setUser(latest);
-            localStorage.setItem("user", JSON.stringify(latest));
-            applyLanguageForUser(latest);
-          }
+        const latest = await fetchCurrentUser();
+        if (latest.status !== "ok") return;
+        const prev = userRef.current ? JSON.stringify(userRef.current) : null;
+        const next = JSON.stringify(latest.user);
+        if (prev !== next) {
+          setUser(latest.user);
+          localStorage.setItem("user", JSON.stringify(latest.user));
+          applyLanguageForUser(latest.user);
         }
       } catch (err) {
         console.warn("Periodic role refresh failed:", err);
       }
     };
 
-    const refreshInterval = setInterval(refresh, 300_000); // 5 min
+    const refreshInterval = setInterval(refresh, 300_000);
 
     return () => {
       cancelled = true;
       clearInterval(refreshInterval);
     };
-  }, [user, applyLanguageForUser, location.pathname]);
+    // user?.id: a fresh login (no token at first mount) must start the refresh loop too.
+  }, [applyLanguageForUser, user?.id]);
 
   // api.ts broadcasts this when a 401 survives a silent token-refresh attempt
   // (expired/blacklisted refresh token) so state clears and the user is sent
@@ -271,6 +346,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         "refresh_token",
         data.tokens?.refresh || data.refresh
       );
+      markAuthenticatedUser(data.user as User);
+      sessionCheckedRef.current = true;
 
       navigate(resolvePostLoginPath(data.user));
     } catch (err) {
@@ -363,6 +440,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         "refresh_token",
         data.tokens?.refresh || data.refresh
       );
+      markAuthenticatedUser(data.user as User);
+      sessionCheckedRef.current = true;
 
       navigate(resolvePostLoginPath(data.user));
     } catch (err) {
@@ -422,6 +501,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     applyLanguageForUser(data.user);
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
+    markAuthenticatedUser(data.user as User);
+    sessionCheckedRef.current = true;
     navigate("/onboarding");
   };
 
@@ -474,6 +555,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {
       console.warn("Failed to persist updated user to localStorage", e);
     }
+    markAuthenticatedUser(updatedUser);
     applyLanguageForUser(updatedUser);
   };
 

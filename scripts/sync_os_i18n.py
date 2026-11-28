@@ -290,13 +290,13 @@ KEYS: dict[str, dict[str, str]] = {
     },
     # --- Navigation ---
     "nav.ask_agent": {"en": "Ask Agent", "fr": "Demander à Agent", "ar": "اسأل الوكيل"},
-    "nav.command": {"en": "Command", "fr": "Commande", "ar": "القيادة"},
-    "nav.widget": {"en": "Widget", "fr": "Widget", "ar": "ودجت"},
+    "nav.command": {"en": "Command Center", "fr": "Centre de commande", "ar": "مركز القيادة"},
+    "nav.widget": {"en": "Projects", "fr": "Projets", "ar": "المشاريع"},
     "nav.attention": {"en": "Widget", "fr": "Widget", "ar": "ودجت"},
     "widgets.page.title": {
-        "en": "Widget",
-        "fr": "Widget",
-        "ar": "ودجت",
+        "en": "Projects",
+        "fr": "Projets",
+        "ar": "المشاريع",
     },
     "widgets.page.desc": {
         "en": "Your operational dashboards and everyday business views.",
@@ -349,9 +349,9 @@ KEYS: dict[str, dict[str, str]] = {
     "nav.settings": {"en": "Settings", "fr": "Paramètres", "ar": "الإعدادات"},
     "nav.overview": {"en": "Overview", "fr": "Vue d'ensemble", "ar": "نظرة عامة"},
     "nav.work.live_operations": {
-        "en": "Live operations",
-        "fr": "Opérations en direct",
-        "ar": "العمليات المباشرة",
+        "en": "All operations",
+        "fr": "Toutes les opérations",
+        "ar": "جميع العمليات",
     },
     "nav.work.tasks": {"en": "Tasks", "fr": "Tâches", "ar": "المهام"},
     "nav.work.incidents": {"en": "Incidents", "fr": "Incidents", "ar": "الحوادث"},
@@ -1278,7 +1278,7 @@ KEYS: dict[str, dict[str, str]] = {
     "nav.automation.workflows": {"en": "Workflows", "fr": "Workflows", "ar": "سير العمل"},
     "nav.employees.performance": {"en": "Performance", "fr": "Performance", "ar": "الأداء"},
     "nav.social.autopilot": {"en": "Autopilot", "fr": "Pilote auto", "ar": "تشغيل تلقائي"},
-    "nav.widget": {"en": "Widget", "fr": "Widget", "ar": "ودجت"},
+    "nav.widget": {"en": "Projects", "fr": "Projets", "ar": "المشاريع"},
     "category.finance": {"en": "Finance", "fr": "Finance", "ar": "المالية"},
     "category.incidents": {"en": "Incidents", "fr": "Incidents", "ar": "الحوادث"},
     # --- Timesheets page ---

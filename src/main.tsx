@@ -7,8 +7,13 @@ import { BrowserRouter } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import './i18n';
 import { initSentry } from "./sentry";
+import { SHOW_UI_DESCRIPTIONS } from "./lib/ui-descriptions";
 
 initSentry();
+
+if (!SHOW_UI_DESCRIPTIONS) {
+  document.documentElement.classList.add("hide-ui-descriptions");
+}
 
 // When a new deployment replaces content-hashed JS chunks, any lazy import
 // that references the old chunk URL will fail. Vite emits this event in that

@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import { SHOW_UI_DESCRIPTIONS } from "@/lib/ui-descriptions";
 
 type Props = {
   eyebrow?: string;
@@ -30,7 +31,9 @@ export function SectionHeader({
         >
           {title}
         </TitleTag>
-        {description ? <p className="max-w-2xl type-secondary">{description}</p> : null}
+        {SHOW_UI_DESCRIPTIONS && description ? (
+          <p className="max-w-2xl type-secondary page-shell-description">{description}</p>
+        ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>

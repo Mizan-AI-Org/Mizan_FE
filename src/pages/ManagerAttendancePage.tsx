@@ -128,7 +128,7 @@ function PaginationControls({
   );
 }
 
-function ManagerAttendanceBoard() {
+function ManagerAttendanceBoard({ embedded = false }: { embedded?: boolean }) {
     const { t } = useLanguage();
     const { logout } = useAuth();
     const [liveSearch, setLiveSearch] = useState("");
@@ -176,7 +176,8 @@ function ManagerAttendanceBoard() {
 
     return (
         <div className="space-y-8">
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <header className={cn("flex flex-col gap-3", !embedded && "sm:flex-row sm:items-center sm:justify-between")}>
+                {embedded ? null : (
                 <div className="space-y-1">
                     <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
                         {t("staff.attendance.title")}
@@ -185,13 +186,14 @@ function ManagerAttendanceBoard() {
                         {t("staff.attendance.live_list")}
                     </p>
                 </div>
+                )}
                 <Tabs
                     value={showFullRoster ? "roster" : "floor"}
                     onValueChange={(value) => {
                         setShowFullRoster(value === "roster");
                         setLivePage(1);
                     }}
-                    className="w-full shrink-0 sm:w-[min(42rem,58%)]"
+                    className="w-full max-w-md shrink-0"
                 >
                     <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
                         <TabsTrigger value="floor" className="w-full justify-center py-2.5 text-sm">
@@ -535,10 +537,10 @@ function ManagerAttendanceBoard() {
 };
 
 
-export default function ManagerAttendancePage() {
+export default function ManagerAttendancePage({ embedded = false }: { embedded?: boolean }) {
   return (
-    <div className={`${PAGE_SHELL_PADDED} min-w-0`}>
-      <ManagerAttendanceBoard />
+    <div className={cn(embedded ? "min-w-0" : `${PAGE_SHELL_PADDED} min-w-0`)}>
+      <ManagerAttendanceBoard embedded={embedded} />
     </div>
   );
 }

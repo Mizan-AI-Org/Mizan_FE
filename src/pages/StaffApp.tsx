@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { unwrapEnvelope } from "@/lib/envelope";
 import { AddPeopleDialog } from "@/components/staff/AddPeopleDialog";
-import { JobTitlesSettings } from "@/components/staff/JobTitlesPanel";
+import { JobTitlesDialogTrigger } from "@/components/staff/JobTitlesPanel";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -88,6 +88,8 @@ import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfi
 import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
 import StaffHRFile from "@/components/staff/StaffHRFile";
 import { StaffResponsibilities } from "@/components/responsibilities/StaffResponsibilities";
+import { StaffProcessesTasksAssign } from "@/components/responsibilities/StaffProcessesTasksAssign";
+import { StaffWorkPanel } from "@/components/responsibilities/StaffWorkPanel";
 import { StaffMemberAvatar } from "@/components/staff/StaffMemberAvatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
@@ -129,7 +131,27 @@ const STAFF_MODAL_DIVIDER =
     "border-slate-200/60 dark:border-slate-700/60";
 
 const STAFF_MODAL_EMPTY =
-    "py-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-center bg-slate-50/30 dark:bg-slate-800/30";
+    "py-3 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center bg-slate-50/30 dark:bg-slate-800/30";
+
+function ProfileDetail({
+    icon,
+    label,
+    value,
+}: {
+    icon: React.ReactNode;
+    label: string;
+    value: string;
+}) {
+    return (
+        <div className="grid min-h-9 grid-cols-[1.75rem_7.5rem_minmax(0,1fr)] items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                {icon}
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+            <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{value}</p>
+        </div>
+    );
+}
 
 const STAFF_MODAL_EMPTY_TEXT =
     "text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest";
@@ -146,11 +168,13 @@ const STAFF_MODAL_CANCEL_BTN =
 const STAFF_MODAL_ICON_BOX =
     "w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors";
 
-const STAFF_MODAL_OVERLAY =
-    "fixed inset-0 z-[3000] overflow-y-auto";
+const STAFF_MODAL_OVERLAY = "fixed inset-0 z-[3000]";
+
+const STAFF_MODAL_BACKDROP =
+    "pointer-events-none fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm";
 
 const STAFF_MODAL_OVERLAY_INNER =
-    "flex min-h-full items-center justify-center p-4 sm:p-6 bg-black/50 dark:bg-black/70 backdrop-blur-sm";
+    "relative z-10 flex min-h-dvh w-full items-start justify-center overflow-y-auto p-4 sm:items-center sm:p-6";
 
 const STAFF_MODAL_SHELL =
     "relative w-full max-w-2xl max-h-[min(90dvh,calc(100vh-2rem))] flex flex-col border border-slate-200/50 dark:border-slate-700/50 shadow-2xl rounded-[1.75rem] sm:rounded-[2rem] overflow-hidden";
@@ -416,6 +440,7 @@ const TeamTab: React.FC = () => {
     const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
     const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
     const [staffToDeactivate, setStaffToDeactivate] = useState<{ id: string; name: string } | null>(null);
+    const [bulkDeactivateTargets, setBulkDeactivateTargets] = useState<{ id: string; name: string }[]>([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
     const [selectedStaffById, setSelectedStaffById] = useState<Record<string, StaffMember>>({});
     const [branchFilter, setBranchFilter] = useState<string>("all");
@@ -698,6 +723,7 @@ const TeamTab: React.FC = () => {
 
         return (
             <div className={STAFF_MODAL_OVERLAY}>
+                <div className={STAFF_MODAL_BACKDROP} aria-hidden />
                 <div className={STAFF_MODAL_OVERLAY_INNER}>
                     <Card className={cn(STAFF_MODAL_SHELL, "bg-card")}>
                         <CardHeader className="shrink-0 pt-5 pb-2 px-6 sm:px-8 flex flex-row items-center justify-between gap-4">
@@ -712,9 +738,9 @@ const TeamTab: React.FC = () => {
                                 <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                             </Button>
                         </CardHeader>
-                        <CardContent className={cn(STAFF_MODAL_BODY, "space-y-8 px-6 sm:px-8 pb-6")}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-6">
+                        <CardContent className={cn(STAFF_MODAL_BODY, "space-y-5 px-6 sm:px-8 pb-6")}>
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex min-w-0 items-center gap-4">
                                 <StaffMemberAvatar
                                     size="xl"
                                     firstName={selectedMember.first_name}
@@ -723,23 +749,23 @@ const TeamTab: React.FC = () => {
                                     onUploadClick={() => openAvatarUpload(selectedMember.id)}
                                     uploadLabel={t("staff.avatar.change", { defaultValue: "Change photo" })}
                                 />
-                                <div>
-                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-tight tracking-tight">
+                                <div className="min-w-0">
+                                    <h3 className="truncate text-xl font-bold leading-tight text-slate-900 dark:text-white">
                                         {selectedMember.first_name} {selectedMember.last_name}
                                     </h3>
-                                    <Badge variant="outline" className="capitalize mt-2 border-emerald-100 bg-emerald-50/50 text-emerald-600 dark:bg-emerald-900/10 dark:text-emerald-400 font-bold text-[11px] px-3 py-0.5 rounded-lg border-none">
+                                    <Badge variant="outline" className="mt-1 rounded-md border-none bg-emerald-50/80 px-2 py-0 text-[11px] font-semibold capitalize text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
                                         {staffRoleLabel(selectedMember)}
                                     </Badge>
                                 </div>
                             </div>
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <div className="flex shrink-0 items-center">
                             {/* The record can be issued in the language the manager or the staff member needs. */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="border-emerald-100 text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold h-11 px-6 shadow-sm ring-offset-background transition-all hover:shadow-md"
+                                        className="h-9 rounded-lg border-emerald-200 px-3 font-semibold text-emerald-700 hover:bg-emerald-50"
                                         disabled={isGeneratingReport}
                                     >
                                         {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
@@ -756,89 +782,99 @@ const TeamTab: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Performance Analytics */}
-                        <div className="grid grid-cols-3 gap-3 py-4">
-                            <div className="bg-slate-50/50 dark:bg-slate-800/40 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("generic.weekly")}</p>
-                                <p className="text-xl font-black text-slate-900 dark:text-white">{t("staff.hours_value", { count: selectedMember.stats?.hours_weekly || 0 })}</p>
-                            </div>
-                            <div className="bg-emerald-50/30 dark:bg-emerald-900/10 p-5 rounded-[1.5rem] border border-emerald-100/50 dark:border-emerald-900/30 flex flex-col items-center shadow-sm">
-                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">{t("billing.monthly")}</p>
-                                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{t("staff.hours_value", { count: selectedMember.stats?.hours_monthly || 0 })}</p>
-                            </div>
-                            <div className="bg-slate-50/50 dark:bg-slate-800/40 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("billing.yearly")}</p>
-                                <p className="text-xl font-black text-slate-900 dark:text-white">{t("staff.hours_value", { count: selectedMember.stats?.hours_yearly || 0 })}</p>
-                            </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            {[
+                                { label: t("generic.weekly"), value: selectedMember.stats?.hours_weekly || 0, accent: false },
+                                { label: t("billing.monthly"), value: selectedMember.stats?.hours_monthly || 0, accent: true },
+                                { label: t("billing.yearly"), value: selectedMember.stats?.hours_yearly || 0, accent: false },
+                            ].map((card) => (
+                                <div
+                                    key={card.label}
+                                    className={cn(
+                                        "flex flex-col items-center rounded-2xl border px-3 py-3",
+                                        card.accent
+                                            ? "border-emerald-100 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                                            : "border-slate-100 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-800/40",
+                                    )}
+                                >
+                                    <p className={cn("mb-0.5 min-h-4 text-[10px] font-semibold uppercase tracking-wide", card.accent ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400")}>
+                                        {card.label}
+                                    </p>
+                                    <p className={cn("text-xl font-bold", card.accent ? "text-emerald-700 dark:text-emerald-300" : "text-slate-900 dark:text-white")}>
+                                        {t("staff.hours_value", { count: card.value })}
+                                    </p>
+                                </div>
+                            ))}
                         </div>
 
-                        <div className={cn("grid grid-cols-2 gap-12 py-8 border-t", STAFF_MODAL_DIVIDER)}>
-                            <div className="space-y-6">
-                                <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.contact_info")}</h4>
-                                <div className="space-y-4">
-                                    {isWhatsAppActivationEmail(selectedMember.email) ? (
-                                        <div className="flex items-center gap-3 group">
-                                            <div className={STAFF_MODAL_ICON_BOX}>
-                                                <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.whatsapp_phone")}</p>
-                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                                    {waPhone || t("common.not_provided")}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-center gap-3 group">
-                                                <div className={STAFF_MODAL_ICON_BOX}>
-                                                    <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.email_address")}</p>
-                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                                        {selectedMember.email || t("common.not_provided")}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3 group">
-                                                <div className={STAFF_MODAL_ICON_BOX}>
-                                                    <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.invite.whatsapp_number")}</p>
-                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                                        {waPhone || t("common.not_provided")}
-                                                    </p>
-                                                    {!waPhone && (
-                                                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
-                                                            {t("staff.profile.whatsapp_add_phone_hint")}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </>
-                                    )}
+                        <div className={cn("space-y-4 border-t pt-4", STAFF_MODAL_DIVIDER)}>
+                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.contact_info")}</h4>
+                                    <div className="space-y-1">
+                                        {isWhatsAppActivationEmail(selectedMember.email) ? (
+                                            <ProfileDetail
+                                                icon={<Phone className="h-3.5 w-3.5" />}
+                                                label={t("staff.whatsapp_phone")}
+                                                value={waPhone || t("common.not_provided")}
+                                            />
+                                        ) : (
+                                            <>
+                                                <ProfileDetail
+                                                    icon={<Mail className="h-3.5 w-3.5" />}
+                                                    label={t("staff.email_address")}
+                                                    value={selectedMember.email || "—"}
+                                                />
+                                                <ProfileDetail
+                                                    icon={<Phone className="h-3.5 w-3.5" />}
+                                                    label={t("staff.invite.whatsapp_number")}
+                                                    value={waPhone || "—"}
+                                                />
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.employment_details")}</h4>
+                                    <div className="space-y-1">
+                                        <ProfileDetail
+                                            icon={<Briefcase className="h-3.5 w-3.5" />}
+                                            label={t("staff.department")}
+                                            value={selectedMember.profile?.department || t("common.unassigned")}
+                                        />
+                                        <ProfileDetail
+                                            icon={<Clock className="h-3.5 w-3.5" />}
+                                            label={t("staff.join_date")}
+                                            value={selectedMember.profile?.join_date ? formatPattern(new Date(selectedMember.profile.join_date), "PPP") : "—"}
+                                        />
+                                        <ProfileDetail
+                                            icon={<TrendingUp className="h-3.5 w-3.5" />}
+                                            label={t("staff.salary_wage")}
+                                            value={`$${selectedMember.profile?.hourly_rate || 0} ${selectedMember.profile?.salary_type === "MONTHLY" ? t("staff.per_month_short") : t("staff.per_hour_short")}`}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
 
-                                    {profileCanCopyWhatsAppLink ? (
-                                    <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-2">
-                                        <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                                            {t("staff.profile.whatsapp_activation_title")}
+                            {profileCanCopyWhatsAppLink ? (
+                                <div className="space-y-2 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                                    <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                                        {t("staff.profile.whatsapp_activation_title")}
+                                    </p>
+                                    <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+                                        {t("staff.profile.whatsapp_activation_hint")}
+                                    </p>
+                                    {profilePhoneMissingCountryCode ? (
+                                        <p className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                                            {t("staff.profile.whatsapp_country_code_hint")}
                                         </p>
-                                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                                            {t("staff.profile.whatsapp_activation_hint")}
-                                        </p>
-                                        {profilePhoneMissingCountryCode ? (
-                                            <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
-                                                {t("staff.profile.whatsapp_country_code_hint")}
-                                            </p>
-                                        ) : null}
-                                        {!selectedMember.is_active ? (
+                                    ) : null}
+                                    {!selectedMember.is_active ? (
                                         <Button
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-semibold"
+                                            className="border-emerald-200 font-semibold text-emerald-700 hover:bg-emerald-50"
                                             onClick={async () => {
                                                 setIsCopyingWaLink(true);
                                                 try {
@@ -850,68 +886,28 @@ const TeamTab: React.FC = () => {
                                             disabled={isCopyingWaLink}
                                         >
                                             {isCopyingWaLink ? (
-                                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                                             ) : (
-                                                <Send className="w-3.5 h-3.5 mr-1.5" />
+                                                <Send className="mr-1.5 h-3.5 w-3.5" />
                                             )}
                                             {t("staff.pending.resend")}
                                         </Button>
-                                        ) : null}
-                                    </div>
-                                    ) : (
-                                    <div className="rounded-xl border border-amber-100 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-1.5">
-                                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                                            {t("staff.profile.whatsapp_missing_title")}
-                                        </p>
-                                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                                            {t("staff.profile.whatsapp_missing_hint")}
-                                        </p>
-                                    </div>
-                                    )}
+                                    ) : null}
                                 </div>
-                            </div>
-
-                            <div className="space-y-6">
-                                <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.employment_details")}</h4>
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-3 group">
-                                        <div className={STAFF_MODAL_ICON_BOX}>
-                                            <Briefcase className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.department")}</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.department || t("common.unassigned")}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 group">
-                                        <div className={STAFF_MODAL_ICON_BOX}>
-                                            <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.join_date")}</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.join_date ? formatPattern(new Date(selectedMember.profile.join_date), 'PPP') : t("staff.not_available")}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 group">
-                                        <div className={STAFF_MODAL_ICON_BOX}>
-                                            <TrendingUp className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.salary_wage")}</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                                ${selectedMember.profile?.hourly_rate || 0}
-                                                <span className="text-xs text-slate-500 dark:text-slate-400 font-normal ml-1">
-                                                    {selectedMember.profile?.salary_type === 'MONTHLY' ? t("staff.per_month_short") : t("staff.per_hour_short")}
-                                                </span>
-                                            </p>
-                                        </div>
-                                    </div>
+                            ) : (
+                                <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                        {t("staff.profile.whatsapp_missing_title")}
+                                    </p>
+                                    <p className="mt-1 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+                                        {t("staff.profile.whatsapp_missing_hint")}
+                                    </p>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Promotion History */}
-                        <div className={cn("space-y-6 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
+                        <div className={cn("space-y-3 border-t pt-4", STAFF_MODAL_DIVIDER)}>
                             <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.promotion_history")}</h4>
                             <div className="space-y-3">
                                 {selectedMember.profile?.promotion_history && selectedMember.profile.promotion_history.length > 0 ? (
@@ -937,8 +933,12 @@ const TeamTab: React.FC = () => {
                             </div>
                         </div>
 
+                        <div className={cn("grid grid-cols-1 gap-3 pt-4 border-t sm:grid-cols-2", STAFF_MODAL_DIVIDER)}>
+                            <StaffResponsibilities staffId={selectedMember.id} defaultCollapsed />
+                            <StaffProcessesTasksAssign staffId={selectedMember.id} defaultCollapsed />
+                        </div>
                         <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
-                            <StaffResponsibilities staffId={selectedMember.id} />
+                            <StaffWorkPanel staffId={selectedMember.id} />
                         </div>
                         <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                             <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("hr.file_title")}</h4>
@@ -1127,6 +1127,7 @@ const TeamTab: React.FC = () => {
 
         return (
             <div className={STAFF_MODAL_OVERLAY}>
+                <div className={STAFF_MODAL_BACKDROP} aria-hidden />
                 <div className={STAFF_MODAL_OVERLAY_INNER}>
                     <Card className={cn(STAFF_MODAL_SHELL, "bg-card")}>
                         <CardHeader className="shrink-0 pt-5 pb-1 px-5 sm:px-6 flex flex-row items-center justify-between gap-4">
@@ -1567,10 +1568,20 @@ const TeamTab: React.FC = () => {
             />
             <DeactivateStaffConfirmation
                 isOpen={isDeactivateModalOpen}
-                onClose={() => { setIsDeactivateModalOpen(false); setStaffToDeactivate(null); }}
-                staffId={staffToDeactivate?.id ?? null}
-                staffName={staffToDeactivate?.name ?? null}
-                onSuccess={() => { refetchStaff(); setIsEditModalOpen(false); setSelectedMember(null); }}
+                onClose={() => {
+                    setIsDeactivateModalOpen(false);
+                    setStaffToDeactivate(null);
+                    setBulkDeactivateTargets([]);
+                }}
+                staffId={bulkDeactivateTargets.length > 0 ? null : (staffToDeactivate?.id ?? null)}
+                staffName={bulkDeactivateTargets.length > 0 ? null : (staffToDeactivate?.name ?? null)}
+                staffTargets={bulkDeactivateTargets.length > 0 ? bulkDeactivateTargets : undefined}
+                onSuccess={() => {
+                    refetchStaff();
+                    setIsEditModalOpen(false);
+                    setSelectedMember(null);
+                    clearSelection();
+                }}
             />
             <MoveStaffBranchDialog
                 open={moveDialogOpen}
@@ -1663,24 +1674,13 @@ const TeamTab: React.FC = () => {
                         <List className="w-4 h-4" />
                     </button>
                 </div>
-                {/* Job titles moved out of Settings > General: reachable from the team page. */}
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button variant="outline" className="ml-auto" data-testid="open-job-titles">
-                            {t("staff.job_titles.settings_title")}
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-xl">
-                        <DialogHeader>
-                            <DialogTitle>{t("staff.job_titles.settings_title")}</DialogTitle>
-                        </DialogHeader>
-                        <JobTitlesSettings />
-                    </DialogContent>
-                </Dialog>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setIsInviteModalOpen(true)}>
-                    <PlusCircle className="w-4 h-4 mr-2" />
-                    {t("staff.add")}
-                </Button>
+                <div className="ms-auto flex flex-wrap items-center gap-2">
+                    <JobTitlesDialogTrigger />
+                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setIsInviteModalOpen(true)}>
+                        <PlusCircle className="w-4 h-4 mr-2" />
+                        {t("staff.add")}
+                    </Button>
+                </div>
             </div>
 
             {multiBranch && selectedStaffIds.length > 0 ? (
@@ -1704,6 +1704,33 @@ const TeamTab: React.FC = () => {
                         <ArrowRightLeft className="w-4 h-4 mr-1.5" />
                         {t("generic.move_to_branch")}
                     </Button>
+                    {isPrivilegedRole(user?.role) ? (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                            onClick={() => {
+                                const targets = selectedStaffIds
+                                    .map((id) => selectedStaffById[id])
+                                    .filter((member): member is StaffMember =>
+                                        Boolean(member && member.id !== user?.id && member.is_active),
+                                    )
+                                    .map((member) => ({
+                                        id: member.id,
+                                        name: `${member.first_name} ${member.last_name}`.trim(),
+                                    }));
+                                if (targets.length === 0) {
+                                    toast.error(t("staff.deactivate_none_eligible", "None of the selected people can be deactivated."));
+                                    return;
+                                }
+                                setStaffToDeactivate(null);
+                                setBulkDeactivateTargets(targets);
+                                setIsDeactivateModalOpen(true);
+                            }}
+                        >
+                            {t("staff.deactivate_staff")}
+                        </Button>
+                    ) : null}
                     <Button
                         size="sm"
                         variant="ghost"
