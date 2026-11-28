@@ -145,6 +145,8 @@ function formatPerson(
   t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   if (!person?.name) return "-";
+  // Django labels a task with no assignee "Unassigned" (English): show it in the UI language.
+  if (person.name === "Unassigned") return t("generic.unassigned");
   const name =
     person.name === "Me" || person.name === "Staff"
       ? t(person.name === "Me" ? "operations_live.person.me" : "operations_live.person.staff")
