@@ -3662,6 +3662,8 @@
   "command.decide_now": "Decide now",
   "command.work_in_motion": "Work in motion",
   "command.team_now": "Team right now",
+  "command.work_clear": "No active work on the floor right now.",
+  "command.team_all_on_duty": "Everyone scheduled is on duty.",
   "command.nothing_now": "Nothing needs you right now.",
   "command.unassigned": "Unassigned",
   "command.coverage_line": "{{count}} coverage gaps",

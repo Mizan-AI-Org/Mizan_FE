@@ -4126,6 +4126,8 @@
   "command.decide_now": "À décider",
   "command.work_in_motion": "Travail en cours",
   "command.team_now": "L'équipe maintenant",
+  "command.work_clear": "Aucun travail actif sur le terrain pour l'instant.",
+  "command.team_all_on_duty": "Toutes les personnes prévues sont en service.",
   "command.nothing_now": "Rien ne demande votre attention pour le moment.",
   "command.unassigned": "Non assigné",
   "command.coverage_line": "{{count}} trous de couverture",

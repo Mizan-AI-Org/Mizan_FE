@@ -6197,10 +6197,10 @@ export function CustomWidgetTasksCard({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-7 px-2 text-xs"
+                className="h-6 gap-1 px-1.5 text-[10px] font-medium"
                 onClick={() => setAccessOpen(true)}
               >
-                <Lock className="h-3.5 w-3.5" aria-hidden />
+                <Lock className="h-3 w-3" aria-hidden />
                 {t("dashboard.project_access.button")}
               </Button>
             ) : null}

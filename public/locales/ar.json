@@ -4116,6 +4116,8 @@
   "command.decide_now": "يُحسم الآن",
   "command.work_in_motion": "العمل الجاري",
   "command.team_now": "الفريق الآن",
+  "command.work_clear": "لا يوجد عمل جارٍ على الأرض الآن.",
+  "command.team_all_on_duty": "كل من هو مبرمج في الخدمة.",
   "command.nothing_now": "لا شيء يحتاجك الآن.",
   "command.unassigned": "غير مُسند",
   "command.coverage_line": "{{count}} فجوات تغطية",
